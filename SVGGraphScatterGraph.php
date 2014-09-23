@@ -30,7 +30,7 @@ class ScatterGraph extends PointGraph {
   {
     $assoc = !$this->scatter_2d && $this->AssociativeKeys();
     $this->CalcAxes($assoc);
-    $body = $this->Grid();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
     $values = $this->GetValues();
 
     // a scatter graph without markers is empty!
@@ -54,6 +54,7 @@ class ScatterGraph extends PointGraph {
       ++$bnum;
     }
 
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE);
     $body .= $this->Axes();
     $body .= $this->CrossHairs();
     $body .= $this->DrawMarkers();
@@ -104,12 +105,6 @@ class ScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return parent::GetMaxValue();
 
-    function vmax($m, $e)
-    {
-      if(is_null($m))
-        return $e[1];
-      return $e[1] > $m ? $e[1] : $m;
-    }
     return array_reduce($this->values[0], 'vmax', null);
   }
 
@@ -121,12 +116,6 @@ class ScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return parent::GetMinValue();
 
-    function vmin($m, $e)
-    {
-      if(is_null($m))
-        return $e[1];
-      return $e[1] < $m ? $e[1] : $m;
-    }
     return array_reduce($this->values[0], 'vmin', null);
   }
 
@@ -138,12 +127,6 @@ class ScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return parent::GetMaxKey();
 
-    function kmax($m, $e)
-    {
-      if(is_null($m))
-        return $e[0];
-      return $e[0] > $m ? $e[0] : $m;
-    }
     return array_reduce($this->values[0], 'kmax', null);
   }
 
@@ -155,12 +138,6 @@ class ScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return parent::GetMinKey();
 
-    function kmin($m, $e)
-    {
-      if(is_null($m))
-        return $e[0];
-      return $e[0] < $m ? $e[0] : $m;
-    }
     return array_reduce($this->values[0], 'kmin', null);
   }
 

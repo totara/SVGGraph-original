@@ -58,7 +58,7 @@ abstract class ThreeDGraph extends GridGraph {
     $a = $this->AngleRadians();
 
     if(!$this->label_adjust_done)
-      $this->LabelAdjustment();
+      $this->LabelAdjustment($this->GetMaxValue(), $this->GetLongestKey());
 
     // adjust grid height for depth
     $this->depth_unit = ($this->width - $this->pad_left - $this->pad_right)
@@ -150,5 +150,37 @@ abstract class ThreeDGraph extends GridGraph {
       $this->axis_max_h;
     return $end - $start + 1;
   }
+
+  /**
+   * Returns the path for a guideline, and sets dimensions of the straight bit
+   */
+  protected function GuidelinePath($axis, $value, $depth, &$x, &$y, &$w, &$h)
+  {
+    if($depth == SVGG_GUIDELINE_ABOVE)
+      return parent::GuidelinePath($axis, $value, $depth, $x, $y, $w, $h);
+
+    $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
+    $x_axis_pos = $this->pad_left + $this->x0;
+    $z = $this->depth * $this->depth_unit;
+    list($xd,$yd) = $this->Project(0, 0, $z);
+
+    if($axis == 'x') {
+      $x1 = $x_axis_pos + ($value * $this->bar_unit_width);
+      $y1 = $y_axis_pos;
+      $x = $xd + $x1;
+      $y = $this->pad_top;
+      $w = 0;
+      $h = $this->axis_height;
+    } else {
+      $x1 = $x_axis_pos;
+      $y1 = $y_axis_pos - ($value * $this->bar_unit_height);
+      $x = $this->pad_left + $xd;
+      $y = $yd + $y1;
+      $w = $this->axis_width;
+      $h = 0;
+    }
+    return "M{$x} {$y}l{$w} {$h}M{$x1} {$y1} l{$xd} {$yd}";
+  }
+
 }
 

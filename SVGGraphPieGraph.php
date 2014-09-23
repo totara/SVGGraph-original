@@ -93,9 +93,7 @@ class PieGraph extends Graph {
       $values[$key] = array($position++, $value);
 
     if($this->sort) {
-      // user-defined sort function reverse-sorts by value
-      function svggpsort($a, $b) { return $b[1] - $a[1]; }
-      uasort($values, 'svggpsort');
+      uasort($values, 'PieGraph::svggpsort');
     }
     $body = '';
     $labels = '';
@@ -250,6 +248,14 @@ class PieGraph extends Graph {
 
     $bar = array('x' => $x, 'y' => $y, 'width' => $w, 'height' => $h);
     return $this->Element('rect', $bar, $this->slice_styles[$set]);
+  }
+
+  /**
+   *  Sort callback function reverse-sorts by value
+   */
+  public static function svggpsort($a, $b)
+  {
+    return $b[1] - $a[1];
   }
 
 }

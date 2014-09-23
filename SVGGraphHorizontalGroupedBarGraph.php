@@ -25,12 +25,13 @@ require_once 'SVGGraphHorizontalBarGraph.php';
 class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 
   protected $multi_graph;
+  protected $legend_reverse = true;
 
   protected function Draw()
   {
     $assoc = $this->AssociativeKeys();
     $this->CalcAxes($assoc, true);
-    $body = $this->Grid();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $chunk_count = count($this->values);
     $gap_count = $chunk_count - 1;
@@ -49,6 +50,7 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
     $bnum = 0;
     $bspace = $this->bar_space / 2;
     $ccount = count($this->colours);
+    $groups = array_fill(0, $chunk_count, '');
 
     foreach($this->multi_graph->all_keys as $k) {
 
@@ -69,8 +71,8 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 
             if($this->show_tooltips)
               $this->SetTooltip($bar, $value);
-            $rect = $this->Element('rect', $bar, $bar_style);
-            $body .= $this->GetLink($k, $rect);
+            $rect = $this->Element('rect', $bar);
+            $groups[$j] .= $this->GetLink($k, $rect);
             unset($bar['id']); // clear ID for next generated value
 
             if(!array_key_exists($j, $this->bar_styles))
@@ -80,8 +82,11 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
       }
       ++$bnum;
     }
+    foreach($groups as $j => $g)
+      if(array_key_exists($j, $this->bar_styles))
+        $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
 
-    $body .= $this->Axes();
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }
 
@@ -145,20 +150,17 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
   /**
    * Overload to measure keys
    */
-  protected function LabelAdjustment($m = 1000)
+  protected function LabelAdjustment($longest_v = 1000, $longest_h = 100)
   {
-    $longest_key = $m;
-    if($this->show_axis_text_v) {
-      $max_len = 0;
-      foreach($this->multi_graph->all_keys as $k) {
-        $len = strlen($k);
-        if($len > $max_len) {
-          $max_len = $len;
-          $longest_key = $k;
-        }
-      }
-    }
-    GridGraph::LabelAdjustment($longest_key);
+    GridGraph::LabelAdjustment($longest_h, $longest_v);
+  }
+
+  /**
+   * Return the longest of all keys
+   */
+  protected function GetLongestKey()
+  {
+    return $this->multi_graph->GetLongestKey();
   }
 }
 

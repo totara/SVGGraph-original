@@ -31,7 +31,7 @@ class BarGraph extends GridGraph {
     $values = $this->GetValues();
     $assoc = $this->AssociativeKeys();
     $this->CalcAxes($assoc, true);
-    $body = $this->Grid();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
       $this->bar_unit_width - $this->bar_space);
@@ -63,7 +63,7 @@ class BarGraph extends GridGraph {
       ++$bnum;
     }
 
-    $body .= $this->Axes();
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }
 

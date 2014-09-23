@@ -32,7 +32,7 @@ class LineGraph extends PointGraph {
   {
     $assoc = $this->AssociativeKeys();
     $this->CalcAxes($assoc);
-    $body = $this->Grid();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $attr = array('stroke' => $this->stroke_colour, 'fill' => 'none');
     $dash = is_array($this->line_dash) ?
@@ -46,6 +46,8 @@ class LineGraph extends PointGraph {
     $bnum = 0;
     $cmd = 'M';
     $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
+    $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
+
     $ccount = count($this->colours);
     $path = '';
     if($this->fill_under) {
@@ -63,7 +65,7 @@ class LineGraph extends PointGraph {
         $y = $y_axis_pos - ($value * $this->bar_unit_height);
 
         if($this->fill_under && $path == '')
-          $path = "M$x $y_axis_pos";
+          $path = "M$x $y_bottom";
         $path .= "$cmd$x $y ";
 
         // no need to repeat same L command
@@ -74,7 +76,7 @@ class LineGraph extends PointGraph {
     }
 
     if($this->fill_under)
-      $path .= "$cmd$x {$y_axis_pos}z";
+      $path .= "$cmd$x {$y_bottom}z";
 
     $this->line_style = $attr;
     $attr['d'] = $path;
@@ -82,6 +84,7 @@ class LineGraph extends PointGraph {
     $this->ClipGrid($group);
     $body .= $this->Element('g', $group, NULL, $this->Element('path', $attr));
 
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE);
     $body .= $this->Axes();
     $body .= $this->CrossHairs();
     $body .= $this->DrawMarkers();

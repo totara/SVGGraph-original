@@ -117,6 +117,23 @@ class MultiGraph {
   }
 
   /**
+   * Returns the longest key
+   */
+  public function GetLongestKey()
+  {
+    $longest_key = '';
+    $max_len = 0;
+    foreach($this->all_keys as $k) {
+      $len = strlen($k);
+      if($len > $max_len) {
+        $max_len = $len;
+        $longest_key = $k;
+      }
+    }
+    return $longest_key;
+  }
+
+  /**
    * Returns an option from array, or non-array option
    */
   public function Option($o, $i)

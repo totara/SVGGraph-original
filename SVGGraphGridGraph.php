@@ -22,6 +22,9 @@
 require_once 'SVGGraphAxis.php';
 require_once 'SVGGraphAxisFixed.php';
 
+define("SVGG_GUIDELINE_ABOVE", 1);
+define("SVGG_GUIDELINE_BELOW", 0);
+
 abstract class GridGraph extends Graph {
 
   protected $bar_unit_width = 0;
@@ -44,6 +47,9 @@ abstract class GridGraph extends Graph {
   protected $axes_calc_done = false;
   protected $sub_x;
   protected $sub_y;
+  protected $guidelines = array();
+  protected $min_guide = array('x' => null, 'y' => null);
+  protected $max_guide = array('x' => null, 'y' => null);
 
   private $label_left_offset;
   private $label_bottom_offset;
@@ -51,7 +57,7 @@ abstract class GridGraph extends Graph {
   /**
    * Modifies the graph padding to allow room for labels
    */
-  protected function LabelAdjustment($longest = 1000)
+  protected function LabelAdjustment($longest_v = 1000, $longest_h = 100)
   {
     // deprecated options need converting
     // NOTE: this works because graph settings become properties, whereas
@@ -62,8 +68,10 @@ abstract class GridGraph extends Graph {
       $this->show_axis_text_v = $this->show_label_v;
 
     // use length of $longest, or make a guess at length of numbers
-    $len = strlen(is_string($longest) ? $longest :
-      $this->NumString($longest)) + 1;
+    $len_v = strlen(is_string($longest_v) ? $longest_v :
+      $this->NumString($longest_v)) + 1;
+    $len_h = strlen(is_string($longest_h) ? $longest_h :
+      $this->NumString($longest_h)) + 1;
 
     // if the label_x or label_y are set but not _h and _v, assign them
     $lh = $this->flip_axes ? $this->label_y : $this->label_x;
@@ -82,9 +90,11 @@ abstract class GridGraph extends Graph {
         2 * $this->label_space;
     }
     if($this->show_axis_text_v) {
-      // increase padding for axis markings
-      $this->pad_left += $this->axis_font_size * $len *
-        $this->axis_font_adjust;
+      // modify padding for axis markings - this is the font height,
+      // plus the cosine of the text angle x size x length-1 x adjustment
+      $this->pad_left += ($this->axis_font_size * ($len_v - 1) *
+        $this->axis_font_adjust * cos(deg2rad($this->axis_text_angle_v))) +
+        $this->axis_font_size;
     }
 
     if(strlen($this->label_h) > 0) {
@@ -95,7 +105,10 @@ abstract class GridGraph extends Graph {
         2 * $this->label_space;
     }
     if($this->show_axis_text_h) {
-      $this->pad_bottom += $this->axis_font_size;
+      // similar to vertical version
+      $this->pad_bottom += ($this->axis_font_size * ($len_h - 1) *
+        $this->axis_font_adjust * sin(deg2rad(abs($this->axis_text_angle_h)))) +
+        $this->axis_font_size;
     }
     $this->label_adjust_done = true;
   }
@@ -121,6 +134,17 @@ abstract class GridGraph extends Graph {
     $k_max = $this->GetMaxKey();
     $k_min = $this->GetMinKey();
 
+    // check guides
+    $this->CalcGuidelines();
+    if(!is_null($this->max_guide['y']))
+      $v_max = max($v_max, $this->max_guide['y']);
+    if(!is_null($this->min_guide['y']))
+      $v_min = min($v_min, $this->min_guide['y']);
+    if(!is_null($this->max_guide['x']))
+      $k_max = max($k_max, $this->max_guide['x']);
+    if(!is_null($this->min_guide['x']))
+      $k_min = min($k_min, $this->min_guide['x']);
+
     // validate axes
     if((is_numeric($this->axis_max_h) && is_numeric($this->axis_min_h) &&
       $this->axis_max_h <= $this->axis_min_h) ||
@@ -144,7 +168,7 @@ abstract class GridGraph extends Graph {
       $this->minimum_grid_spacing_h = 1;
 
     if(!$this->label_adjust_done)
-      $this->LabelAdjustment($v_max);
+      $this->LabelAdjustment($v_max, $this->GetLongestKey());
 
     if(is_null($this->g_height))
       $this->g_height = $this->height - $this->pad_top - $this->pad_bottom;
@@ -348,9 +372,10 @@ abstract class GridGraph extends Graph {
    */
   protected function NumString($n)
   {
-    //return is_int($n) ? number_format($n) : (string)($n);
-    $d = is_int($n) ? 0 : $this->precision;
+    // subtract number of digits before decimal point from precision
+    $d = is_int($n) ? 0 : ($this->precision - floor(log(abs($n))));
     $s = number_format($n, $d);
+
     if($d && strpos($s, '.') !== false) {
       list($a, $b) = explode('.', $s);
       $b1 = rtrim($b, '0');
@@ -369,6 +394,27 @@ abstract class GridGraph extends Graph {
   {
     $values = $this->GetValues();
     return count($values);
+  }
+
+  /**
+   * Returns the key that takes up the most space
+   */
+  protected function GetLongestKey()
+  {
+    $longest_key = '';
+    if($this->show_axis_text_v) {
+      $max_len = 0;
+      foreach($this->values[0] as $k => $v) {
+        if(is_numeric($k))
+          $k = $this->NumString($k);
+        $len = strlen($k);
+        if($len > $max_len) {
+          $max_len = $len;
+          $longest_key = $k;
+        }
+      }
+    }
+    return $longest_key;
   }
 
   /**
@@ -454,14 +500,20 @@ abstract class GridGraph extends Graph {
         $points = count($this->y_points);
         $p = 0;
         foreach($this->y_points as $label => $y) {
-          $text['y'] = $y + $text_centre + $y_offset;
           $key = $this->flip_axes ? $this->GetKey($label) : $label;
 
           if($this->show_axis_text_v && strlen($key) &&
             $y_prev - $y >= $this->minimum_grid_spacing_v &&
-            (++$p < $points || !$label_centre_y))
+            (++$p < $points || !$label_centre_y)) {
+            $text['y'] = $y + $text_centre + $y_offset;
+            if($this->axis_text_angle_v != 0) {
+              $rcx = $text['x'] - ($this->axis_font_size / 2);
+              $rcy = $text['y'] - ($this->axis_font_size / 2);
+              $text['transform'] = 
+                "rotate($this->axis_text_angle_v,$rcx,$rcy)";
+            }
             $labels .= $this->Element('text', $text, NULL, $key);
-
+          }
           $d_path .= 'M' . ($grid_left + $xoff) .
             " {$y}l-{$this->division_size} 0";
           $y_prev = $y;
@@ -474,7 +526,6 @@ abstract class GridGraph extends Graph {
         if($this->show_axis_text_v)
           $v_group = $this->Element('g', array('text-anchor' => 'end'),
             NULL, $labels);
-
       }
       if(strlen($this->label_v) > 0) {
         $label_text['y'] = $this->pad_top +
@@ -482,7 +533,8 @@ abstract class GridGraph extends Graph {
         $label_text['x'] = $this->label_left_offset;
         $label_text['transform'] =
           "rotate(270,$label_text[x],$label_text[y])";
-        $v_group .= $this->Text($this->label_v, $label_text);
+        $v_group .= $this->Text($this->label_v, $this->label_font_size,
+          $label_text);
       }
 
       $h_group = '';
@@ -497,12 +549,19 @@ abstract class GridGraph extends Graph {
         $p = 0;
         foreach($this->x_points as $label => $x) {
 
-          $text['x'] = $x + $x_offset;
           $key = $this->flip_axes ? $label : $this->GetKey($label);
           if($this->show_axis_text_h && strlen($key) &&
             $x - $x_prev >= $this->minimum_grid_spacing_h &&
-            (++$p < $points || !$label_centre_x))
+            (++$p < $points || !$label_centre_x)) {
+            $text['x'] = $x + $x_offset;
+            if($this->axis_text_angle_h != 0) {
+              $rcx = $text['x'];
+              $rcy = $text['y'] - ($this->axis_font_size / 2);
+              $text['transform'] = 
+                "rotate($this->axis_text_angle_h,$rcx,$rcy)";
+            }
             $labels .= $this->Element('text', $text, NULL, $key);
+          }
             
           $d_path .= "M$x " . ($grid_bottom - $yoff) .
             "l0 {$this->division_size}";
@@ -513,15 +572,22 @@ abstract class GridGraph extends Graph {
             "l0 {$this->subdivision_size}";
         }
 
-        if($this->show_axis_text_h)
-          $h_group = $this->Element('g', array('text-anchor' => 'middle'),
-            NULL, $labels);
+        if($this->show_axis_text_h) {
+          if($this->axis_text_angle_h == 0) {
+            $tgroup = array('text-anchor' => 'middle');
+          } else {
+            $tgroup = array('text-anchor' => $this->axis_text_angle_h < 0 ?
+              'end' : 'start');
+          }
+          $h_group = $this->Element('g', $tgroup, NULL, $labels);
+        }
       }
       if(strlen($this->label_h) > 0) {
         $label_text['y'] = $this->height - $this->label_bottom_offset;
         $label_text['x'] = $this->pad_left + ($w / 2);
         unset($label_text['transform']);
-        $h_group .= $this->Text($this->label_h, $label_text);
+        $h_group .= $this->Text($this->label_h, $this->label_font_size,
+          $label_text);
       }
 
       $font = array(
@@ -657,6 +723,200 @@ abstract class GridGraph extends Graph {
         $position = $this->pad_left + $offset;
     }
     return $position;
+  }
+
+  /**
+   * Converts guideline options to more useful member variables
+   */
+  protected function CalcGuidelines($g = null)
+  {
+    if(is_null($g)) {
+      // no guidelines?
+      if(empty($this->guideline) && $this->guideline !== 0)
+        return;
+
+      if(is_array($this->guideline) && count($this->guideline) > 1 &&
+        !is_string($this->guideline[1])) {
+
+        // array of guidelines
+        foreach($this->guideline as $gl)
+          $this->CalcGuidelines($gl);
+        return;
+      }
+
+      // single guideline
+      $g = $this->guideline;
+    }
+
+    if(!is_array($g))
+      $g = array($g);
+
+    $value = $g[0];
+    $axis = (isset($g[2]) && ($g[2] == 'x' || $g[2] == 'y')) ? $g[2] : 'y';
+    $above = isset($g['above']) ? $g['above'] : $this->guideline_above;
+    $position = $above ? SVGG_GUIDELINE_ABOVE : SVGG_GUIDELINE_BELOW;
+    $guideline = array(
+      'value' => $value,
+      'depth' => $position,
+      'title' => isset($g[1]) ? $g[1] : '',
+      'axis' => $axis
+    );
+    $lopts = $topts = array();
+    $line_opts = array(
+      'colour' => 'stroke',
+      'dash' => 'stroke-dasharray',
+      'stroke_width' => 'stroke-width',
+    );
+    $text_opts = array(
+      'colour' => 'fill',
+      'font' => 'font-family',
+      'font_size' => 'font-size',
+      'font_weight' => 'font-weight',
+      'text_colour' => 'fill', // overrides 'colour' option from line
+      'text_position' => 'text_position', // will be nulled later
+      'text_padding' => 'text_padding',   // "
+      'text_angle' => 'text_angle',       // "
+    );
+    foreach($line_opts as $okey => $opt)
+      if(isset($g[$okey]))
+        $lopts[$opt] = $g[$okey];
+    foreach($text_opts as $okey => $opt)
+      if(isset($g[$okey]))
+        $topts[$opt] = $g[$okey];
+
+    if(count($lopts))
+      $guideline['line'] = $lopts;
+    if(count($topts))
+      $guideline['text'] = $topts;
+
+    // update maxima and minima
+    if(is_null($this->max_guide[$axis]) || $value > $this->max_guide[$axis])
+      $this->max_guide[$axis] = $value;
+    if(is_null($this->min_guide[$axis]) || $value < $this->min_guide[$axis])
+      $this->min_guide[$axis] = $value;
+
+    // can flip the axes now the min/max are stored
+    if($this->flip_axes)
+      $guideline['axis'] = ($guideline['axis'] == 'x' ? 'y' : 'x');
+
+    $this->guidelines[] = $guideline;
+  }
+
+  /**
+   * Returns the elements to draw the guidelines
+   */
+  protected function Guidelines($depth)
+  {
+    if(empty($this->guidelines))
+      return '';
+
+    // build all the lines at this depth (above/below) that use
+    // global options as one path
+    $d = $lines = $text = '';
+    $path = array(
+      'stroke' => $this->guideline_colour,
+      'stroke-width' => $this->guideline_stroke_width,
+      'stroke-dasharray' => $this->guideline_dash,
+      'fill' => 'none'
+    );
+    $textopts = array(
+      'font-family' => $this->guideline_font,
+      'font-size' => $this->guideline_font_size,
+      'font-weight' => $this->guideline_font_weight,
+      'fill' => empty($this->guideline_text_colour) ?
+        $this->guideline_colour : $this->guideline_text_colour,
+    );
+
+    foreach($this->guidelines as $line) {
+      if($line['depth'] == $depth)
+        $this->BuildGuideline($line, $lines, $text, $path, $d);
+    }
+    if(!empty($d)) {
+      $path['d'] = $d;
+      $lines .= $this->Element('path', $path);
+    }
+
+    if(!empty($text))
+      $text = $this->Element('g', $textopts, null, $text);
+    return $lines . $text;
+  }
+
+  /**
+   * Adds a single guideline and its title to content
+   */
+  protected function BuildGuideline(&$line, &$lines, &$text, &$path, &$d)
+  {
+    $path_data = $this->GuidelinePath($line['axis'], $line['value'],
+      $line['depth'], $x, $y, $w, $h);
+    if(!isset($line['line'])) {
+      // no special options, add to main path
+      $d .= $path_data;
+    } else {
+      $line_path = array_merge($path, $line['line'], array('d' => $path_data));
+      $lines .= $this->Element('path', $line_path);
+    }
+    if(!empty($line['title'])) {
+      $text_pos = $this->guideline_text_position;
+      $text_pad = $this->guideline_text_padding;
+      $text_angle = $this->guideline_text_angle;
+      if(isset($line['text'])) {
+        $this->UpdateAndUnset($text_pos, $line['text'], 'text_position');
+        $this->UpdateAndUnset($text_pad, $line['text'], 'text_padding');
+        $this->UpdateAndUnset($text_angle, $line['text'], 'text_angle');
+      }
+      // very approximate!
+      $text_h = $this->guideline_font_size * $this->CountLines($line['title']);
+      $text_len = strlen($line['title']) * $text_h * 0.7;
+
+      list($x, $y, $text_right) = Graph::RelativePosition(
+        $text_pos, $y, $x, $y + $h, $x + $w,
+        $text_len, $text_h, $text_pad, true);
+
+      $t = array('x' => $x, 'y' => $y + $this->guideline_font_size);
+      if($text_right)
+        $t['text-anchor'] = 'end';
+      if($text_angle != 0) {
+        $rx = $x + $text_h/2;
+        $ry = $y + $text_h/2;
+        $t['transform'] = "rotate($text_angle,$rx,$ry)";
+      }
+      if(isset($line['text']))
+        $t = array_merge($t, $line['text']);
+      $text .= $this->Text($line['title'], $this->guideline_font_size, $t);
+    }
+  }
+
+  /**
+   * Creates the path data for a guideline and sets the dimensions
+   */
+  protected function GuidelinePath($axis, $value, $depth, &$x, &$y, &$w, &$h)
+  {
+    $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
+    $x_axis_pos = $this->pad_left + $this->x0;
+
+    if($axis == 'x') {
+      $x = $x_axis_pos + ($value * $this->bar_unit_width);
+      $y = $this->pad_top;
+      $w = 0;
+      $h = $this->axis_height;
+    } else {
+      $x = $this->pad_left;
+      $y = $y_axis_pos - ($value * $this->bar_unit_height);
+      $w = $this->axis_width;
+      $h = 0;
+    }
+    return "M{$x} {$y}l{$w} {$h}";
+  }
+
+  /**
+   * Updates $var with $array[$key] and removes it from array
+   */
+  protected function UpdateAndUnset(&$var, &$array, $key)
+  {
+    if(isset($array[$key])) {
+      $var = $array[$key];
+      unset($array[$key]);
+    }
   }
 }
 

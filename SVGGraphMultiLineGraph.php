@@ -34,13 +34,16 @@ class MultiLineGraph extends PointGraph {
   {
     $assoc = $this->AssociativeKeys();
     $this->CalcAxes($assoc);
-    $body = $this->Grid();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $plots = '';
     $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
+    $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
     $ccount = count($this->colours);
     $chunk_count = count($this->values);
+    if(!$assoc)
+      sort($this->multi_graph->all_keys, SORT_NUMERIC);
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
       $cmd = 'M';
@@ -69,7 +72,7 @@ class MultiLineGraph extends PointGraph {
           $y = $y_axis_pos - ($value * $this->bar_unit_height);
 
           if($fill && $path == '')
-            $path = "M$x $y_axis_pos";
+            $path = "M$x $y_bottom";
           $path .= "$cmd$x $y ";
 
           // no need to repeat same L command
@@ -80,7 +83,7 @@ class MultiLineGraph extends PointGraph {
       }
 
       if($fill)
-        $path .= "$cmd$x {$y_axis_pos}z";
+        $path .= "$cmd$x {$y_bottom}z";
 
       $attr['d'] = $path;
       $attr['stroke'] = $this->GetColour($i % $ccount, true);
@@ -92,6 +95,7 @@ class MultiLineGraph extends PointGraph {
     $group = array();
     $this->ClipGrid($group);
     $body .= $this->Element('g', $group, NULL, $plots);
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE);
     $body .= $this->Axes();
     $body .= $this->CrossHairs();
     $body .= $this->DrawMarkers();

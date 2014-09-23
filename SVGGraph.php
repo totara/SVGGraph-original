@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.6');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.7.1');
 
 class SVGGraph {
 
@@ -51,7 +51,7 @@ class SVGGraph {
   }
   public function Colours($colours)
   {
-    $this->colours = func_get_args();
+    $this->colours = $colours;
   }
 
 
@@ -75,19 +75,26 @@ class SVGGraph {
   /**
    * Fetch the content
    */
-  public function Fetch($class, $header = TRUE)
+  public function Fetch($class, $header = TRUE, $defer_js = TRUE)
   {
-    $g = $this->Setup($class);
-    return $g->Fetch($header);
+    $this->g = $this->Setup($class);
+    return $this->g->Fetch($header, $defer_js);
   }
 
   /**
    * Pass in the type of graph to display
    */
-  public function Render($class, $header = TRUE, $content_type = TRUE)
+  public function Render($class, $header = TRUE, $content_type = TRUE,
+    $defer_js = FALSE)
   {
-    $g = $this->Setup($class);
-    return $g->Render($header, $content_type);
+    $this->g = $this->Setup($class);
+    return $this->g->Render($header, $content_type, $defer_js);
+  }
+
+  public function FetchJavascript()
+  {
+    if(isset($this->g))
+      return $this->g->FetchJavascript(true, true, true);
   }
 }
 
@@ -102,10 +109,13 @@ abstract class Graph {
   protected $link_target = '_blank';
   protected $links = array();
 
+  protected $gradients = array();
   protected $defs = array();
-  protected $javascript = NULL;
 
   protected $namespaces = array();
+  protected static $javascript = NULL;
+  private static $last_id = 0;
+  protected $legend_reverse = false;
 
   public function __construct($w, $h, $settings = NULL)
   {
@@ -265,9 +275,10 @@ abstract class Graph {
    */
   public function DrawGraph()
   {
-    $group = array('clip-path' => "url(#canvas)");
+    $canvas_id = $this->NewID();
+    $group = array('clip-path' => "url(#{$canvas_id})");
 
-    $contents = $this->Canvas();
+    $contents = $this->Canvas($canvas_id);
     $contents .= $this->DrawTitle();
     $contents .= $this->Draw();
     $contents .= $this->DrawLegend();
@@ -308,7 +319,9 @@ abstract class Graph {
     }
 
     $text = array('x' => 0);
-    foreach($this->legend_entries as $key => $value) {
+    $legend_entries = $this->legend_reverse ?
+      array_reverse($this->legend_entries, true) : $this->legend_entries;
+    foreach($legend_entries as $key => $value) {
       if(!empty($value)) {
         $entry = $this->DrawLegendEntry($key, $x, $y, $w, $entry_height);
         if(!empty($entry)) {
@@ -394,6 +407,13 @@ abstract class Graph {
     if($this->legend_font_weight != 'normal')
       $group['font-weight'] = $this->legend_font_weight;
 
+    // add shadow if not completely transparent
+    if($this->legend_shadow_opacity > 0) {
+      $box['x'] = $box['y'] = 2 + ($this->legend_stroke_width / 2);
+      $box['fill'] = "rgba(0,0,0,$this->legend_shadow_opacity)";
+      unset($box['stroke'], $box['stroke-width']);
+      $rect = $this->Element('rect', $box) . $rect;
+    }
 
     if($this->legend_autohide)
       $this->AutoHide($group);
@@ -407,23 +427,62 @@ abstract class Graph {
    */
   protected function ParsePosition($pos, $w = 0, $h = 0, $pad = 0)
   {
+    $inner = true;
+    $parts = preg_split('/\s+/', $pos);
+    if(count($parts)) {
+      // if 'outer' is found after 'inner', it takes precedence
+      $parts = array_reverse($parts);
+      $inner_at = array_search('inner', $parts);
+      $outer_at = array_search('outer', $parts);
+
+      if($outer_at !== false && ($inner_at === false || $inner_at < $outer_at))
+        $inner = false;
+    }
+  
+    if($inner) {
+      $t = $this->pad_top;
+      $l = $this->pad_left;
+      $b = $this->height - $this->pad_bottom;
+      $r = $this->width - $this->pad_right;
+      // make sure it fits to keep RelativePosition happy
+      if($w > $r - $l) $w = $r - $l;
+      if($h > $b - $t) $h = $b - $t;
+    } else {
+      $t = $l = 0;
+      $b = $this->height;
+      $r = $this->width;
+    }
+
+    // ParsePosition is always inside canvas or graph
+    $pos .= ' inside';
+    return Graph::RelativePosition($pos, $t, $l, $b, $r, $w, $h, $pad);
+  }
+
+  /**
+   * Returns the [x,y] position that is $pos relative to the
+   * top, left, bottom and right. When $text is true, returns
+   * [x,y,align right]
+   */
+  public static function RelativePosition($pos, $top, $left,
+    $bottom, $right, $width, $height, $pad, $text = false)
+  {
     $offset_x = $offset_y = 0;
-    $inner = $top = $left = true;
+    $inside = $atop = $aleft = true;
     $parts = preg_split('/\s+/', $pos);
     while(count($parts)) {
       $part = array_shift($parts);
       switch($part) {
-      case 'outer' : $inner = false;
+      case 'outside' : $inside = false;
         break;
-      case 'inner' : $inner = true;
+      case 'inside' : $inside = true;
         break;
-      case 'top' : $top = true;
+      case 'top' : $atop = true;
         break;
-      case 'bottom' : $top = false;
+      case 'bottom' : $atop = false;
         break;
-      case 'left' : $left = true;
+      case 'left' : $aleft = true;
         break;
-      case 'right' : $left = false;
+      case 'right' : $aleft = false;
         break;
       default:
         if(is_numeric($part)) {
@@ -433,21 +492,27 @@ abstract class Graph {
         }
       }
     }
+    $edge = $atop ? $top : $bottom;
+    $fit = $inside && $bottom - $top >= $pad + $height;
+
+    // padding +ve if both fitting in at top, or outside at bottom
+    $distance = ($atop == $fit) ? $pad : -($pad + $height);
+    $y = $edge + $distance;
+
+    $edge = $aleft ? $left : $right;
+    $fit = $inside && $right - $left >= $pad + $width;
+    $distance = ($aleft == $fit) ? $pad :
+      ($text ? -$pad : -($pad + $width));
+    $x = $edge + $distance;
+
+    $y += $offset_y;
+    $x += $offset_x;
   
-    if($top)
-      $y = $pad + $offset_y + ($inner ? $this->pad_top : 0);
-    else
-      $y = $this->height - $h - ($inner ? $this->pad_bottom : 0)
-        - $pad + $offset_y;
-
-    if($left)
-      $x = $pad + $offset_x + ($inner ? $this->pad_left : 0);
-    else
-      $x = $this->width - $w - ($inner ? $this->pad_right : 0)
-        - $pad + $offset_x;
-
-    return array($x,$y);
+    // third return value is whether text should be right-aligned
+    $text_right = $text && ($aleft != $fit);
+    return array($x, $y, $text_right);
   }
+
 
   /**
    * Subclasses must draw the entry, if they can
@@ -474,7 +539,7 @@ abstract class Graph {
       'text-anchor' => 'middle',
       'fill' => $this->graph_title_colour
     );
-      $lines = $this->CountLines($this->graph_title);
+    $lines = $this->CountLines($this->graph_title);
     $title_space = $this->graph_title_font_size * $lines +
       $this->graph_title_space;
     if($pos != 'top' && $pos != 'bottom' && $pos != 'left' && $pos != 'right')
@@ -506,7 +571,8 @@ abstract class Graph {
     $this->{$pad_side} += $title_space;
 
     // the Text function will break it into lines
-    return $this->Text($this->graph_title, $text);
+    return $this->Text($this->graph_title, $this->graph_title_font_size,
+      $text);
   }
 
 
@@ -540,7 +606,7 @@ abstract class Graph {
       $image['x'] = 0; $image['y'] = 0;
       $im = $this->Element('image', $image, $style);
       $pattern = array(
-        'id' => 'bgimage',
+        'id' => $this->NewID(),
         'width' => $this->back_image_width,
         'height' => $this->back_image_height,
         'x' => $this->back_image_left,
@@ -549,7 +615,7 @@ abstract class Graph {
       );
       // tiled image becomes a pattern to replace background colour
       $this->defs[] = $this->Element('pattern', $pattern, NULL, $im);
-      $this->back_colour = 'url(#bgimage)';
+      $this->back_colour = "url(#{$pattern['id']})";
     } else {
       $im = $this->Element('image', $image, $style);
       $contents .= $im;
@@ -560,7 +626,7 @@ abstract class Graph {
   /**
    * Displays the background
    */
-  protected function Canvas()
+  protected function Canvas($id)
   {
     $bg = $this->BackgroundImage();
     $canvas = array(
@@ -575,7 +641,7 @@ abstract class Graph {
       $canvas['stroke'] = $this->back_stroke_colour;
     }
     $c_el = $this->Element('rect', $canvas);
-    $this->defs[] = $this->Element('clipPath', array('id' => 'canvas'),
+    $this->defs[] = $this->Element('clipPath', array('id' => $id),
       NULL, $c_el);
     if($bg != '') {
       $c_el .= $bg;
@@ -612,14 +678,14 @@ abstract class Graph {
   /**
    * Returns a text element, with tspans for subsequent lines
    */
-  protected function Text($text, $attribs, $styles = NULL)
+  protected function Text($text, $line_spacing, $attribs, $styles = NULL)
   {
     $lines = explode("\n", $text);
     $content = array_shift($lines);
 
     foreach($lines as $line) {
       $content .= $this->Element('tspan',
-        array('x' => $attribs['x'], 'dy' => $attribs['font-size']),
+        array('x' => $attribs['x'], 'dy' => $line_spacing),
         NULL, $line);
     }
     return $this->Element('text', $attribs, $styles, $content); 
@@ -778,10 +844,14 @@ abstract class Graph {
     if(!isset($this->colours[$key]))
       return 'none';
     if(is_array($this->colours[$key]))
-      if($no_gradient) // sometimes gradients look awful
+      if($no_gradient) {
+        // sometimes gradients look awful
         return $this->colours[$key][0];
-      else
-        return 'url(#gradient' . $key . ')';
+      } else {
+        if(!isset($this->gradients[$key]))
+          $this->gradients[$key] = $this->NewID();
+        return 'url(#' . $this->gradients[$key] . ')';
+      }
     return $this->colours[$key];
   }
 
@@ -824,19 +894,18 @@ abstract class Graph {
    */
   public function NewID()
   {
-    if(!isset($this->last_id))
-      $this->last_id = 0;
-    return 'e' . base_convert(++$this->last_id, 10, 36);
+    return $this->id_prefix . 'e' . base_convert(++Graph::$last_id, 10, 36);
   }
+
 
   /**
    * Loads the Javascript class
    */
   private function LoadJavascript()
   {
-    if(!isset($this->javascript)) {
+    if(!isset(Graph::$javascript)) {
       include_once 'SVGGraphJavascript.php';
-      $this->javascript = new SVGGraphJavascript($this->settings, $this);
+      Graph::$javascript = new SVGGraphJavascript($this->settings, $this);
     }
   }
 
@@ -848,7 +917,7 @@ abstract class Graph {
     $this->LoadJavascript();
     $fns = func_get_args();
     foreach($fns as $fn)
-      $this->javascript->AddFunction($fn);
+      Graph::$javascript->AddFunction($fn);
   }
 
   /**
@@ -859,7 +928,7 @@ abstract class Graph {
   public function InsertVariable($var, $value, $more = NULL, $quote = TRUE)
   {
     $this->LoadJavascript();
-    $this->javascript->InsertVariable($var, $value, $more, $quote);
+    Graph::$javascript->InsertVariable($var, $value, $more, $quote);
   }
 
   /**
@@ -868,7 +937,7 @@ abstract class Graph {
   public function InsertComment($details)
   {
     $this->LoadJavascript();
-    $this->javascript->InsertComment($details);
+    Graph::$javascript->InsertComment($details);
   }
 
   /**
@@ -896,20 +965,12 @@ abstract class Graph {
   }
 
   /**
-   * Returns TRUE if the code contains the specified gradient
-   */
-  private function ContainsGradient(&$code, $gradient)
-  {
-    return strpos($code, 'gradient' . $gradient) !== FALSE;
-  }
-
-  /**
    * Adds an inline event handler to an element's array
    */
   protected function AddEventHandler(&$array, $evt, $code)
   {
     $this->LoadJavascript();
-    $this->javascript->AddEventHandler($array, $evt, $code);
+    Graph::$javascript->AddEventHandler($array, $evt, $code);
   }
 
   /**
@@ -918,7 +979,7 @@ abstract class Graph {
   protected function SetDraggable(&$element)
   {
     $this->LoadJavascript();
-    $this->javascript->SetDraggable($element);
+    Graph::$javascript->SetDraggable($element);
   }
 
   /**
@@ -927,7 +988,7 @@ abstract class Graph {
   protected function AutoHide(&$element)
   {
     $this->LoadJavascript();
-    $this->javascript->AutoHide($element);
+    Graph::$javascript->AutoHide($element);
   }
 
 
@@ -940,7 +1001,7 @@ abstract class Graph {
   {
     $text = $this->TooltipText($key, $value);
     $this->LoadJavascript();
-    $this->javascript->SetTooltip($element, $text, $duplicate);
+    Graph::$javascript->SetTooltip($element, $text, $duplicate);
   }
 
   /**
@@ -960,7 +1021,7 @@ abstract class Graph {
     $duplicate = FALSE)
   {
     $this->LoadJavascript();
-    $this->javascript->SetFader($element, $in, $out, $target, $duplicate);
+    Graph::$javascript->SetFader($element, $in, $out, $target, $duplicate);
   }
 
   /**
@@ -970,13 +1031,13 @@ abstract class Graph {
   protected function AddOverlay($from, $to)
   {
     $this->LoadJavascript();
-    $this->javascript->AddOverlay($from, $to);
+    Graph::$javascript->AddOverlay($from, $to);
   }
 
   /**
    * Returns the SVG document
    */
-  public function Fetch($header = TRUE)
+  public function Fetch($header = TRUE, $defer_javascript = TRUE)
   {
     $content = '';
     if($header) {
@@ -1010,24 +1071,20 @@ abstract class Graph {
       'version' => '1.1', 
       'xmlns:xlink' => 'http://www.w3.org/1999/xlink'
     );
-    if(isset($this->javascript)) {
-      $variables = $this->javascript->GetVariables();
-      $functions = $this->javascript->GetFunctions();
-      $onload = $this->javascript->GetOnload();
-
-      if($variables != '' || $functions != '') {
-        $script = array('type' => 'text/javascript');
-        $heading .= $this->Element('script', $script, NULL,
-          "<![CDATA[\n$variables\n$functions\n// ]]>");
+    if(!$defer_javascript) {
+      $js = $this->FetchJavascript();
+      if($js != '') {
+        $heading .= $js;
+        $onload = Graph::$javascript->GetOnload();
+        if($onload != '')
+          $svg['onload'] = $onload;
       }
-      if($onload != '')
-        $svg['onload'] = $onload;
     }
 
     // insert any gradients that are used
-    foreach($this->colours as $key => $c)
-      if(is_array($c) && $this->ContainsGradient($body, $key))
-        $this->defs[] = $this->MakeLinearGradient('gradient' . $key, $c);
+    foreach($this->gradients as $key => $gradient_id)
+      $this->defs[] = $this->MakeLinearGradient($gradient_id,
+        $this->colours[$key]);
 
     // show defs and body content
     $heading .= $this->Element('defs', NULL, NULL, implode('', $this->defs));
@@ -1061,11 +1118,12 @@ abstract class Graph {
   /**
    * Renders the SVG document
    */
-  public function Render($header = TRUE, $content_type = TRUE)
+  public function Render($header = TRUE, $content_type = TRUE, 
+    $defer_javascript = FALSE)
   {
     $mime_header = 'Content-type: image/svg+xml; charset=UTF-8';
     try {
-      $content = $this->Fetch($header);
+      $content = $this->Fetch($header, $defer_javascript);
       if($content_type)
         header($mime_header);
       echo $content;
@@ -1075,6 +1133,39 @@ abstract class Graph {
       $this->ErrorText($e);
     }
   }
+
+  /**
+   * When using the defer_javascript option, this returns the
+   * Javascript block
+   */
+  public function FetchJavascript($onload_immediate = TRUE, $cdata_wrap = TRUE,
+    $no_namespace = TRUE)
+  {
+    $js = '';
+    if(isset(Graph::$javascript)) {
+      $variables = Graph::$javascript->GetVariables();
+      $functions = Graph::$javascript->GetFunctions();
+      $onload = Graph::$javascript->GetOnload();
+
+      if($variables != '' || $functions != '') {
+        if($onload_immediate)
+          $functions .= "\n" . "setTimeout(function(){{$onload}},20);";
+        $script_attr = array('type' => 'application/ecmascript');
+        if($cdata_wrap)
+          $script = "// <![CDATA[\n$variables\n$functions\n// ]]>";
+        else
+          $script = "\n$variables\n$functions\n";
+        $namespace = $this->namespace;
+        if($no_namespace)
+          $this->namespace = false;
+        $js = $this->Element('script', $script_attr, NULL, $script);
+        if($no_namespace)
+          $this->namespace = $namespace;
+      }
+    }
+    return $js;
+  }
+
 
   private $svg_colours = "aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray grey green greenyellow honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen";
 

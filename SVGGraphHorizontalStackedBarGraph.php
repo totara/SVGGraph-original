@@ -25,12 +25,13 @@ require_once 'SVGGraphHorizontalBarGraph.php';
 class HorizontalStackedBarGraph extends HorizontalBarGraph {
 
   protected $multi_graph;
+  protected $legend_reverse = false;
 
   protected function Draw()
   {
     $assoc = $this->AssociativeKeys();
     $this->CalcAxes($assoc, true);
-    $body = $this->Grid();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
       $this->bar_unit_height - $this->bar_space);
@@ -43,6 +44,8 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
     $b_start = $this->height - $this->pad_bottom - ($this->bar_space / 2);
     $ccount = count($this->colours);
     $chunk_count = count($this->values);
+    $groups = array_fill(0, $chunk_count, '');
+
     foreach($this->multi_graph->all_keys as $k) {
       $bar_pos = $this->GridPosition($k, $bnum);
       if(!is_null($bar_pos)) {
@@ -69,8 +72,8 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 
             if($this->show_tooltips)
               $this->SetTooltip($bar, $value);
-            $rect = $this->Element('rect', $bar, $bar_style);
-            $body .= $this->GetLink($k, $rect);
+            $rect = $this->Element('rect', $bar);
+            $groups[$j] .= $this->GetLink($k, $rect);
             unset($bar['id']); // clear ID for next generated value
 
             if(!array_key_exists($j, $this->bar_styles))
@@ -80,8 +83,11 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
       }
       ++$bnum;
     }
+    foreach($groups as $j => $g)
+      if(array_key_exists($j, $this->bar_styles))
+        $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
 
-    $body .= $this->Axes();
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }
 
@@ -169,20 +175,17 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
   /**
    * Overload to measure keys
    */
-  protected function LabelAdjustment($m = 1000)
+  protected function LabelAdjustment($longest_v = 1000, $longest_h = 100)
   {
-    $longest_key = '';
-    if($this->show_axis_text_v) {
-      $max_len = 0;
-      foreach($this->multi_graph->all_keys as $k) {
-        $len = strlen($k);
-        if($len > $max_len) {
-          $max_len = $len;
-          $longest_key = $k;
-        }
-      }
-    }
-    GridGraph::LabelAdjustment($longest_key);
+    GridGraph::LabelAdjustment($longest_h, $longest_v);
+  }
+
+  /**
+   * Return the longest of all keys
+   */
+  protected function GetLongestKey()
+  {
+    return $this->multi_graph->GetLongestKey();
   }
 }
 

@@ -1,3 +1,18 @@
+Version 2.7.1 (02/07/2012)
+-------------
+- Fixed order of entries in multi-line graphs.
+- Fixed script type attribute to match SVG standard.
+- Fixed order of legend entries for stacked bar, horizontal bar and
+  horizontal grouped bar graphs.
+- Fixed format of negative decimal numbers.
+
+Version 2.7 (25/05/2012)
+----------
+- Added guideline options.
+- Added axis text rotation.
+- Improved HTML embedding.
+- Reduced output size of grouped and stacked bar graphs.
+
 Version 2.6 (30/03/2012)
 -----------
 - Moved all configuration defaults to svggraph.ini.

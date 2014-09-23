@@ -23,8 +23,9 @@ require_once 'SVGGraphGridGraph.php';
 
 class HorizontalBarGraph extends GridGraph {
 
-  protected $flip_axes = TRUE;
-  protected $label_centre = TRUE;
+  protected $flip_axes = true;
+  protected $label_centre = true;
+  protected $legend_reverse = true;
   protected $bar_styles = array();
 
   protected function Draw()
@@ -32,7 +33,7 @@ class HorizontalBarGraph extends GridGraph {
     $values = $this->GetValues();
     $assoc = $this->AssociativeKeys();
     $this->CalcAxes($assoc, true);
-    $body = $this->Grid();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
       $this->bar_unit_height - $this->bar_space);
@@ -62,7 +63,7 @@ class HorizontalBarGraph extends GridGraph {
       ++$bnum;
     }
 
-    $body .= $this->Axes();
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }
 
@@ -79,22 +80,11 @@ class HorizontalBarGraph extends GridGraph {
   }
 
   /**
-   * Overload to measure keys
+   * Overload to flip axes
    */
-  protected function LabelAdjustment($longest = 1000)
+  protected function LabelAdjustment($longest_v = 1000, $longest_h = 100)
   {
-    $longest_key = '';
-    if($this->show_axis_text_v) {
-      $max_len = 0;
-      foreach($this->values[0] as $k => $v) {
-        $len = strlen($k);
-        if($len > $max_len) {
-          $max_len = $len;
-          $longest_key = $k;
-        }
-      }
-    }
-    parent::LabelAdjustment($longest_key);
+    parent::LabelAdjustment($longest_h, $longest_v);
   }
 
   /**

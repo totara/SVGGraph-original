@@ -33,7 +33,7 @@ class MultiScatterGraph extends PointGraph {
   {
     $assoc = !$this->scatter_2d && $this->AssociativeKeys();
     $this->CalcAxes($assoc);
-    $body = $this->Grid();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
     $values = $this->GetValues();
 
     // a scatter graph without markers is empty!
@@ -62,6 +62,7 @@ class MultiScatterGraph extends PointGraph {
       }
     }
 
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE);
     $body .= $this->Axes();
     $body .= $this->CrossHairs();
     $body .= $this->DrawMarkers();
@@ -114,12 +115,6 @@ class MultiScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return $this->multi_graph->GetMaxValue();
 
-    function vmax($m,$e)
-    {
-      if(is_null($m))
-        return $e[1];
-      return $e[1] > $m ? $e[1] : $m;
-    }
     $maxima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
@@ -136,12 +131,6 @@ class MultiScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return $this->multi_graph->GetMinValue();
 
-    function vmin($m,$e)
-    {
-      if(is_null($m))
-        return $e[1];
-      return $e[1] < $m ? $e[1] : $m;
-    }
     $minima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
@@ -158,12 +147,6 @@ class MultiScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return $this->multi_graph->GetMaxKey();
 
-    function kmax($m,$e)
-    {
-      if(is_null($m))
-        return $e[0];
-      return $e[0] > $m ? $e[0] : $m;
-    }
     $maxima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
@@ -179,12 +162,6 @@ class MultiScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return $this->multi_graph->GetMinKey();
 
-    function kmin($m,$e)
-    {
-      if(is_null($m))
-        return $e[0];
-      return $e[0] < $m ? $e[0] : $m;
-    }
     $minima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)

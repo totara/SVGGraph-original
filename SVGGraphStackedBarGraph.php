@@ -25,12 +25,13 @@ require_once 'SVGGraphBarGraph.php';
 class StackedBarGraph extends BarGraph {
 
   protected $multi_graph;
+  protected $legend_reverse = true;
 
   protected function Draw()
   {
     $assoc = $this->AssociativeKeys();
     $this->CalcAxes($assoc, true);
-    $body = $this->Grid();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
       $this->bar_unit_width - $this->bar_space);
@@ -42,6 +43,8 @@ class StackedBarGraph extends BarGraph {
     $bnum = 0;
     $ccount = count($this->colours);
     $chunk_count = count($this->values);
+    $groups = array_fill(0, $chunk_count, '');
+
     foreach($this->multi_graph->all_keys as $k) {
       $bar_pos = $this->GridPosition($k, $bnum);
 
@@ -68,8 +71,8 @@ class StackedBarGraph extends BarGraph {
 
             if($this->show_tooltips)
               $this->SetTooltip($bar, $value);
-            $rect = $this->Element('rect', $bar, $bar_style);
-            $body .= $this->GetLink($k, $rect);
+            $rect = $this->Element('rect', $bar);
+            $groups[$j] .= $this->GetLink($k, $rect);
             unset($bar['id']); // clear for next value
 
             if(!array_key_exists($j, $this->bar_styles))
@@ -79,8 +82,11 @@ class StackedBarGraph extends BarGraph {
       }
       ++$bnum;
     }
+    foreach($groups as $j => $g)
+      if(array_key_exists($j, $this->bar_styles))
+        $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
 
-    $body .= $this->Axes();
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }
 

@@ -24,7 +24,7 @@ require_once 'SVGGraph3DGraph.php';
 class Bar3DGraph extends ThreeDGraph {
 
   protected $bar_styles = array();
-  protected $label_centre = TRUE;
+  protected $label_centre = true;
 
   public function Draw()
   {
@@ -36,21 +36,21 @@ class Bar3DGraph extends ThreeDGraph {
 
     $assoc = $this->AssociativeKeys();
     $this->CalcAxes($assoc, true);
-    $body = $this->Grid();
-    $axes = $this->Axes();
+    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $values = $this->GetValues();
     $block_width = $this->bar_unit_width - $this->bar_space;
 
     // make the top parallelogram, set it as a symbol for re-use
     list($bx, $by) = $this->Project(0, 0, $block_width);
+    $top_id = $this->NewID();
     $top = array(
-      'id' => 'bTop',
+      'id' => $top_id,
       'd' => "M0,0 l$block_width,0 l$bx,$by l-$block_width,0 z"
     );
     $this->defs[] = $this->Element('symbol', NULL, NULL,
       $this->Element('path', $top));
-    $top = array('xlink:href' => '#bTop');
+    $top = array('xlink:href' => '#' . $top_id);
 
     $bnum = 0;
     $bspace = $this->bar_space / 2;
@@ -101,7 +101,8 @@ class Bar3DGraph extends ThreeDGraph {
     $bgroup = array('fill' => 'none');
     $this->SetStroke($bgroup, 'round');
     $body .= $this->Element('g', $bgroup, NULL, $bars);
-    return $body . $axes;
+    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
+    return $body;
   }
 
   /**

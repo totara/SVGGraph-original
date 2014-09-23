@@ -152,6 +152,8 @@ JAVASCRIPT;
       $this->AddFunction('setattr');
       $this->AddFunction('newel');
       $this->AddFunction('showhide');
+      $this->AddFunction('svgCoords');
+      $this->InsertVariable('tooltipOn', '');
       if($this->tooltip_shadow_opacity) {
         $ttoffs = (2 - $this->tooltip_stroke_width/2) . 'px';
         $shadow = <<<JAVASCRIPT
@@ -173,7 +175,10 @@ function tooltip(e,callback,on,param) {
   var tt = getE('tooltip'), rect = getE('ttrect'), shadow = getE('ttshdw'),
     offset = {$this->tooltip_offset},
     x = e.clientX + offset, y = e.clientY + offset, inner, brect, bw, bh,
-    sw, sh, de = document.documentElement;
+    sw, sh, pos = svgCoords(e),
+    de = e.target.correspondingUseElement || e.target;
+  while(de.parentNode && de.nodeName != 'svg')
+    de = de.parentNode;
   if(on && !tt) {
     tt = newel('g',{id:'tooltip',visibility:'visible'});
     rect = newel('rect',{
@@ -186,9 +191,17 @@ function tooltip(e,callback,on,param) {
     });
 {$shadow}
     tt.appendChild(rect);
-    de.appendChild(tt);
   }
-  tt && showhide(tt,on);
+  if(tt) {
+    if(on) {
+      if(tt.parentNode && tt.parentNode != de)
+        tt.parentNode.removeChild(tt);
+      x -= pos[0];
+      y -= pos[1];
+      de.appendChild(tt);
+    }
+    showhide(tt,on);
+  }
   inner = callback(e,tt,on,param);
   if(inner && on) {
     brect = inner.getBBox();
@@ -213,6 +226,7 @@ function tooltip(e,callback,on,param) {
       y = Math.max(e.clientY - offset - bh,0);
   }
   on && setattr(tt,'transform','translate('+x+' '+y+')');
+  tooltipOn = on ? 1 : 0;
 }\n
 JAVASCRIPT;
       break;
@@ -256,7 +270,8 @@ function ttEvt() {
   document.addEventListener && document.addEventListener('mousemove',
     function(e) {
       var t = finditem(e,tips);
-      tooltip(e,texttt,t,t);
+      if(t || tooltipOn)
+        tooltip(e,texttt,t,t);
     },false);
 }\n
 JAVASCRIPT;
@@ -343,6 +358,17 @@ function initDups() {
 }\n
 JAVASCRIPT;
       break;
+    case 'svgCoords' :
+      $fn = <<<JAVASCRIPT
+function svgCoords(e) {
+  var d = e.target.correspondingUseElement || e.target, m;
+  while(d.parentNode && d.nodeName != 'svg')
+    d = d.parentNode;
+  m = d.getScreenCTM ? d.getScreenCTM() : {e:0,f:0};
+  return [m.e,m.f];
+}\n
+JAVASCRIPT;
+      break;
     case 'autoHide' :
       $this->AddFunction('init');
       $this->AddFunction('getE');
@@ -368,11 +394,13 @@ JAVASCRIPT;
       $this->AddFunction('setattr');
       $fn = <<<JAVASCRIPT
 function dragOver(e,el) {
-  var t = getE(el), d;
+  var t = getE(el), d, bb;
   if(t && t.dragging) {
     d = t.draginfo;
-    setattr(d[2], 'transform', 'translate(' + (e.clientX - d[0]) +
-      ',' + (e.clientY - d[1]) + ')');
+    bb = t.getBBox();
+    d[2] = e.clientX - d[0] - (bb ? bb.width / 2 : 10);
+    d[3] = e.clientY - d[1] - (bb ? bb.height / 2 : 10);
+    setattr(d[4], 'transform', 'translate(' + d[2] + ',' + d[3] + ')');
     return false;
   }
 }\n
@@ -383,13 +411,16 @@ JAVASCRIPT;
       $this->AddFunction('newel');
       $fn = <<<JAVASCRIPT
 function dragStart(e,el) {
-  var t = getE(el);
+  var t = getE(el), m;
   if(!t.draginfo) {
-    t.draginfo = [e.clientX,e.clientY,newel('g',{cursor:'move'})];
-    t.parentNode.appendChild(t.draginfo[2]);
+    t.draginfo = [e.clientX,e.clientY,0,0,newel('g',{cursor:'move'})];
+    t.parentNode.appendChild(t.draginfo[4]);
     t.parentNode.removeChild(t);
-    t.draginfo[2].appendChild(t);
+    t.draginfo[4].appendChild(t);
   }
+  m = t.getScreenCTM();
+  t.draginfo[0] = m.e - t.draginfo[2];
+  t.draginfo[1] = m.f - t.draginfo[3];
   t.dragging = 1;
   return false;
 }\n
@@ -415,10 +446,10 @@ function initDrag() {
   if(document.addEventListener) {
     for(d in draggable) {
       e = draggable[d] = getE(d);
-      e.draginfo = [0,0,newel('g',{cursor:'move'})];
-      e.parentNode.appendChild(e.draginfo[2]);
+      e.draginfo = [0,0,0,0,newel('g',{cursor:'move'})];
+      e.parentNode.appendChild(e.draginfo[4]);
       e.parentNode.removeChild(e);
-      e.draginfo[2].appendChild(e);
+      e.draginfo[4].appendChild(e);
     }
     document.addEventListener('mouseup', function(e) {
       var t = finditem(e,draggable);
@@ -427,22 +458,24 @@ function initDrag() {
       }
     });
     document.addEventListener('mousedown', function(e) {
-      var t = finditem(e,draggable);
+      var t = finditem(e,draggable), m, d;
       if(t && !t.dragging) {
         t.dragging = 1;
-        if(!t.draginfo[0]) {
-          t.draginfo[0] = e.clientX;
-          t.draginfo[1] = e.clientY;
-        }
+        m = t.getScreenCTM();
+        d = t.draginfo;
+        d[0] = m.e - d[2];
+        d[1] = m.f - d[3];
         return false;
       }
     });
     function dragmove(e) {
-      var t = finditem(e,draggable), d;
+      var t = finditem(e,draggable), d, bb;
       if(t && t.dragging) {
         d = t.draginfo;
-        setattr(d[2], 'transform', 'translate(' + (e.clientX - d[0]) +
-          ',' + (e.clientY - d[1]) + ')');
+        bb = t.getBBox();
+        d[2] = e.clientX - d[0] - (bb ? bb.width / 2 : 10);
+        d[3] = e.clientY - d[1] - (bb ? bb.height / 2 : 10);
+        setattr(d[4], 'transform', 'translate(' + d[2] + ',' + d[3] + ')');
         return false;
       }
     };
@@ -535,7 +568,7 @@ JAVASCRIPT;
     }
     if($duplicate) {
       if(!isset($element['id']))
-        $element['id'] = $this->NewID();
+        $element['id'] = $this->graph->NewID();
       $this->AddOverlay($element['id'], $this->graph->NewID());
     }
   }

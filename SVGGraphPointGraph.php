@@ -29,6 +29,7 @@ abstract class PointGraph extends GridGraph {
   private $markers = array();
   private $marker_attrs = array();
   private $marker_ids = array();
+  private $marker_link_ids = array();
   private $marker_used = array();
   private $marker_elements = array();
   private $marker_types = array();
@@ -113,8 +114,8 @@ abstract class PointGraph extends GridGraph {
       $this->SetTooltip($use, $marker->key, $marker->value);
 
     if($this->GetLinkURL($marker->key)) {
-      $id .= 'A';
-      $use['xlink:href'] .= 'A';
+      $id = $this->marker_link_ids[$id];
+      $use['xlink:href'] = '#' . $id;
       $element = $this->GetLink($marker->key, $this->Element('use', $use));
     } else {
       $element = $this->Element('use', $use);
@@ -146,7 +147,7 @@ abstract class PointGraph extends GridGraph {
   private function CreateMarkers()
   {
     foreach(array_keys($this->markers) as $set) {
-      $id = 'lMrk' . $set;
+      $id = $this->NewID();
       $marker = array('id' => $id, 'cursor' => 'crosshair');
       $marker = array_merge($this->marker_attrs, $marker);
 
@@ -213,7 +214,8 @@ abstract class PointGraph extends GridGraph {
 
         // add link version
         unset($marker['cursor']);
-        $marker['id'] .= 'A';
+        $this->marker_link_ids[$marker['id']] = $this->NewID();
+        $marker['id'] = $this->marker_link_ids[$marker['id']];
         $this->marker_elements[$marker['id']] =
           $this->Element('symbol', NULL, NULL,
             $this->Element($type, $marker, NULL));
@@ -242,3 +244,34 @@ class Marker {
   }
 }
 
+/**
+ * These functions are used by scatter graphs to find the maximum and
+ * minimum keys and values in scatter_2d data
+ */
+function vmax($m, $e)
+{
+  if(is_null($m))
+    return $e[1];
+  return $e[1] > $m ? $e[1] : $m;
+}
+
+function vmin($m, $e)
+{
+  if(is_null($m))
+    return $e[1];
+  return $e[1] < $m ? $e[1] : $m;
+}
+
+function kmax($m, $e)
+{
+  if(is_null($m))
+    return $e[0];
+  return $e[0] > $m ? $e[0] : $m;
+}
+
+function kmin($m, $e)
+{
+  if(is_null($m))
+    return $e[0];
+  return $e[0] < $m ? $e[0] : $m;
+}
