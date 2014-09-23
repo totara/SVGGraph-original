@@ -1,11 +1,46 @@
+Version 2.3 (26/04/2011)
+-----------
+- Added horizontal bar graph.
+- Added horizontal stacked bar graph.
+- Added horizontal grouped bar graph.
+- Updated 3D bar graph to support negative values.
+- Added fixed axis and division options.
+
+Version 2.2.1 (17/03/2011)
+-------------
+- Fixed display of graphs with a single data point.
+
+Version 2.2 (21/02/2011)
+-----------
+- Added background image support.
+- Added support for negative numbers on bar/line graphs.
+- Updated axis calculations.
+- Tooltips are now supported for all graph types.
+
+Version 2.1 (12/01/2011)
+-----------
+- Added stacked bar graph.
+- Added grouped bar graph.
+- Added multiple line graph.
+- Improved gradient support.
+- Made markers mandatory on scatter graph.
+
+Version 2.0 (19/08/2010)
+-----------
+- Update to PHP 5 OOP syntax.
+- Added 3D pie graph.
+- Added scatter graph.
+- Added tooltips for graph markers.
+- Minor improvements.
+
 Version 1.2.1 (11/04/2010)
 -------------
-- Fixed error shown with E_STRICT
+- Fixed error shown with E_STRICT.
 
 Version 1.2 (01/05/2009)
 -----------
-- Added Bar3DGraph graph type
-- Added axis divisions
+- Added Bar3DGraph graph type.
+- Added axis divisions.
 
 Version 1.1 (27/03/2009)
 -----------

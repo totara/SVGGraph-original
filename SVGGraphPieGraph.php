@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009 Graham Breach
+ * Copyright (C) 2009-2011 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -16,28 +16,37 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 /**
- * $Id: SVGGraphPieGraph.php 72 2010-04-11 11:54:55Z grahambreach $
  * For more information, please contact <graham@goat1000.com>
  */
 
 class PieGraph extends Graph {
 
-	var $aspect_ratio = 1.0;
-	var $sort = true;
-	var $reverse = false;
-	var $show_labels = true;
-	var $show_label_amount = false;
-	var $show_label_percent = false;
-	var $label_colour = 'white';
-	var $label_back_colour = NULL;
-	var $label_font = 'sans-serif';
-	var $label_font_weight = 'bold';
-	var $label_font_size = '18'; // pixels
-	var $label_fade_in_speed = 0;
-	var $label_fade_out_speed = 0;
-	var $label_position = 0.75;
+	protected $aspect_ratio = 1.0;
+	protected $sort = true;
+	protected $reverse = false;
+	protected $show_labels = true;
+	protected $show_label_amount = false;
+	protected $show_label_percent = false;
+	protected $label_colour = 'white';
+	protected $label_back_colour = NULL;
+	protected $label_font = 'sans-serif';
+	protected $label_font_weight = 'bold';
+	protected $label_font_size = '18'; // pixels
+	protected $label_fade_in_speed = 0;
+	protected $label_fade_out_speed = 0;
+	protected $label_position = 0.75;
 
-	function Draw()
+	// for internal use
+	protected $x_centre;
+	protected $y_centre;
+	protected $radius_x;
+	protected $radius_y;
+	protected $calc_done;
+
+	/**
+	 * Calculates position of pie
+	 */
+	protected function Calc()
 	{
 		if($this->show_labels && $this->label_fade_in_speed)
 			$this->AddFunction('fadeIn','fadeOut');
@@ -55,17 +64,26 @@ class PieGraph extends Graph {
 		elseif($this->aspect_ratio <= 0)
 			$this->aspect_ratio = 1.0;
 
-		$x_centre = (($bound_x2 - $bound_x1) / 2) + $bound_x1;
-		$y_centre = (($bound_y2 - $bound_y1) / 2) + $bound_y1;
+		$this->x_centre = (($bound_x2 - $bound_x1) / 2) + $bound_x1;
+		$this->y_centre = (($bound_y2 - $bound_y1) / 2) + $bound_y1;
 
 		if($h/$w > $this->aspect_ratio) {
-			$radius_x = $w / 2.0;
-			$radius_y = $radius_x * $this->aspect_ratio;
+			$this->radius_x = $w / 2.0;
+			$this->radius_y = $this->radius_x * $this->aspect_ratio;
 		} else {
-			$radius_y = $h / 2.0;
-			$radius_x = $radius_y / $this->aspect_ratio;
+			$this->radius_y = $h / 2.0;
+			$this->radius_x = $this->radius_y / $this->aspect_ratio;
 		}
+		$this->calc_done = true;
+	}
 
+	/**
+	 * Draws the pie graph
+	 */
+	public function Draw()
+	{
+		if(!$this->calc_done)
+			$this->Calc();
 		$speed_in = $this->show_labels && $this->label_fade_in_speed ? $this->label_fade_in_speed / 100.0 : 0;
 		$speed_out = $this->show_labels && $this->label_fade_out_speed ? $this->label_fade_out_speed / 100.0 : 0;
 
@@ -85,47 +103,40 @@ class PieGraph extends Graph {
 
 		$slice = 0;
 		foreach($values as $key => $value) {
+			if(!$value)
+				continue;
 			++$slice;
 
 			$angle1 = $sub_total * $unit_slice;
 			$angle2 = ($sub_total + $value) * $unit_slice;
 			$degrees = ($angle2 - $angle1) * 180.0 / pi();
 
-			$r1 = $radius_x;
-			$r2 = $radius_y;
-			$x1 = ($r1 * cos($angle1));
-			$y1 = ($this->reverse ? -1 : 1) * ($r2 * sin($angle1));
-			$x2 = ($r1 * cos($angle2));
-			$y2 = ($this->reverse ? -1 : 1) * ($r2 * sin($angle2));
-
-			$x1 += $x_centre;
-			$y1 += $y_centre;
-			$x2 += $x_centre;
-			$y2 += $y_centre;
-
-			$outer = ($degrees > 180 ? 1 : 0);
-			$sweep = ($this->reverse ? 0 : 1);
-			$path = "M$x_centre,$y_centre L$x1,$y1 A$r1 $r2 0 $outer,$sweep $x2,$y2 z";
-
-			$attr = array('d' => $path, 'id' => 'pieSlice' . $slice, 'fill' => $this->GetColour(($slice-1) % $ccount, true));
+			// get the path (or whatever) for a pie slice
+			$attr = array('id' => 'pieSlice' . $slice, 'fill' => $this->GetColour(($slice-1) % $ccount, true));
+			if($this->show_tooltips)
+				$this->SetTooltip($attr, $key, $value);
 			if($speed_in) {
 				$attr['onmouseover'] = 'fadeIn(evt,"pieLabel' . $slice . '", ' . $speed_in . ')';
-				if($speed_out)
-					$attr['onmouseout'] = 'fadeOut(evt,"pieLabel' . $slice . '", ' . $speed_out . ')';
+				if($speed_out) {
+					if(isset($attr['onmouseout']))
+						$attr['onmouseout'] .= ';fadeOut(evt,"pieLabel' . $slice . '", ' . $speed_out . ')';
+					else
+						$attr['onmouseout'] = 'fadeOut(evt,"pieLabel' . $slice . '", ' . $speed_out . ')';
+				}
 			}
-			$path = $this->Element('path', $attr);
+			$path = $this->GetSlice($angle1, $angle2, $attr);
 	
 			$t_style = NULL;
 			if($this->show_labels) {
 				$ac = ($sub_total + ($value * 0.5)) * $unit_slice;
-				$xc = $this->label_position * $r1 * cos($ac);
-				$yc = ($this->reverse ? -1 : 1) * $this->label_position * $r2 * sin($ac);
+				$xc = $this->label_position * $this->radius_x * cos($ac);
+				$yc = ($this->reverse ? -1 : 1) * $this->label_position * $this->radius_y * sin($ac);
 
 				$text['id'] = 'pieLabel' . $slice;
 				if($this->label_fade_in_speed)
 					$text['opacity'] = '0.0';
-				$tx = $x_centre + $xc;
-				$ty = $y_centre + $yc + ($this->label_font_size * 0.3);
+				$tx = $this->x_centre + $xc;
+				$ty = $this->y_centre + $yc + ($this->label_font_size * 0.3);
 
 				// display however many lines of label
 				$parts = array($key);
@@ -172,6 +183,56 @@ class PieGraph extends Graph {
 		}
 		return $body . $labels;
 	}
+
+	/**
+	 * Returns a single slice of pie
+	 */
+	protected function GetSlice($angle1, $angle2, &$attr)
+	{
+		$x1 = $y1 = $x2 = $y2 = 0;
+		$this->CalcSlice($angle1, $angle2, $x1, $y1, $x2, $y2);
+		if((string)$x1 == (string)$x2 && (string)$y1 == (string)$y2) {
+			$attr['cx'] = $this->x_centre;
+			$attr['cy'] = $this->y_centre;
+			$attr['rx'] = $this->radius_x;
+			$attr['ry'] = $this->radius_y;
+			return $this->Element('ellipse', $attr);
+		} else {
+			$outer = ($angle2 - $angle1 > pi() ? 1 : 0);
+			$sweep = ($this->reverse ? 0 : 1);
+			$attr['d'] = "M{$this->x_centre},{$this->y_centre} L$x1,$y1 A{$this->radius_x} {$this->radius_y} 0 $outer,$sweep $x2,$y2 z";
+			return $this->Element('path', $attr);
+		}
+	}
+
+	protected function CalcSlice($angle1, $angle2, &$x1, &$y1, &$x2, &$y2)
+	{
+		$x1 = ($this->radius_x * cos($angle1));
+		$y1 = ($this->reverse ? -1 : 1) * ($this->radius_y * sin($angle1));
+		$x2 = ($this->radius_x * cos($angle2));
+		$y2 = ($this->reverse ? -1 : 1) * ($this->radius_y * sin($angle2));
+
+		$x1 += $this->x_centre;
+		$y1 += $this->y_centre;
+		$x2 += $this->x_centre;
+		$y2 += $this->y_centre;
+	}
+
+	/**
+	 * Checks that the data are valid
+	 */
+	protected function CheckValues(&$values)
+	{
+		parent::CheckValues($values);
+		$sum = 0;
+		foreach($values[0] as $key => $val) {
+			if($val < 0)
+				throw new Exception('Negative value for pie chart');
+			$sum += $val;
+		}
+		if($sum <= 0)
+			throw new Exception('Empty pie chart');
+	}
+
 }
 
-?>

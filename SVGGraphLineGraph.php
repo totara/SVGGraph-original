@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009 Graham Breach
+ * Copyright (C) 2009-2011 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -16,29 +16,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 /**
- * $Id: SVGGraphLineGraph.php 72 2010-04-11 11:54:55Z grahambreach $
  * For more information, please contact <graham@goat1000.com>
  */
 
-require_once('SVGGraphGridGraph.php');
+require_once('SVGGraphPointGraph.php');
 
 /**
  * LineGraph - joined line, with axes and grid
  */
-class LineGraph extends GridGraph {
+class LineGraph extends PointGraph {
 
-	var $line_stroke_width = 2;
-	var $marker_size = 5;
-	var $marker_type = 'circle';
-	var $marker_colour = NULL;
-	var $fill_under = false;
+	protected $line_stroke_width = 2;
+	protected $fill_under = false;
+	protected $fill_opacity = 1;
 
-	// private
-	var $markers = array();
-
-	function Draw()
+	public function Draw()
 	{
-		$this->CalcAxes(true);
+		$assoc = $this->AssociativeKeys();
+		$this->CalcAxes($assoc);
 		$body = $this->Grid();
 
 		$attr = array('stroke' => $this->stroke_colour,
@@ -48,32 +43,36 @@ class LineGraph extends GridGraph {
 		$cmd = 'M';
 		$ccount = count($this->colours);
 		$path = '';
-		$markers = '';
 		if($this->fill_under) {
-			$path = 'M' . $this->pad_left . ' ' . ($this->pad_top + $this->g_height);
+			$path = 'M' . $this->pad_left . ' ' . ($this->height - $this->pad_bottom - $this->y0);
 			$cmd = 'L';
 			$attr['fill'] = $this->GetColour(0);
+			if($this->fill_opacity < 1.0)
+				$attr['fill-opacity'] = $this->fill_opacity;
 		}
 
 		$values = $this->GetValues();
 		foreach($values as $key => $value) {
-			$x = $this->pad_left + ($this->bar_unit_width * $bnum);
-			$y = $this->pad_top + $this->g_height - ($value * $this->bar_unit_height);
+			if(!is_null($value)) {
+				$x = $this->pad_left + ($this->bar_unit_width * $bnum);
+				$y = $this->height - $this->pad_bottom - $this->y0 - ($value * $this->bar_unit_height);
 
-			//$link = $this->GetLink($key);
-			$path .= "$cmd$x $y ";
+				$path .= "$cmd$x $y ";
+
+				// no need to repeat same L command
+				$cmd = $cmd == 'M' ? 'L' : '';
+				$this->AddMarker($x, $y, $key, $value);
+			}
 			++$bnum;
-
-			// no need to repeat same L command
-			$cmd = $cmd == 'M' ? 'L' : '';
-			$this->AddMarker($x,$y,$key);
 		}
 
 		if($this->fill_under)
-			$path .= $cmd . $x . ' ' . ($this->pad_top + $this->g_height) . 'z';
+			$path .= $cmd . $x . ' ' . ($this->height - $this->pad_bottom - $this->y0) . 'z';
 
 		$attr['d'] = $path;
-		$body .= $this->Element('path', $attr);
+		$group = array();
+		$this->ClipGrid($group);
+		$body .= $this->Element('g', $group, NULL, $this->Element('path', $attr));
 
 		$body .= $this->Axes();
 		$body .= $this->CrossHairs();
@@ -81,70 +80,12 @@ class LineGraph extends GridGraph {
 		return $body;
 	}
 
-	/**
-	 * Changes to crosshair cursor by overlaying a transparent rectangle
-	 */
-	function CrossHairs()
+	protected function CheckValues(&$values)
 	{
-		$rect = array(
-			'width' => $this->width, 'height' => $this->height,
-			'opacity' => 0.0, 'cursor' => 'crosshair',
-		);
-		return $this->Element('rect', $rect);
-	}
+		parent::CheckValues($values);
 
-
-	/**
-	 * Adds a marker to the list
-	 */
-	function AddMarker($x, $y, $key)
-	{
-		$this->markers[] = array('x' => $x, 'y' => $y, 'key' => $key);
-	}
-
-	/**
-	 * Draws (linked) markers on the graph
-	 */
-	function DrawMarkers()
-	{
-		if($this->marker_size == 0 || count($this->markers) == 0)
-			return '';
-
-		$marker = array('id' => 'lMrk');
-		if(!is_null($this->marker_colour))
-		$marker['fill'] = !is_null($this->marker_colour) ? $this->marker_colour : $this->GetColour(0, true);
-
-		switch($this->marker_type) {
-		case 'triangle' :
-			$type = 'path';
-			$a = $this->marker_size;
-			$o = $a * tan(pi() / 6);
-			$h = $a / cos(pi() / 6);
-			$marker['d'] = "M$a,$o L0,-$h L-$a,$o z";
-			break;
-		case 'square' :
-			$type = 'rect';
-			$marker['x'] = $marker['y'] = -$this->marker_size;
-			$marker['width'] = $marker['height'] = $this->marker_size * 2;
-			break;
-		case 'circle' :
-		default :
-			$type = 'circle';
-			$marker['r'] = $this->marker_size;
-		}
-
-		// add marker symbol to defs area
-		$this->defs[] = $this->Element('symbol', NULL, NULL, $this->Element($type, $marker, NULL));
-
-		$markers = '';
-		foreach($this->markers as $m) {
-			$key = $m['key'];
-			unset($m['key']);
-			$m['xlink:href'] = '#lMrk';
-			$markers .= $this->GetLink($key, $this->Element('use', $m));
-		}
-		return $markers;
+		if(count($values[0]) <= 1)
+			throw new Exception('Not enough values for line graph');
 	}
 }
 
-?>

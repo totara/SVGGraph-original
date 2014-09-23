@@ -1,8 +1,9 @@
-SVGGraph Library version 1.2.1
-==============================
+SVGGraph Library version 2.3
+============================
 
 This library provides PHP classes and functions for easily creating SVG
-graphs from data.
+graphs from data. As of version 2.0, SVGGraph works with PHP 5 only,
+PHP 4 support has been dropped.
 
 Here is a basic example:
  $graph = new SVGGraph(640, 480);
@@ -14,17 +15,35 @@ Here is a basic example:
 
 Graph types
 ===========
-At the moment there are four types of graph supported by SVGGraph:
+At the moment these types of graph are supported by SVGGraph:
  
- BarGraph   - vertical bars, optionally hyperlinked;
+ BarGraph        - vertical bars, optionally hyperlinked;
 
- LineGraph  - a line joining the data points, with optionally hyperlinked 
-              markers at the data points;
+ LineGraph       - a line joining the data points, with optionally hyperlinked 
+                   markers at the data points;
 
- PieGraph   - a pie chart, with optionally hyperlinked slices and option to
-              fade labels in/out when the pointer enters/leaves a slice;
+ PieGraph        - a pie chart, with optionally hyperlinked slices and option
+                   to fade labels in/out when the pointer enters/leaves a
+                   slice;
 
- Bar3DGraph - a 3D-looking version of the BarGraph type.
+ Bar3DGraph      - a 3D-looking version of the BarGraph type;
+
+ Pie3DGraph      - a 3D-looking version of the PieGraph type;
+
+ ScatterGraph    - markers drawn at arbitrary horizontal and vertical points;
+
+ MultiLineGraph  - multiple data sets drawn as lines on one graph;
+
+ StackedBarGraph - multiple data sets drawn as bars, stacked one on top of
+                   another;
+
+ GroupedBarGraph - multiple data sets drawn as bars, side-by-side.
+
+ HorizontalBarGraph - a bar graph with the axes swapped.
+
+ HorizontalStackedBarGraph - a stacked bar graph drawn horizontally.
+
+ HorizontalGroupedBarGraph - a grouped bar graph drawn horizontally.
 
 Using SVGGraph
 ==============
@@ -108,6 +127,14 @@ array:
  $data = array('first' => 1, 'second' => 2, 'third' => 3);
  $graph->Values($data);
 
+For graphs supporting multiple datasets, pass each dataset as an array within
+an outer array:
+ $data = array(
+  array('first' => 1, 'second' => 2, 'third' => 3),
+  array('first' => 3, 'second' => 4, 'third' => 2)
+ );
+ $graph->Values($data);
+
 Hyperlinks
 ==========
 The graph bars and markers may be assigned hyperlinks - each value that requires
@@ -160,13 +187,27 @@ graph's "colours" array.
     array('red','green'));
 
 You may use any of the standard named colours, or hex notation, or RGB notation.
-The final entry in the example array is an array of two colours, which specifies
-a vertical gradient, the first colour (red) at the top and the second (green) at
-the bottom.
 
-For the bar graph, each bar is assigned the next colour in turn from the list
-of colours, repeating when it reaches the end. For the line graph, the first
-colour in the list is used to draw the line.
+Gradients
+=========
+The final entry in the example colours array above is an array of two colours,
+which specifies a vertical gradient, the first colour (red) at the top and the
+second (green) at the bottom. From version 2.1, more colours may be used and
+a final 'h' or 'v' will specify horizontal or vertical gradients.
+
+Gradients are supported by the bar graphs and for the filled area under line
+graphs. Where gradients are not supported, the first colour in the array will
+be used instead.
+
+Examples:
+ array('red','white','red','h');
+ - a horizontal gradient, red at both sides and white in the centre
+
+ array('red','white','blue');
+ - a vertical gradient, red at the top, white in the centre, blue at the bottom
+
+ array('red','orange','yellow','green','blue','indigo','violet','h');
+ - a horizontal rainbow gradient
 
 Settings
 ========
@@ -179,49 +220,93 @@ The list of options and their defaults are shown below. Sizes are always in
 pixels. Since this is a standard PHP array, numbers and boolean values should
 be represented without quotes, everything else should be quoted with either
 single or double quotes.
- title              NULL                Contents of title tag, or NULL for none
- description        NULL                Contents of desc tag, or NULL for none
- stroke_colour      'rgb(0,0,0)'        Colour of graph lines
- back_colour        'rgb(240,240,240)'  Background colour of graph
- back_round         0                   Radius of rounded background edge
- back_stroke_width  1                   Thickness of background edge
- back_stroke_colour 'rgb(0,0,0)'        Colour of background edge
- pad_top            10                  Space at top of graph
- pad_bottom         10                  Space at bottom of graph
- pad_left           10                  Space to left of graph
- pad_right          10                  Space to right of graph
- link_base          ''                  Prepended to all links
- link_target        '_blank'            Link target frame
- namespace          false               Option to use the svg: namespace prefix
- doctype            false               Option to output the DOCTYPE
+ title                  NULL                Contents of title tag, or NULL for none
+ description            NULL                Contents of desc tag, or NULL for none
+ stroke_colour          'rgb(0,0,0)'        Colour of graph lines
+ back_colour            'rgb(240,240,240)'  Background colour of graph
+ back_round             0                   Radius of rounded background edge
+ back_stroke_width      1                   Thickness of background edge
+ back_stroke_colour     'rgb(0,0,0)'        Colour of background edge
+ back_image             NULL                Image to use for background (NULL for none).
+ back_image_width       '100%'              Width of background image
+ back_image_height      '100%'              Height of background image
+ back_image_opacity     1.0                 Opacity of background image (0.0-1.0)
+ back_image_top         0                   Top offset of background image
+ back_image_left        0                   Left offset of background image
+ back_image_mode        'auto'              Background image display method. Options are 'auto', 'tile', 'stretch'
+ pad_top                10                  Space at top of graph
+ pad_bottom             10                  Space at bottom of graph
+ pad_left               10                  Space to left of graph
+ pad_right              10                  Space to right of graph
+ link_base              ''                  Prepended to all links
+ link_target            '_blank'            Link target frame
+ namespace              false               Option to use the svg: namespace prefix
+ doctype                false               Option to output the DOCTYPE
+ show_tooltips          true                Enables display of tooltips over graph markers
+ tooltip_colour         'black'             Tooltip text/border colour
+ tooltip_stroke_width   1                   Tooltip border thickness
+ tooltip_back_colour    '#ffffcc'           Tooltip rectangle background colour
+ tooltip_font           'sans-serif'        Font for tooltips
+ tooltip_font_weight    'normal'            Tooltip font weight
+ tooltip_font_size      10                  Tooltip font size
+ tooltip_padding        3                   Tooltip rectangle padding
+ tooltip_round          0                   Radius of rounded tooltip corner
+ tooltip_shadow_opacity 0.3                 Opacity of tooltip shadow (0.0-1.0, 0 disables shadow)
+ tooltip_offset         10                  Distance between cursor and tooltip
 
-These options are common to the Bar, Line and Bar3D graph types:
- show_grid          true                Grid on/off option
- show_axes          true                Axes on/off option
- show_divisions     true                Axis division points on/off
- show_label_h       true                Horizontal axis labelling on/off
- show_label_v       true                Vertical axis labelling on/off
- grid_colour        'rgb(220,220,220)'  Colour of grid lines
- axis_colour        'rgb(0,0,0)'        Colour of axis lines
- axis_font          'monospace'         Font for labels
- axis_font_size     10                  Label font size
- axis_font_adjust   0.6                 Approx ratio of font width to height
- axis_overlap       5                   Amount to extend axes past graph area
- label_colour       'rgb(0,0,0)'        Colour of label text
- division_size      3                   Length of division lines
- division_colour    NULL                Colour of division lines, or NULL to use axis colour
+These options are common to the Bar, Line, Bar3D, Scatter, StackedBar,
+GroupedBar, MultiLine, HorizontalBar, HorizontalStackedBar and
+HorizontalGroupedBar graph types:
+ show_grid              true                Grid on/off option
+ show_axes              true                Axes on/off option
+ show_divisions         true                Axis division points on/off
+ show_label_h           true                Horizontal axis labelling on/off
+ show_label_v           true                Vertical axis labelling on/off
+ grid_colour            'rgb(220,220,220)'  Colour of grid lines
+ axis_colour            'rgb(0,0,0)'        Colour of axis lines
+ axis_font              'monospace'         Font for labels
+ axis_font_size         10                  Label font size
+ axis_font_adjust       0.6                 Approx ratio of font width to height
+ axis_overlap           5                   Amount to extend axes past graph area
+ label_colour           'rgb(0,0,0)'        Colour of label text
+ division_size          3                   Length of division lines
+ division_colour        NULL                Colour of division lines, or NULL to use axis colour
+ minimum_grid_spacing   15                  Minimum distance between grid/axis lines
+ minimum_grid_spacing_v NULL                Minimum distance between vertical grid lines
+ minimum_grid_spacing_h NULL                Minimum distance between horizontal grid lines
 
-BarGraph options:
- bar_space          10                  Space between bars
+These options are for all non-horizontal grid-based graph types:
+ axis_min_v             NULL                Minimum value for Y-axis
+ axis_max_v             NULL                Maximum value for Y-axis
+ grid_division_v        NULL                Division step value for Y-axis (minimum_grid_spacing is ignored)
 
-LineGraph options:
- line_stroke_width  2                   Thickness of graph line
- marker_size        5                   Size of point markers
- marker_type        'circle'            Type of marker to use (circle, square, triangle)
- marker_colour      NULL                Colour of marker (NULL to use same as line)
- fill_under         false               If true, the area under the line is filled with colour #2
+These corresponding options are for the horizontal grid-based graph types:
+ axis_min_h             NULL                Minimum value for X-axis
+ axis_max_h             NULL                Maximum value for X-axis
+ grid_division_h        NULL                Division step value for X-axis (minimum_grid_spacing is ignored)
 
-PieGraph options:
+BarGraph and StackedBarGraph options:
+ bar_space            10                  Space between bars
+
+Bar3DGraph options:
+ bar_space            10                  Space between bars
+ project_angle        30                  Angle between bar side edges and horizontal axis
+
+GroupedBarGraph options:
+ bar_space            10                  Space between groups
+ group_space          3                   Space between bars in group
+
+LineGraph, MultiLineGraph and ScatterGraph options:
+ marker_size          5                   Size of point markers
+ marker_type          'circle'            Type of marker to use (circle, square, triangle)
+ marker_colour        NULL                Colour of marker (NULL to use same as line)
+
+LineGraph and MultiLineGraph options:
+ line_stroke_width    2                   Thickness of graph line
+ fill_under           false               If true, the area under the line is filled
+ fill_opacity         1                   Opacity of the filled area (MultiLine default is 0.5)
+
+PieGraph and Pie3DGraph options:
  aspect_ratio          1.0              Ratio of height/width (or 'auto' to fill area)
  sort                  true             Sorts the pie slices, largest first
  reverse               false            Slices are drawn anti-clockwise instead of clockwise
@@ -237,9 +322,8 @@ PieGraph options:
  label_fade_out_speed  0                Speed to fade out labels, if fading in enabled
  label_position        0.75             Distance of label from centre
 
-Bar3DGraph options:
- bar_space          10                  Space between bars
- project_angle      30                  Angle between bar side edges and horizontal axis
+Pie3DGraph options:
+ depth              40                  Depth of the 3D pie slice
 
 Contact details
 ===============
@@ -247,3 +331,4 @@ For more information about this software please contact the author,
 graham(at)goat1000.com or visit the website: http://www.goat1000.com/
 
 
+Copyright (C) 2009-2011 Graham Breach

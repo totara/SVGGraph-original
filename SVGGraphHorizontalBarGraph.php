@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2011 Graham Breach
+ * Copyright (C) 2011 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,10 +21,11 @@
 
 require_once('SVGGraphGridGraph.php');
 
-class BarGraph extends GridGraph {
+class HorizontalBarGraph extends GridGraph {
 
 	protected $bar_space = 10;
 	protected $label_centre = true;
+	protected $flip_axes = true;
 
 	protected function Draw()
 	{
@@ -33,19 +34,19 @@ class BarGraph extends GridGraph {
 		$this->CalcAxes($assoc, true);
 		$body = $this->Grid();
 
-		$bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
-			$this->bar_unit_width - $this->bar_space);
+		$bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
+			$this->bar_unit_height - $this->bar_space);
 		$bar_style = array('stroke' => $this->stroke_colour);
-		$bar = array('width' => $bar_width);
+		$bar = array('height' => $bar_height);
 
 		$bnum = 0;
-		$b_start = $this->pad_left + ($this->bar_space / 2);
+		$b_start = $this->height - $this->pad_bottom - ($this->bar_space / 2);
 		$ccount = count($this->colours);
 		foreach($values as $key => $value) {
-			$bar['x'] = $b_start + ($this->bar_unit_width * $bnum);
+			$bar['y'] = $b_start - $bar_height - ($this->bar_unit_height * $bnum);
 			$this->Bar($value, $bar);
 
-			if($bar['height'] > 0) {
+			if($bar['width'] > 0) {
 				$bar_style['fill'] = $this->GetColour($bnum % $ccount);
 
 				if($this->show_tooltips)
@@ -61,16 +62,35 @@ class BarGraph extends GridGraph {
 	}
 
 	/**
-	 * Fills in the y-position and height of a bar
+	 * Fills in the x-position and width of a bar
 	 */
 	protected function Bar($value, &$bar)
 	{
-		$y0 = $this->height - $this->pad_bottom - $this->y0;
-		$l1 = $this->ClampVertical($y0);
-		$l2 = $this->ClampVertical($y0 - ($value * $this->bar_unit_height));
-		$bar['y'] = min($l1,$l2);
-		$bar['height'] = abs($l1-$l2);
+		$x0 = $this->pad_left + $this->x0;
+		$l1 = $this->ClampHorizontal($x0);
+		$l2 = $this->ClampHorizontal($x0 + ($value * $this->bar_unit_width));
+		$bar['x'] = min($l1,$l2);
+		$bar['width'] = abs($l1-$l2);
 	}
 
+	/**
+	 * Overload to measure keys
+	 */
+	protected function LabelAdjustment($m = 1000)
+	{
+		if($this->show_label_v) {
+			$max_len = 0;
+			foreach($this->values[0] as $k => $v) {
+				$len = strlen($k);
+				if($len > $max_len)
+					$max_len = $len;
+			}
+
+			$this->pad_left += $this->axis_font_size * $max_len * $this->axis_font_adjust;
+		}
+		if($this->show_label_h)
+			$this->pad_bottom += $this->axis_font_size;
+		$this->label_adjust_done = true;
+	}
 }
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009 Graham Breach
+ * Copyright (C) 2009-2011 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -16,18 +16,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 /**
- * $Id: SVGGraphBar3DGraph.php 72 2010-04-11 11:54:55Z grahambreach $
  * For more information, please contact <graham@goat1000.com>
  */
-
 
 require_once('SVGGraph3DGraph.php');
 
 class Bar3DGraph extends ThreeDGraph {
 
-	var $bar_space = 10;
+	protected $bar_space = 10;
 
-	function Draw()
+	public function Draw()
 	{
 		// make sure project_angle is in range
 		if($this->project_angle < 0)
@@ -35,7 +33,8 @@ class Bar3DGraph extends ThreeDGraph {
 		elseif($this->project_angle > 90)
 			$this->project_angle = 90;
 
-		$this->CalcAxes();
+		$assoc = $this->AssociativeKeys();
+		$this->CalcAxes($assoc, true);
 		$body = $this->Grid();
 		$axes = $this->Axes();
 
@@ -59,31 +58,36 @@ class Bar3DGraph extends ThreeDGraph {
 		list($tx, $ty) = $this->Project(0,0,$this->bar_space / 2);
 		$group = array('transform' => "translate($tx,$ty)");
 
-		$baseline = $this->height - $this->pad_bottom;
+		$baseline = $this->height - $this->pad_bottom - $this->y0;
 		$b_start = $this->pad_left + ($this->bar_space / 2);
 		$bar = array('width' => $block_width);
 
 		$bars = '';
 		foreach($values as $key => $value) {
-			$bar['x'] = $b_start + ($this->bar_unit_width * $bnum);
-			$bar['height'] = $value * $this->bar_unit_height;
-			$bar['y'] = $baseline - $bar['height'];
+			if(!is_null($value)) {
+				$bar['x'] = $b_start + ($this->bar_unit_width * $bnum);
+				$bar['height'] = abs($value) * $this->bar_unit_height;
+				$bar['y'] = $baseline - ($value > 0 ? $bar['height'] : 0);
+				$this->Bar($value, $bar);
 
-			$top['transform'] = "translate($bar[x],$bar[y])";
-			$side_x = $bar['x'] + $block_width;
-			$side = array(
-				'd' => "M0,0 l$bx,$by l0,$bar[height] l-$bx," . -$by . " z",
-				'transform' => "translate($side_x,$bar[y])"
-			);
-			$group['fill'] = $this->GetColour($bnum % $ccount);
-			$top['fill'] = $this->GetColour($bnum % $ccount, TRUE);
+				$top['transform'] = "translate($bar[x],$bar[y])";
+				$side_x = $bar['x'] + $block_width;
+				$side = array(
+					'd' => "M0,0 l$bx,$by l0,$bar[height] l-$bx," . -$by . " z",
+					'transform' => "translate($side_x,$bar[y])"
+				);
+				$group['fill'] = $this->GetColour($bnum % $ccount);
+				$top['fill'] = $this->GetColour($bnum % $ccount, TRUE);
 
-			$rect = $this->Element('rect', $bar);
-			$bar_top = $this->Element('use', $top);
-			$bar_side = $this->Element('path', $side);
-			$link = $this->GetLink($key, $rect . $bar_top . $bar_side);
+				$rect = $this->Element('rect', $bar);
+				$bar_top = $this->Element('use', $top);
+				$bar_side = $this->Element('path', $side);
+				$link = $this->GetLink($key, $rect . $bar_top . $bar_side);
 
-			$bars .= $this->Element('g', $group, NULL, $link);
+				if($this->show_tooltips)
+					$this->SetTooltip($group, $value);
+				$bars .= $this->Element('g', $group, NULL, $link);
+			}
 			++$bnum;
 		}
 
@@ -95,6 +99,18 @@ class Bar3DGraph extends ThreeDGraph {
 		$body .= $this->Element('g', $bgroup, NULL, $bars);
 		return $body . $axes;
 	}
+
+	/**
+	 * Fills in the y-position and height of a bar
+	 */
+	protected function Bar($value, &$bar)
+	{
+		$y0 = $this->height - $this->pad_bottom - $this->y0;
+		$l1 = $this->ClampVertical($y0);
+		$l2 = $this->ClampVertical($y0 - ($value * $this->bar_unit_height));
+		$bar['y'] = min($l1,$l2);
+		$bar['height'] = abs($l1-$l2);
+	}
+
 }
 
-?>
