@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2012 Graham Breach
+ * Copyright (C) 2009-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,8 +26,9 @@ require_once 'SVGGraphPointGraph.php';
  */
 class LineGraph extends PointGraph {
 
-  private $line_style;
-  private $fill_style;
+  protected $require_integer_keys = false;
+  protected $line_styles = array();
+  protected $fill_styles = array();
 
   protected function Draw()
   {
@@ -48,38 +49,37 @@ class LineGraph extends PointGraph {
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
     $path = $fillpath = '';
-    $values = $this->GetValues();
-    foreach($values as $key => $value) {
-      $point_pos = $this->GridPosition($key, $bnum);
-      if(!is_null($value) && !is_null($point_pos)) {
-        $x = $point_pos;
-        $y = $y_axis_pos - ($value * $this->bar_unit_height);
+    foreach($this->values[0] as $item) {
+      $x = $this->GridPosition($item->key, $bnum);
+      if(!is_null($item->value) && !is_null($x)) {
+        $y = $y_axis_pos - ($item->value * $this->bar_unit_height);
 
-        if($this->fill_under && $path == '')
+        if(empty($fillpath))
           $fillpath = "M$x {$y_bottom}L";
         $path .= "$cmd$x $y ";
         $fillpath .= "$x $y ";
 
         // no need to repeat same L command
         $cmd = $cmd == 'M' ? 'L' : '';
-        $this->AddMarker($x, $y, $key, $value);
+        $this->AddMarker($x, $y, $item);
+        $last_x = $x;
       }
       ++$bnum;
     }
 
-    $this->line_style = $attr;
+    $this->line_styles[0] = $attr;
     $attr['d'] = $path;
     $graph_line = $this->Element('path', $attr);
 
     if($this->fill_under) {
-      $attr['fill'] = $this->GetColour(0);
+      $attr['fill'] = $this->GetColour(null, 0);
       if($this->fill_opacity < 1.0)
         $attr['fill-opacity'] = $this->fill_opacity;
-      $fillpath .= "L$x {$y_bottom}z";
+      $fillpath .= "L{$last_x} {$y_bottom}z";
       $attr['d'] = $fillpath;
       $attr['stroke'] = 'none';
       unset($attr['stroke-dasharray'], $attr['stroke-width']);
-      $this->fill_style = $attr;
+      $this->fill_styles[0] = $attr;
       $graph_line = $this->Element('path', $attr) . $graph_line;
     }
 
@@ -94,12 +94,15 @@ class LineGraph extends PointGraph {
     return $body;
   }
 
-  protected function CheckValues(&$values)
+  /**
+   * Line graphs and lines in general require at least two points
+   */
+  protected function CheckValues()
   {
-    parent::CheckValues($values);
+    parent::CheckValues();
 
-    if(count($values[0]) <= 1)
-      throw new Exception('Not enough values for line graph');
+    if($this->values->ItemsCount() <= 1)
+      throw new Exception('Not enough values for ' . get_class($this));
   }
 
   /**
@@ -107,19 +110,17 @@ class LineGraph extends PointGraph {
    */
   protected function DrawLegendEntry($set, $x, $y, $w, $h)
   {
-    // single line graph only supports one set
-    if($set > 0)
+    if(!isset($this->line_styles[$set]))
       return '';
 
     $marker = parent::DrawLegendEntry($set, $x, $y, $w, $h);
-
     $h1 = $h/2;
     $y += $h1;
-    $line = $this->line_style;
+    $line = $this->line_styles[$set];
     $line['d'] = "M$x {$y}l$w 0";
     $graph_line = $this->Element('path', $line);
     if($this->fill_under) {
-      $fill = $this->fill_style;
+      $fill = $this->fill_styles[$set];
       $fill['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
       $graph_line = $this->Element('path', $fill) . $graph_line;
     }

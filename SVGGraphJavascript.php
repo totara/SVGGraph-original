@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012 Graham Breach
+ * Copyright (C) 2012-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -42,10 +42,8 @@ class SVGGraphJavascript {
    */
   public function __get($name)
   {
-    if(isset($this->settings[$name]))
-      return $this->settings[$name];
-
-    return NULL;
+    $this->{$name} = isset($this->settings[$name]) ? $this->settings[$name] : null;
+    return $this->{$name};
   }
 
   /**
@@ -66,6 +64,8 @@ class SVGGraphJavascript {
       $this->InsertFunction($name, $simple_functions[$name]);
       return;
     }
+
+    $namespace = $this->namespace ? 'svg:' : '';
 
     switch($name)
     {
@@ -186,7 +186,7 @@ function tooltip(e,callback,on,param) {
     x = e.clientX + offset, y = e.clientY + offset, inner, brect, bw, bh,
     sw, sh, pos = svgCoords(e),
     de = e.target.correspondingUseElement || e.target;
-  while(de.parentNode && de.nodeName != 'svg')
+  while(de.parentNode && de.nodeName != '{$namespace}svg')
     de = de.parentNode;
   if(on && !tt) {
     tt = newel('g',{id:'tooltip',visibility:'visible'});
@@ -218,6 +218,7 @@ function tooltip(e,callback,on,param) {
     bh = Math.ceil(brect.height + {$dpad});
     setattr(rect, 'width', bw + 'px');
     setattr(rect, 'height', bh + 'px');
+    setattr(inner, 'transform', 'translate(' + (bw / 2) + ',0)');
     if(shadow) {
       setattr(shadow, 'width', (bw + {$this->tooltip_stroke_width}) + 'px');
       setattr(shadow, 'height', (bh + {$this->tooltip_stroke_width}) + 'px');
@@ -242,24 +243,31 @@ JAVASCRIPT;
       $this->AddFunction('setattr');
       $this->AddFunction('newel');
       $this->AddFunction('newtext');
-      $tty = ($this->tooltip_font_size + $this->tooltip_padding) . 'px';
+      $tty = $this->tooltip_font_size + $this->tooltip_padding;
+      $ttypx = "{$tty}px";
       $fn = <<<JAVASCRIPT
 function texttt(e,tt,on,t){
-  var ttt = getE('tooltiptext');
+  var ttt = getE('tooltiptext'), lines, i, ts, xpos;
   if(on) {
+    lines = t.split('\\\\n');
+    xpos = '{$this->tooltip_padding}px';
     if(!ttt) {
-      ttt = newel('text', {
+      ttt = newel('g', {
         id: 'tooltiptext',
         fill: '{$this->tooltip_colour}',
         'font-size': '{$this->tooltip_font_size}px',
         'font-family': '{$this->tooltip_font}',
         'font-weight': '{$this->tooltip_font_weight}',
-        x:'{$this->tooltip_padding}px',y:'{$tty}'
+        'text-anchor': 'middle'
       });
-      ttt.appendChild(newtext(t));
       tt.appendChild(ttt);
-    } else {
-      ttt.firstChild.data = t;
+    }
+    while(ttt.childNodes.length > 0)
+      ttt.removeChild(ttt.childNodes[0]);
+    for(i = 0; i < lines.length; ++i) {
+      ts = newel('text', { y: ({$tty} * (i + 1)) + 'px' });
+      ts.appendChild(newtext(lines[i]));
+      ttt.appendChild(ts);
     }
   }
   ttt && showhide(ttt,on);
@@ -341,9 +349,9 @@ JAVASCRIPT;
 function duplicate(f,t) {
   var e = getE(f), g, a, p = e && e.parentNode;
   if(e) {
-    while(p.parentNode && p.tagName != 'svg' &&
-      (p.tagName != 'g' || !p.getAttributeNS(null,'clip-path'))) {
-      p.tagName == 'a' && (a = p);
+    while(p.parentNode && p.nodeName != '{$namespace}svg' &&
+      (p.nodeName != '{$namespace}g' || !p.getAttributeNS(null,'clip-path'))) {
+      p.nodeName == '{$namespace}a' && (a = p);
       p = p.parentNode;
     }
     g = e.cloneNode(true);
@@ -368,7 +376,7 @@ JAVASCRIPT;
       $fn = <<<JAVASCRIPT
 function svgCoords(e) {
   var d = e.target.correspondingUseElement || e.target, m;
-  while(d.parentNode && d.nodeName != 'svg')
+  while(d.parentNode && d.nodeName != '{$namespace}svg')
     d = d.parentNode;
   m = d.getScreenCTM ? d.getScreenCTM() : {e:0,f:0};
   return [m.e,m.f];

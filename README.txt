@@ -1,4 +1,4 @@
-SVGGraph Library version 2.10
+SVGGraph Library version 2.11
 =============================
 
 This library provides PHP classes and functions for easily creating SVG
@@ -257,4 +257,4 @@ For more information about this software please contact the author,
 graham(at)goat1000.com or visit the website: http://www.goat1000.com/
 
 
-Copyright (C) 2009-2012 Graham Breach
+Copyright (C) 2009-2013 Graham Breach

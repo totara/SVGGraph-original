@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2012 Graham Breach
+ * Copyright (C) 2009-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,6 +29,7 @@ class PieGraph extends Graph {
   protected $s_angle;
   protected $calc_done;
   protected $slice_styles = array();
+  protected $total = 0;
 
   /**
    * Calculates position of pie
@@ -77,31 +78,27 @@ class PieGraph extends Graph {
     $speed_out = $this->show_labels && $this->label_fade_out_speed ?
       $this->label_fade_out_speed / 100.0 : 0;
 
-    // take a copy for sorting
-    $values = $this->GetValues();
-    $total = array_sum($values);
-
-    $unit_slice = 2.0 * M_PI / $total;
+    $unit_slice = 2.0 * M_PI / $this->total;
     $ccount = count($this->colours);
-    $vcount = count($values);
+    $vcount = count($this->values[0]);
     $sub_total = 0.0;
 
     // need to store the original position of each value, because the
     // sorted list must still refer to the relevant legend entries
     $position = 0;
-    foreach($values as $key => $value)
-      $values[$key] = array($position++, $value);
-
-    if($this->sort) {
+    $values = array();
+    foreach($this->values[0] as $item)
+      $values[$item->key] = array($position++, $item->value, $item);
+    if($this->sort)
       uasort($values, 'PieGraph::svggpsort');
-    }
-    $body = $labels = '';
 
+    $body = $labels = '';
     $slice = 0;
     foreach($values as $key => $value) {
 
       // get the original array position of the value
       $original_position = $value[0];
+      $item = $value[2];
       $value = $value[1];
       if(!$value)
         continue;
@@ -111,14 +108,14 @@ class PieGraph extends Graph {
       $angle_end = ($sub_total + $value) * $unit_slice;
 
       // get the path (or whatever) for a pie slice
-      $attr = array('fill' => $this->GetColour(($slice-1) % $ccount, true));
+      $attr = array('fill' => $this->GetColour($item, ($slice-1) % $ccount, true));
       $style = $attr;
       $this->SetStroke($style);
 
       // store the current style referenced by the original position
       $this->slice_styles[$original_position] = $style;
       if($this->show_tooltips)
-        $this->SetTooltip($attr, $key, $value, !$this->compat_events);
+        $this->SetTooltip($attr, $item, $key, $value, !$this->compat_events);
   
       $t_style = NULL;
       if($this->show_labels) {
@@ -134,11 +131,17 @@ class PieGraph extends Graph {
         $ty = $this->y_centre + $yc + ($this->label_font_size * 0.3);
 
         // display however many lines of label
-        $parts = array($key);
-        if($this->show_label_amount)
-          $parts[] = $value;
-        if($this->show_label_percent)
-          $parts[] = ($value / $total) * 100.0 . '%';
+        $label = $item->Data('label');
+        if(is_null($label)) {
+          $parts = explode("\n", $this->GetKey($this->values->AssociativeKeys() ? 
+            $original_position : $key));
+          if($this->show_label_amount)
+            $parts[] = $value;
+          if($this->show_label_percent)
+            $parts[] = ($value / $this->total) * 100.0 . '%';
+        } else {
+          $parts = array($label);
+        }
 
         $x_offset = empty($this->label_back_colour) ? $tx : 0;
         $string = $this->TextLines($parts, $x_offset, $this->label_font_size);
@@ -157,7 +160,7 @@ class PieGraph extends Graph {
         $this->SetFader($attr, $speed_in, $speed_out, $text['id'],
           !$this->compat_events);
       $path = $this->GetSlice($angle_start, $angle_end, $attr);
-      $body .= $this->GetLink($key, $path);
+      $body .= $this->GetLink($item, $key, $path);
 
       $sub_total += $value;
     }
@@ -225,13 +228,19 @@ class PieGraph extends Graph {
   /**
    * Checks that the data are valid
    */
-  protected function CheckValues(&$values)
+  protected function CheckValues()
   {
-    parent::CheckValues($values);
+    parent::CheckValues();
     if($this->GetMinValue() < 0)
       throw new Exception('Negative value for pie chart');
-    if(array_sum($values[0]) <= 0)
+
+    $sum = 0;
+    foreach($this->values[0] as $item)
+      $sum += $item->value;
+    if($sum <= 0)
       throw new Exception('Empty pie chart');
+
+    $this->total = $sum;
   }
 
   /**

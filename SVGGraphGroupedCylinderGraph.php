@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -20,9 +20,9 @@
  */
 
 require_once 'SVGGraphMultiGraph.php';
-require_once 'SVGGraphBarGraph.php';
+require_once 'SVGGraphCylinderGraph.php';
 
-class GroupedBarGraph extends BarGraph {
+class GroupedCylinderGraph extends CylinderGraph {
 
   protected $multi_graph;
 
@@ -44,11 +44,23 @@ class GroupedBarGraph extends BarGraph {
     $this->SetStroke($bar_style);
     $bar = array('width' => $chunk_width);
 
-    $b_start = $this->pad_left + ($this->bar_space / 2);
+    $this->block_width = $chunk_width;
     $bspace = $this->bar_space / 2;
+    $b_start = $this->pad_left + $bspace;
+
+    // make the top parallelogram, set it as a symbol for re-use
+    list($this->bx, $this->by) = $this->Project(0, 0, $chunk_width);
+    $top = $this->BarTop();
+
     $bnum = 0;
     $ccount = count($this->colours);
+    $groups = array_fill(0, $chunk_count, '');
 
+    // get the translation for the whole bar
+    list($tx, $ty) = $this->Project(0, 0, $bspace);
+    $group = array('transform' => "translate($tx,$ty)");
+
+    $bars = '';
     foreach($this->multi_graph as $itemlist) {
       $k = $itemlist[0]->key;
       $bar_pos = $this->GridPosition($k, $bnum);
@@ -56,30 +68,31 @@ class GroupedBarGraph extends BarGraph {
         for($j = 0; $j < $chunk_count; ++$j) {
           $bar['x'] = $bspace + $bar_pos + ($j * $chunk_unit_width);
           $item = $itemlist[$j];
+
           if(!is_null($item->value)) {
-            $this->Bar($item->value, $bar);
+            $colour = $j % $ccount;
+            $bar_sections = $this->Bar3D($item, $bar, $top, $colour);
+            $group['fill'] = $this->GetColour($item, $colour);
 
-            if($bar['height'] > 0) {
-              $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
+            if($this->show_tooltips)
+              $this->SetTooltip($group, $item, $item->value);
+            $link = $this->GetLink($item, $k, $bar_sections);
+            $bars .= $this->Element('g', $group, NULL, $link);
+            unset($group['id']); // make sure a new one is generated
+            $style = $group;
+            $this->SetStroke($style);
 
-              if($this->show_tooltips)
-                $this->SetTooltip($bar, $item, $item->value, null,
-                  !$this->compat_events && $this->show_bar_labels);
-              $rect = $this->Element('rect', $bar, $bar_style);
-              if($this->show_bar_labels)
-                $rect .= $this->BarLabel($item, $bar);
-              $body .= $this->GetLink($item, $k, $rect);
-              unset($bar['id']); // clear for next generated value
-
-              if(!isset($this->bar_styles[$j]))
-                $this->bar_styles[$j] = $bar_style;
-            }
+            if(!array_key_exists($j, $this->bar_styles))
+              $this->bar_styles[$j] = $style;
           }
         }
       }
       ++$bnum;
     }
 
+    $bgroup = array('fill' => 'none');
+    $this->SetStroke($bgroup, 'round');
+    $body .= $this->Element('g', $bgroup, NULL, $bars);
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }
@@ -93,6 +106,28 @@ class GroupedBarGraph extends BarGraph {
     if(!$this->values->error)
       $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
         $this->require_integer_keys);
+  }
+
+  /**
+   * Override AdjustAxes to change depth
+   */
+  protected function AdjustAxes(&$x_len, &$y_len)
+  {
+    /**
+     * The depth is roughly 1/$num - but it must also take into account the
+     * bar and group spacing, which is where things get messy
+     */
+    $ends = $this->GetAxisEnds();
+    $num = $ends['k_max'] - $ends['k_min'] + 1;
+
+    $block = $x_len / $num;
+    $group = count($this->values);
+    $a = $this->bar_space;
+    $b = $this->group_space;
+    $c = (($block) - $a - ($group - 1) * $b) / $group;
+    $d = ($a + $c) / $block;
+    $this->depth = $d;
+    return parent::AdjustAxes($x_len, $y_len);
   }
 
   /**

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012 Graham Breach
+ * Copyright (C) 2012-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,15 +19,13 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-require_once 'SVGGraphPointGraph.php';
+require_once 'SVGGraphLineGraph.php';
 
 /**
  * RadarGraph - a line graph that goes around in circles
  */
-class RadarGraph extends PointGraph {
+class RadarGraph extends LineGraph {
 
-  private $line_style;
-  private $fill_style;
   protected $xc;
   protected $yc;
   protected $radius;
@@ -38,6 +36,7 @@ class RadarGraph extends PointGraph {
   // in the case of radar graphs, $label_centre means we want an axis that
   // ends at N points + 1
   protected $label_centre = true;
+  protected $require_integer_keys = false;
 
   protected function Draw()
   {
@@ -57,22 +56,21 @@ class RadarGraph extends PointGraph {
 
     $path = '';
     if($this->fill_under) {
-      $attr['fill'] = $this->GetColour(0);
-      $this->fill_style = array(
+      $attr['fill'] = $this->GetColour(null, 0);
+      $this->fill_styles[0] = array(
         'fill' => $attr['fill'],
         'stroke' => $attr['fill']
       );
       if($this->fill_opacity < 1.0) {
         $attr['fill-opacity'] = $this->fill_opacity;
-        $this->fill_style['fill-opacity'] = $this->fill_opacity;
+        $this->fill_styles[0]['fill-opacity'] = $this->fill_opacity;
       }
     }
 
-    $values = $this->GetValues();
-    foreach($values as $key => $value) {
-      $point_pos = $this->GridPosition($key, $bnum);
-      if(!is_null($value) && !is_null($point_pos)) {
-        $val = $this->y0 + $value * $this->bar_unit_height;
+    foreach($this->values[0] as $item) {
+      $point_pos = $this->GridPosition($item->key, $bnum);
+      if(!is_null($item->value) && !is_null($point_pos)) {
+        $val = $this->y0 + $item->value * $this->bar_unit_height;
         $angle = $this->arad + $point_pos / $this->g_height;
         $x = $this->xc + ($val * sin($angle));
         $y = $this->yc + ($val * cos($angle));
@@ -81,14 +79,14 @@ class RadarGraph extends PointGraph {
 
         // no need to repeat same L command
         $cmd = $cmd == 'M' ? 'L' : '';
-        $this->AddMarker($x, $y, $key, $value);
+        $this->AddMarker($x, $y, $item);
       }
       ++$bnum;
     }
 
     $path .= "z";
 
-    $this->line_style = $attr;
+    $this->line_styles[0] = $attr;
     $attr['d'] = $path;
     $group = array();
     $this->ClipGrid($group);
@@ -100,51 +98,14 @@ class RadarGraph extends PointGraph {
   }
 
   /**
-   * Need at least two values and no negative values
-   */
-  protected function CheckValues(&$values)
-  {
-    parent::CheckValues($values);
-
-    if(count($values[0]) < 2)
-      throw new Exception('Not enough values for radar graph');
-    if($this->GetMinValue() < 0)
-      throw new Exception('Negative value for radar graph');
-  }
-
-  /**
-   * Return line and marker for legend
-   */
-  protected function DrawLegendEntry($set, $x, $y, $w, $h)
-  {
-    // single line graph only supports one set
-    if($set > 0)
-      return '';
-
-    $marker = parent::DrawLegendEntry($set, $x, $y, $w, $h);
-
-    $h1 = $h/2;
-    $y += $h1;
-    $line = $this->line_style;
-    $line['d'] = "M$x {$y}l$w 0";
-    $graph_line = $this->Element('path', $line);
-    if($this->fill_under) {
-      $fill = $this->fill_style;
-      $fill['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
-      $graph_line = $this->Element('path', $fill) . $graph_line;
-    }
-    return $graph_line . $marker;
-  }
-
-  /**
    * Finds the grid position for radar graphs, returns NULL if not on graph
    */
   protected function GridPosition($key, $ikey)
   {
-    $gkey = $this->AssociativeKeys() ? $ikey : $key;
+    $gkey = $this->values->AssociativeKeys() ? $ikey : $key;
     $offset = $this->x0 + ($this->bar_unit_width * $gkey);
     if($offset >= 0 && $offset < $this->g_width)
-      return $offset;
+      return $this->reverse ? -$offset : $offset;
     return NULL;
   }
 
@@ -225,14 +186,14 @@ class RadarGraph extends PointGraph {
   protected function Grid()
   {
     $this->CalcAxes();
-    if(!$this->show_grid)
+    $this->CalcGrid();
+    if(!$this->show_grid || (!$this->show_grid_h && !$this->show_grid_v))
       return '';
 
     $xc = $this->xc;
     $yc = $this->yc;
     $r = $this->radius;
 
-    $this->CalcGrid();
     $back = $subpath = '';
     $back_colour = $this->grid_back_colour;
     if(!empty($back_colour) && $back_colour != 'none') {
@@ -249,8 +210,8 @@ class RadarGraph extends PointGraph {
       $back = $this->Element('path', $bpath);
     }
     if($this->show_grid_subdivisions) {
-      $subpath_h = $this->YGrid($this->y_subdivs);
-      $subpath_v = $this->XGrid($this->x_subdivs);
+      $subpath_h = $this->show_grid_h ? $this->YGrid($this->y_subdivs) : '';
+      $subpath_v = $this->show_grid_v ? $this->XGrid($this->x_subdivs) : '';
       if($subpath_h != '' || $subpath_v != '') {
         $colour_h = $this->GetFirst($this->grid_subdivision_colour_h,
           $this->grid_subdivision_colour, $this->grid_colour_h,
@@ -273,8 +234,8 @@ class RadarGraph extends PointGraph {
       }
     }
 
-    $path_v = $this->YGrid($this->y_points);
-    $path_h = $this->XGrid($this->x_points);
+    $path_v = $this->show_grid_h ? $this->YGrid($this->y_points) : '';
+    $path_h = $this->show_grid_v ? $this->XGrid($this->x_points) : '';
 
     $colour_h = $this->GetFirst($this->grid_colour_h, $this->grid_colour);
     $colour_v = $this->GetFirst($this->grid_colour_v, $this->grid_colour);
@@ -390,7 +351,7 @@ class RadarGraph extends PointGraph {
   {
     $r1 = $this->radius;
     $path = '';
-    $pos = $this->DivisionsPositions($style, $size, $this->radius, 0, $yoff);
+    $pos = $this->DivisionsPositions($style, $size, $this->radius, 0, 0);
     if(is_null($pos))
       return '';
     $r1 = $this->radius - $pos['pos'];
@@ -411,7 +372,7 @@ class RadarGraph extends PointGraph {
   protected function YAxisDivisions(&$points, $style, $size, $xoff)
   {
     $path = '';
-    $pos = $this->DivisionsPositions($style, $size, $size, 0, $xoff);
+    $pos = $this->DivisionsPositions($style, $size, $size, 0, 0);
     if(is_null($pos))
       return '';
 
@@ -442,10 +403,11 @@ class RadarGraph extends PointGraph {
     $p = 0;
     $font_size = $this->axis_font_size;
     $font_adjust = $this->axis_font_adjust;
+    $direction = $this->reverse ? -1 : 1;
     foreach($points as $label => $x) {
       $key = $this->GetKey($label);
       if(strlen($key) > 0 && ++$p < $count) {
-        $a = $this->arad + $x / $this->radius;
+        $a = $this->arad + $direction * $x / $this->radius;
         $s = sin($a);
         $c = cos($a);
         $x1 = $r * $s;

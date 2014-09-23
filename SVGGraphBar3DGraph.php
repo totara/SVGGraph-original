@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2012 Graham Breach
+ * Copyright (C) 2009-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,24 +23,15 @@ require_once 'SVGGraph3DGraph.php';
 
 class Bar3DGraph extends ThreeDGraph {
 
-  protected $bar_styles = array();
   protected $label_centre = true;
-
+  protected $bar_styles = array();
   protected $bx;
   protected $by;
   protected $block_width;
 
   protected function Draw()
   {
-    // make sure project_angle is in range
-    if($this->project_angle < 0)
-      $this->project_angle = 0;
-    elseif($this->project_angle > 90)
-      $this->project_angle = 90;
-
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
-
-    $values = $this->GetValues();
     $this->block_width = $this->bar_unit_width - $this->bar_space;
 
     // make the top parallelogram, set it as a symbol for re-use
@@ -57,19 +48,19 @@ class Bar3DGraph extends ThreeDGraph {
     $bar = array('width' => $this->block_width);
 
     $bars = '';
-    foreach($values as $key => $value) {
-      $bar_pos = $this->GridPosition($key, $bnum);
+    foreach($this->values[0] as $item) {
+      $bar_pos = $this->GridPosition($item->key, $bnum);
 
-      if(!is_null($value) && !is_null($bar_pos)) {
+      if(!is_null($item->value) && !is_null($bar_pos)) {
         $bar['x'] = $bspace + $bar_pos;
         $colour = $bnum % $ccount;
 
-        $bar_sections = $this->Bar3D($value, $bar, $top, $colour);
-        $link = $this->GetLink($key, $bar_sections);
+        $bar_sections = $this->Bar3D($item, $bar, $top, $colour);
+        $link = $this->GetLink($item, $item->key, $bar_sections);
 
-        $group['fill'] = $this->GetColour($colour);
+        $group['fill'] = $this->GetColour($item, $colour);
         if($this->show_tooltips)
-          $this->SetTooltip($group, $value);
+          $this->SetTooltip($group, $item, $item->value);
         $bars .= $this->Element('g', $group, NULL, $link);
         unset($group['id']); // make sure a new one is generated
         $style = $group;
@@ -104,9 +95,9 @@ class Bar3DGraph extends ThreeDGraph {
   /**
    * Returns the SVG code for a 3D bar
    */
-  protected function Bar3D($value, &$bar, &$top, $colour, $start = null)
+  protected function Bar3D($item, &$bar, &$top, $colour, $start = null)
   {
-    $this->Bar($value, $bar, $start);
+    $this->Bar($item->value, $bar, $start);
 
     $side_x = $bar['x'] + $this->block_width;
     $side = array(
@@ -117,7 +108,7 @@ class Bar3DGraph extends ThreeDGraph {
       $bar_top = '';
     } else {
       $top['transform'] = "translate($bar[x],$bar[y])";
-      $top['fill'] = $this->GetColour($colour, TRUE);
+      $top['fill'] = $this->GetColour($item, $colour, TRUE);
       $bar_top = $this->Element('use', $top);
     }
 

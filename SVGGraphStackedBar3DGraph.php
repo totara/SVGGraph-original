@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012 Graham Breach
+ * Copyright (C) 2012-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -46,14 +46,15 @@ class StackedBar3DGraph extends Bar3DGraph {
     $bspace = $this->bar_space / 2;
     $bnum = 0;
     $ccount = count($this->colours);
-    $chunk_count = count($this->values);
+    $chunk_count = count($this->multi_graph);
     $groups = array_fill(0, $chunk_count, '');
 
     // get the translation for the whole bar
     list($tx, $ty) = $this->Project(0, 0, $this->bar_space / 2);
     $group = array('transform' => "translate($tx,$ty)");
     $bars = '';
-    foreach($this->multi_graph->all_keys as $k) {
+    foreach($this->multi_graph as $itemlist) {
+      $k = $itemlist[0]->key;
       $bar_pos = $this->GridPosition($k, $bnum);
 
       if(!is_null($bar_pos)) {
@@ -63,14 +64,14 @@ class StackedBar3DGraph extends Bar3DGraph {
         $ypos = $yplus = $yminus = 0;
         $chunk_values = array();
         for($j = 0; $j < $chunk_count; ++$j) {
-          $value = $this->multi_graph->GetValue($k, $j);
-          if(!is_null($value)) {
-            if($value < 0) {
-              array_unshift($chunk_values, array($j, $value, $yminus));
-              $yminus += $value;
+          $item = $itemlist[$j];
+          if(!is_null($item->value)) {
+            if($item->value < 0) {
+              array_unshift($chunk_values, array($j, $item->value, $yminus, $item));
+              $yminus += $item->value;
             } else {
-              $chunk_values[] = array($j, $value, $yplus);
-              $yplus += $value;
+              $chunk_values[] = array($j, $item->value, $yplus, $item);
+              $yplus += $item->value;
             }
           }
         }
@@ -80,18 +81,19 @@ class StackedBar3DGraph extends Bar3DGraph {
         foreach($chunk_values as $chunk) {
           $j = $chunk[0];
           $value = $chunk[1];
+          $item = $chunk[3];
           $colour = $j % $ccount;
           $v = abs($value);
           $t = ++$b == $bar_count ? $top : null;
-          $bar_sections = $this->Bar3D($value, $bar, $t, $colour,
+          $bar_sections = $this->Bar3D($item, $bar, $t, $colour,
             $chunk[2] * $this->bar_unit_height);
           $ypos = $ty;
           $group['transform'] = "translate($tx," . $ypos . ")";
-          $group['fill'] = $this->GetColour($colour);
+          $group['fill'] = $this->GetColour($item, $colour);
 
           if($this->show_tooltips)
-            $this->SetTooltip($group, $value);
-          $link = $this->GetLink($k, $bar_sections);
+            $this->SetTooltip($group, $item, $value);
+          $link = $this->GetLink($item, $k, $bar_sections);
           $bars .= $this->Element('g', $group, NULL, $link);
           unset($group['id']); // make sure a new one is generated
           $style = $group;
@@ -117,7 +119,9 @@ class StackedBar3DGraph extends Bar3DGraph {
   public function Values($values)
   {
     parent::Values($values);
-    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
+    if(!$this->values->error)
+      $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
+        $this->require_integer_keys);
   }
 
   /**
@@ -150,7 +154,7 @@ class StackedBar3DGraph extends Bar3DGraph {
    */
   protected function GetHorizontalCount()
   {
-    return $this->multi_graph->KeyCount();
+    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**

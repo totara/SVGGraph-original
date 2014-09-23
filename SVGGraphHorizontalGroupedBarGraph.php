@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2012 Graham Breach
+ * Copyright (C) 2011-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,7 +31,7 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
-    $chunk_count = count($this->values);
+    $chunk_count = count($this->multi_graph);
     $gap_count = $chunk_count - 1;
     $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
       $this->bar_unit_height - $this->bar_space);
@@ -48,33 +48,28 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
     $bnum = 0;
     $bspace = $this->bar_space / 2;
     $ccount = count($this->colours);
-    $groups = array_fill(0, $chunk_count, '');
 
-    foreach($this->multi_graph->all_keys as $k) {
-
+    foreach($this->multi_graph as $itemlist) {
+      $k = $itemlist[0]->key;
       $bar_pos = $this->GridPosition($k, $bnum);
 
       if(!is_null($bar_pos)) {
         for($j = 0; $j < $chunk_count; ++$j) {
           $bar['y'] = $bar_pos - $bspace - $bar_height +
             (($chunk_count - 1 - $j) * $chunk_unit_height);
-          $value = $this->multi_graph->GetValue($k, $j);
-          $this->Bar($value, $bar);
+          $item = $itemlist[$j];
+          $this->Bar($item->value, $bar);
 
           if($bar['width'] > 0) {
-            $bar_style['fill'] = $this->GetColour($j % $ccount);
+            $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
 
             if($this->show_tooltips)
-              $this->SetTooltip($bar, $value, null,
+              $this->SetTooltip($bar, $item, $item->value, null,
                 !$this->compat_events && $this->show_bar_labels);
-            if($this->show_bar_labels) {
-              $rect = $this->Element('rect', $bar, $bar_style);
-              $rect .= $this->BarLabel($value, $bar);
-              $body .= $this->GetLink($k, $rect);
-            } else {
-              $rect = $this->Element('rect', $bar);
-              $groups[$j] .= $this->GetLink($k, $rect);
-            }
+            $rect = $this->Element('rect', $bar, $bar_style);
+            if($this->show_bar_labels)
+              $rect .= $this->BarLabel($item, $bar);
+            $body .= $this->GetLink($item, $k, $rect);
             unset($bar['id']); // clear ID for next generated value
 
             if(!array_key_exists($j, $this->bar_styles))
@@ -83,11 +78,6 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
         }
       }
       ++$bnum;
-    }
-    if(!$this->show_bar_labels) {
-      foreach($groups as $j => $g)
-        if(array_key_exists($j, $this->bar_styles))
-          $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
     }
 
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
@@ -100,7 +90,9 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
   public function Values($values)
   {
     parent::Values($values);
-    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
+    if(!$this->values->error)
+      $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
+        $this->require_integer_keys);
   }
 
   /**
@@ -108,7 +100,7 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
    */
   protected function GetHorizontalCount()
   {
-    return $this->multi_graph->KeyCount();
+    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**
@@ -151,12 +143,5 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
     return $this->multi_graph->GetMinKey();
   }
 
-  /**
-   * Return the longest of all keys
-   */
-  protected function GetLongestKey()
-  {
-    return $this->multi_graph->GetLongestKey();
-  }
 }
 

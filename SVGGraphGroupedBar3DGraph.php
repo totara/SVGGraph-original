@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012 Graham Breach
+ * Copyright (C) 2012-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -30,7 +30,7 @@ class GroupedBar3DGraph extends Bar3DGraph {
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
-    $chunk_count = count($this->values);
+    $chunk_count = count($this->multi_graph);
     $gap_count = $chunk_count - 1;
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
       $this->bar_unit_width - $this->bar_space);
@@ -61,21 +61,22 @@ class GroupedBar3DGraph extends Bar3DGraph {
     $group = array('transform' => "translate($tx,$ty)");
 
     $bars = '';
-    foreach($this->multi_graph->all_keys as $k) {
+    foreach($this->multi_graph as $itemlist) {
+      $k = $itemlist[0]->key;
       $bar_pos = $this->GridPosition($k, $bnum);
       if(!is_null($bar_pos)) {
         for($j = 0; $j < $chunk_count; ++$j) {
           $bar['x'] = $bspace + $bar_pos + ($j * $chunk_unit_width);
-          $value = $this->multi_graph->GetValue($k, $j);
+          $item = $itemlist[$j];
 
-          if(!is_null($value)) {
+          if(!is_null($item->value)) {
             $colour = $j % $ccount;
-            $bar_sections = $this->Bar3D($value, $bar, $top, $colour);
-            $group['fill'] = $this->GetColour($colour);
+            $bar_sections = $this->Bar3D($item, $bar, $top, $colour);
+            $group['fill'] = $this->GetColour($item, $colour);
 
             if($this->show_tooltips)
-              $this->SetTooltip($group, $value);
-            $link = $this->GetLink($k, $bar_sections);
+              $this->SetTooltip($group, $item, $item->value);
+            $link = $this->GetLink($item, $k, $bar_sections);
             $bars .= $this->Element('g', $group, NULL, $link);
             unset($group['id']); // make sure a new one is generated
             $style = $group;
@@ -102,7 +103,9 @@ class GroupedBar3DGraph extends Bar3DGraph {
   public function Values($values)
   {
     parent::Values($values);
-    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
+    if(!$this->values->error)
+      $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
+        $this->require_integer_keys);
   }
 
   /**
@@ -114,12 +117,9 @@ class GroupedBar3DGraph extends Bar3DGraph {
      * The depth is roughly 1/$num - but it must also take into account the
      * bar and group spacing, which is where things get messy
      */
-    if($this->AssociativeKeys()) {
-      $num = $this->GetHorizontalCount();
-    } else {
-      $ends = $this->GetAxisEnds();
-      $num = max(0, $ends['k_max']) - min(0, $ends['k_min']) + 1;
-    }
+    $ends = $this->GetAxisEnds();
+    $num = $ends['k_max'] - $ends['k_min'] + 1;
+
     $block = $x_len / $num;
     $group = count($this->values);
     $a = $this->bar_space;
@@ -135,7 +135,7 @@ class GroupedBar3DGraph extends Bar3DGraph {
    */
   protected function GetHorizontalCount()
   {
-    return $this->multi_graph->KeyCount();
+    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**
@@ -154,18 +154,6 @@ class GroupedBar3DGraph extends Bar3DGraph {
     return $this->multi_graph->GetMinValue();
   }
 
-
-  /**
-   * Return box for legend
-   */
-  protected function DrawLegendEntry($set, $x, $y, $w, $h)
-  {
-    if(!array_key_exists($set, $this->bar_styles))
-      return '';
-
-    $bar = array('x' => $x, 'y' => $y, 'width' => $w, 'height' => $h);
-    return $this->Element('rect', $bar, $this->bar_styles[$set]);
-  }
 
   /**
    * Returns the key from the MultiGraph

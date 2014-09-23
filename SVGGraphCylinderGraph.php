@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012 Graham Breach
+ * Copyright (C) 2012-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -25,26 +25,48 @@ class CylinderGraph extends Bar3DGraph {
 
   protected $bar_styles = array();
   protected $label_centre = true;
+  protected $transform;
+  protected $arc_path;
+  protected $cyl_offset_x;
+  protected $cyl_offset_y;
 
-  protected function Draw()
+  /**
+   * Sets up the cylinder dimensions
+   */
+  protected function SetupCylinder()
   {
-    // make sure project_angle is in range
-    if($this->project_angle <= 0)
-      $this->project_angle = 1; // prevent divide by zero
-    elseif($this->project_angle > 90)
-      $this->project_angle = 90;
+    // translation for the whole cylinder
+    list($sx, $sy) = $this->Project(0, 0, $this->block_width);
+    $tx = ($this->block_width + $sx) / 2;
+    $ty = $sy / 2;
+    $this->transform = "translate($tx,$ty)";
 
-    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
-
-    $values = $this->GetValues();
-    $block_width = $this->bar_unit_width - $this->bar_space;
-
-    // make the top ellipse, set it as a symbol for re-use
-    list($sx, $sy) = $this->Project(0, 0, $this->bar_unit_width);
-    $top_id = $this->NewID();
-
-    $ellipse = $this->FindEllipse($this->project_angle, $block_width);
+    // use the ellipse info to create the bottom arc
+    $ellipse = $this->FindEllipse($this->project_angle, $this->block_width);
     $r = -$this->project_angle / 2;
+    $rr = deg2rad($r);
+    $x1 = -($ellipse['x1'] * cos($rr) + $ellipse['y1'] * sin($rr));
+    $y1 = -($ellipse['x1'] * sin($rr) - $ellipse['y1'] * cos($rr));
+    $x2 = -2 * $x1;
+    $y2 = -2 * $y1;
+    $this->cyl_offset_x = $x1;
+    $this->cyl_offset_y = $y1;
+    $a = $ellipse['a'];
+    $b = $ellipse['b'];
+    $this->arc_path = "a$a $b $r 1 0 $x2 $y2";
+
+    // set the gradient overlay
+    $this->shade_gradient_id = is_array($this->depth_shade_gradient) ?
+      $this->AddGradient($this->depth_shade_gradient) : 0;
+  }
+
+  /**
+   * Creates the ellipse for the top of the cylinder
+   */
+  protected function CreateEllipse($ellipse, $angle)
+  {
+    $top_id = $this->NewID();
+    $r = -$angle / 2;
     $top = array(
       'id' => $top_id,
       'cx' => 0, 'cy' => 0,
@@ -54,75 +76,7 @@ class CylinderGraph extends Bar3DGraph {
 
     $this->defs[] = $this->Element('symbol', NULL, NULL,
       $this->Element('ellipse', $top));
-    $top = array('xlink:href' => '#' . $top_id);
-
-    // use the ellipse info to create the bottom arc
-    $rr = deg2rad($r);
-    $x1 = -($ellipse['x1'] * cos($rr) + $ellipse['y1'] * sin($rr));
-    $y1 = -($ellipse['x1'] * sin($rr) - $ellipse['y1'] * cos($rr));
-    $x2 = -2 * $x1;
-    $y2 = -2 * $y1;
-    $cyl_offset_x = $x1;
-    $cyl_offset_y = $y1;
-    $a = $ellipse['a'];
-    $b = $ellipse['b'];
-    $arc_path = "a$a $b $r 1 0 $x2 $y2";
-
-    $bnum = 0;
-    $ccount = count($this->colours);
-
-    // translation for the whole cylinder
-    list($tx, $ty) = $this->Project(0, 0, $this->bar_space / 2);
-    $tx = ($this->bar_unit_width + $sx) / 2;
-    $ty = $sy / 2;
-    $group = array('transform' => "translate($tx,$ty)");
-
-    // the gradient overlay
-    $shade_gradient_id = is_array($this->depth_shade_gradient) ?
-      $this->AddGradient($this->depth_shade_gradient) : 0;
-
-    $bar = array();
-    $bars = '';
-    foreach($values as $key => $value) {
-      $bar_pos = $this->GridPosition($key, $bnum);
-
-      if(!is_null($value) && !is_null($bar_pos)) {
-        $bar['x'] = $bar_pos;
-        $this->Bar($value, $bar);
-
-        $top['transform'] = "translate($bar[x],$bar[y])";
-        $x = $bar['x'] + $cyl_offset_x;
-        $y = $bar['y'] + $cyl_offset_y;
-        $h = $bar['height'];
-        $side = array('d' => "M{$x} {$y}v{$h}{$arc_path}v-{$h}z");
-        $group['fill'] = $this->GetColour($bnum % $ccount);
-        $top['fill'] = $this->GetColour($bnum % $ccount, TRUE);
-
-        $cyl_top = $this->Element('use', $top);
-        $cyl_side = $this->Element('path', $side);
-
-        if(!empty($shade_gradient_id)) {
-          $side['fill'] = "url(#{$shade_gradient_id})";
-          $cyl_side .= $this->Element('path', $side);
-        }
-        $link = $this->GetLink($key, $cyl_side . $cyl_top);
-
-        if($this->show_tooltips)
-          $this->SetTooltip($group, $value);
-        $bars .= $this->Element('g', $group, NULL, $link);
-        unset($group['id']); // make sure a new one is generated
-        $style = $group;
-        $this->SetStroke($style);
-        $this->bar_styles[] = $style;
-      }
-      ++$bnum;
-    }
-
-    $bgroup = array('fill' => 'none');
-    $this->SetStroke($bgroup, 'round');
-    $body .= $this->Element('g', $bgroup, NULL, $bars);
-    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
-    return $body;
+    return array('xlink:href' => '#' . $top_id);
   }
 
   /**
@@ -151,5 +105,51 @@ class CylinderGraph extends Bar3DGraph {
     $y1 = -sqrt($ysq);
     return compact('a', 'b', 'x1', 'y1');
   }
+
+  /**
+   * Create the top ellipse
+   */
+  protected function BarTop()
+  {
+    $ellipse = $this->FindEllipse($this->project_angle, $this->block_width);
+    return $this->CreateEllipse($ellipse, $this->project_angle);
+  }
+
+  /**
+   * Returns the SVG code for a 3D cylinder
+   */
+  protected function Bar3D($item, &$bar, &$top, $colour, $start = null)
+  {
+    if(is_null($this->arc_path))
+      $this->SetupCylinder();
+    $this->Bar($item->value, $bar, $start);
+
+    $side_x = $bar['x'] + $this->block_width;
+    if(is_null($top)) {
+      $cyl_top = '';
+    } else {
+      $top['transform'] = "translate({$bar['x']},{$bar['y']})";
+      $top['fill'] = $this->GetColour($item, $colour, TRUE);
+      $cyl_top = $this->Element('use', $top);
+    }
+
+    $group = array('transform' => $this->transform);
+
+    $x = $bar['x'] + $this->cyl_offset_x;
+    $y = $bar['y'] + $this->cyl_offset_y;
+    $h = $bar['height'];
+    $side = array('d' => "M{$x} {$y}v{$h}{$this->arc_path}v-{$h}z");
+    $group['fill'] = $this->GetColour($item, $colour);
+
+    $cyl_side = $this->Element('path', $side);
+
+    if(!empty($this->shade_gradient_id)) {
+      $side['fill'] = "url(#{$this->shade_gradient_id})";
+      $cyl_side .= $this->Element('path', $side);
+    }
+
+    return $this->Element('g', $group, null, $cyl_side . $cyl_top);
+  }
+
 }
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2012 Graham Breach
+ * Copyright (C) 2009-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -28,7 +28,6 @@ class BarGraph extends GridGraph {
 
   protected function Draw()
   {
-    $values = $this->GetValues();
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
@@ -39,24 +38,25 @@ class BarGraph extends GridGraph {
     $bnum = 0;
     $bspace = $this->bar_space / 2;
     $ccount = count($this->colours);
-    foreach($values as $key => $value) {
+    foreach($this->values[0] as $item) {
+
       // assign bar in the loop so it doesn't keep ID
       $bar = array('width' => $bar_width);
-      $bar_pos = $this->GridPosition($key, $bnum);
-      if(!is_null($bar_pos)) {
+      $bar_pos = $this->GridPosition($item->key, $bnum);
+      if(!is_null($item->value) && !is_null($bar_pos)) {
         $bar['x'] = $bspace + $bar_pos;
-        $this->Bar($value, $bar);
+        $this->Bar($item->value, $bar);
 
         if($bar['height'] > 0) {
-          $bar_style['fill'] = $this->GetColour($bnum % $ccount);
+          $bar_style['fill'] = $this->GetColour($item, $bnum % $ccount);
 
           if($this->show_tooltips)
-            $this->SetTooltip($bar, $value, null,
+            $this->SetTooltip($bar, $item, $item->value, null,
               !$this->compat_events && $this->show_bar_labels);
           $rect = $this->Element('rect', $bar, $bar_style);
           if($this->show_bar_labels)
-            $rect .= $this->BarLabel($value, $bar);
-          $body .= $this->GetLink($key, $rect);
+            $rect .= $this->BarLabel($item, $bar);
+          $body .= $this->GetLink($item, $item->key, $rect);
 
           $this->bar_styles[] = $bar_style;
         }
@@ -85,8 +85,11 @@ class BarGraph extends GridGraph {
   /**
    * Text labels in or above the bar
    */
-  protected function BarLabel($value, &$bar, $offset_y = null)
+  protected function BarLabel(&$item, &$bar, $offset_y = null)
   {
+    $content = $item->Data('label');
+    if(is_null($content))
+      $content = $item->value;
     $font_size = $this->bar_label_font_size;
     $space = $this->bar_label_space;
     $x = $bar['x'] + ($bar['width'] / 2);
@@ -136,7 +139,7 @@ class BarGraph extends GridGraph {
     );
     if($this->bar_label_font_weight != 'normal')
       $text['font-weight'] = $this->bar_label_font_weight;
-    return $this->Element('text', $text, NULL, $value);
+    return $this->Element('text', $text, NULL, $content);
   }
 
   /**
@@ -144,7 +147,7 @@ class BarGraph extends GridGraph {
    */
   protected function DrawLegendEntry($set, $x, $y, $w, $h)
   {
-    if(!array_key_exists($set, $this->bar_styles))
+    if(!isset($this->bar_styles[$set]))
       return '';
 
     $bar = array('x' => $x, 'y' => $y, 'width' => $w, 'height' => $h);

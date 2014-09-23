@@ -158,7 +158,7 @@ class Axis {
     $grid = $this->length / $count;
 
     // guard this loop in case the numbers are too awkward to fit
-    $guard = 20;
+    $guard = 10;
     while($grid < $min && --$guard) {
       $this->find_division($this->length, $min_sub, $count, $neg_count,
         $magnitude);
@@ -168,6 +168,7 @@ class Axis {
       // could not find a division
       while($grid < $min && $count > 1) {
         $count *= 0.5;
+        $neg_count *= 0.5;
         $magnitude *= 2;
         $grid = $this->length / $count;
         $this->uneven = true;

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2012 Graham Breach
+ * Copyright (C) 2011-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,59 +19,136 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-class MultiGraph {
+class MultiGraph implements Countable, ArrayAccess, Iterator {
 
   private $values;
+  private $datasets = 0;
   private $force_assoc;
-  public $all_keys;
+  private $max_key = null;
+  private $min_key = null;
+  private $max_value = null;
+  private $min_value = null;
+  private $max_sum_value = null;
+  private $min_sum_value = null;
+  private $item_list = array();
+  private $position = 0;
+  private $item_cache = array();
+  private $item_cache_pos = -1;
 
-  public function __construct($values, $force_assoc)
+  public function __construct($values, $force_assoc, $int_keys)
   {
     $this->values =& $values;
     $this->force_assoc = $force_assoc;
-    $this->all_keys = array();
-
-    // combine all array keys
     $keys = array();
-    foreach($this->values as $k => $v)
-      foreach($v as $ik => $iv)
-        $keys[$ik] = 1;
-    $this->all_keys = array_keys($keys);
-  }
 
+    // convert unstructured data to structured
+    if(count($values) > 1 && $this->values instanceof SVGGraphData) {
+      $new_data = array();
+      $count = count($values);
+      for($i = 0; $i < $count; ++$i) {
+        foreach($this->values[$i] as $item) {
+          $new_data[$item->key][0] = $item->key;
+          $new_data[$item->key][$i + 1] = $item->value;
+        }
+      }
+      $new_data = array_values($new_data);
+      require_once('SVGGraphStructuredData.php');
+      $this->values = new SVGGraphStructuredData($new_data, $force_assoc,
+        null, false, $int_keys, null);
+    }
+    $this->datasets = count($this->values);
+  }
 
   /**
-   * Counts all the unique data keys
+   * Implement Iterator interface
    */
-  public function KeyCount()
+  public function current()
   {
-    return count($this->all_keys);
-  }
+    if($this->item_cache_pos != $this->position) {
+      $this->item_cache[0] = $this->values[0]->GetItemByIndex($this->position);
 
+      // use NewFrom to create other data items quicker
+      for($i = 1; $i < $this->datasets; ++$i)
+        $this->item_cache[$i] = $this->item_cache[0]->NewFrom($i);
+      $this->item_cache_pos = $this->position;
+    }
+    return $this->item_cache;
+  }
+  public function key()
+  {
+    return $this->position;
+  }
+  public function next()
+  {
+    ++$this->position;
+  }
+  public function rewind()
+  {
+    $this->position = 0;
+  }
+  public function valid()
+  {
+    return $this->position < $this->ItemsCount();
+  }
 
   /**
-   * Returns a value by column and chunk
+   * ArrayAccess methods
    */
-  public function GetValue($column, $chunk)
+  public function offsetExists($offset)
   {
-    return isset($this->values[$chunk]) &&
-      isset($this->values[$chunk][$column]) ?
-      $this->values[$chunk][$column] : null;
+    return ($offset >= 0 && $offset < $this->datasets);
+  }
+  
+  public function offsetGet($offset)
+  {
+    return $this->values[$offset];
   }
 
+  /**
+   * Don't allow writing to the data
+   */
+  public function offsetSet($offset, $value) { throw new Exception('Read-only'); }
+  public function offsetUnset($offset) { throw new Exception('Read-only'); }
+
+  /**
+   * Countable method
+   */
+  public function count()
+  {
+    return $this->datasets;
+  }
+
+  /**
+   * Returns the number of items
+   */
+  public function ItemsCount()
+  {
+    // use -1 for all items
+    return $this->values->ItemsCount(-1);
+  }
+
+  /**
+   * Returns the key for an item
+   */
+  public function GetKey($index)
+  {
+    return $this->values->GetKey($index);
+  }
 
   /**
    * Returns the maximum value
    */
   public function GetMaxValue()
   {
+    if(!is_null($this->max_value))
+      return $this->max_value;
     $maxima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
-      if(!empty($this->values[$i]))
-        $maxima[] = max($this->values[$i]);
+      $maxima[] = $this->values->GetMaxValue($i);
 
-    return max($maxima);
+    $this->max_value = max($maxima);
+    return $this->max_value;
   }
 
 
@@ -80,36 +157,31 @@ class MultiGraph {
    */
   public function GetMinValue()
   {
+    if(!is_null($this->min_value))
+      return $this->min_value;
     $minima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
-      if(!empty($this->values[$i]))
-        $minima[] = min($this->values[$i]);
+      $minima[] = $this->values->GetMinValue($i);
 
-    return min($minima);
+    $this->min_value = min($minima);
+    return $this->min_value;
   }
 
-
-  /**
-   * Returns the key for a given index
-   */
-  public function GetKey($index)
-  {
-    if(!$this->force_assoc && is_int($this->all_keys[0]))
-      return $index;
-
-    // round to the nearest index
-    $i = round($index);
-    return isset($this->all_keys[$i]) ? $this->all_keys[$i] : null;
-  }
 
   /**
    * Returns the maximum key value
    */
   public function GetMaxKey()
   {
-    return !$this->force_assoc && is_numeric($this->all_keys[0]) ?
-      max($this->all_keys) : $this->KeyCount() - 1;
+    if(!is_null($this->max_key))
+      return $this->max_key;
+    
+    $max = array();
+    for($i = 0; $i < $this->datasets; ++$i)
+      $max[] = $this->values->GetMaxKey($i);
+    $this->max_key = max($max);
+    return $this->max_key;
   }
 
   /**
@@ -117,25 +189,14 @@ class MultiGraph {
    */
   public function GetMinKey()
   {
-    return !$this->force_assoc && is_numeric($this->all_keys[0]) ?
-      min($this->all_keys) : 0;
-  }
+    if(!is_null($this->min_key))
+      return $this->min_key;
 
-  /**
-   * Returns the longest key
-   */
-  public function GetLongestKey()
-  {
-    $longest_key = '';
-    $max_len = 0;
-    foreach($this->all_keys as $k) {
-      $len = strlen($k);
-      if($len > $max_len) {
-        $max_len = $len;
-        $longest_key = $k;
-      }
-    }
-    return $longest_key;
+    $min = array();
+    for($i = 0; $i < $this->datasets; ++$i)
+      $min[] = $this->values->GetMinKey($i);
+    $this->min_key = min($min);
+    return $this->min_key;
   }
 
   /**
@@ -143,39 +204,29 @@ class MultiGraph {
    */
   public function GetMaxSumValue()
   {
-    $stack = array();
-    $chunk_count = count($this->values);
-
-    foreach($this->all_keys as $k) {
-      $s = 0;
-      for($j = 0; $j < $chunk_count; ++$j) {
-        $v = $this->GetValue($k, $j);
-        if($v > 0)
-          $s += $v;
-      }
-      $stack[] = $s;
-    }
-    return max($stack);
+    if(is_null($this->max_sum_value))
+      $this->CalcMinMaxSumValues();
+    return $this->max_sum_value;
   }
 
   /**
-   * Returns the minimum sum value
+   * Returns the minimum sum value (the negative part)
    */
   public function GetMinSumValue()
   {
-    $stack = array();
-    $chunk_count = count($this->values);
+    if(is_null($this->min_sum_value))
+      $this->CalcMinMaxSumValues();
+    return $this->min_sum_value;
+  }
 
-    foreach($this->all_keys as $k) {
-      $s = 0;
-      for($j = 0; $j < $chunk_count; ++$j) {
-        $v = $this->GetValue($k, $j);
-        if($v <= 0)
-          $s += $v;
-      }
-      $stack[] = $s;
-    }
-    return min($stack);
+
+  /**
+   * Calculates the minimum and maximum sum values
+   */
+  private function CalcMinMaxSumValues()
+  {
+    list($this->min_sum_value, $this->max_sum_value) =
+      $this->values->GetMinMaxSumValues();
   }
 
   /**

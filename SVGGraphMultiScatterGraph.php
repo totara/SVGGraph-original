@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2012 Graham Breach
+ * Copyright (C) 2011-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -28,33 +28,27 @@ require_once 'SVGGraphMultiGraph.php';
 class MultiScatterGraph extends PointGraph {
 
   protected $multi_graph;
+  protected $repeated_keys = 'accept';
+  protected $require_integer_keys = false;
 
   protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
-    $values = $this->GetValues();
 
     // a scatter graph without markers is empty!
     if($this->marker_size == 0)
       $this->marker_size = 1;
 
     $ccount = count($this->colours);
-    $chunk_count = count($this->values);
+    $chunk_count = count($this->multi_graph);
+    $y0 = $this->height - $this->pad_bottom - $this->y0;
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
-      foreach($this->multi_graph->all_keys as $key) {
-        $value = $this->multi_graph->GetValue($key, $i);
-        if($this->scatter_2d && is_array($value)) {
-          $key = $value[0];
-          $value = $value[1];
-        }
-        $point_pos = $this->GridPosition($key, $bnum);
-        if(!is_null($value) && !is_null($point_pos)) {
-          $x = $point_pos;
-          $y = $this->height - $this->pad_bottom - $this->y0
-            - ($value * $this->bar_unit_height);
-
-          $this->AddMarker($x, $y, $key, $value, NULL, $i);
+      foreach($this->multi_graph[$i] as $item) {
+        $x = $this->GridPosition($item->key, $bnum);
+        if(!is_null($item->value) && !is_null($x)) {
+          $y = $y0 - ($item->value * $this->bar_unit_height);
+          $this->AddMarker($x, $y, $item, NULL, $i);
         }
         ++$bnum;
       }
@@ -81,34 +75,21 @@ class MultiScatterGraph extends PointGraph {
    */
   public function Values($values)
   {
-    if(!$this->scatter_2d) {
-      parent::Values($values);
-    } else {
-      $this->values = array();
-      $v = func_get_args();
-      if(count($v) == 1)
-        $v = $v[0];
-      if(is_array($v) && isset($v[0]) && is_array($v[0]) && is_array($v[0][0]))
-        $this->values = $v;
-      elseif(is_array($v) && isset($v[0]) && is_array($v[0]))
-        $this->values[0] = $v;
-      else
-        throw new Exception(
-          'Scatter 2D mode requires array of array(x,y) points'
-        );
-    }
-    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
+    parent::Values($values);
+    if(!$this->values->error)
+      $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
+        $this->require_integer_keys);
   }
 
   /**
    * Checks that the data produces a 2-D plot
    */
-  protected function CheckValues(&$values)
+  protected function CheckValues()
   {
-    parent::CheckValues($values);
+    parent::CheckValues();
 
     // using force_assoc makes things work properly
-    if($this->AssociativeKeys())
+    if($this->values->AssociativeKeys())
       $this->force_assoc = true;
   }
 
@@ -117,7 +98,23 @@ class MultiScatterGraph extends PointGraph {
    */
   protected function GetHorizontalCount()
   {
-    return $this->multi_graph->KeyCount();
+    return $this->multi_graph->ItemsCount(-1);
+  }
+
+  /**
+   * Overload GetMaxValue
+   */
+  protected function GetMaxValue()
+  {
+    return $this->multi_graph->GetMaxValue();
+  }
+
+  /**
+   * Overload GetMinValue
+   */
+  protected function GetMinValue()
+  {
+    return $this->multi_graph->GetMinValue();
   }
 
   /**
@@ -129,66 +126,19 @@ class MultiScatterGraph extends PointGraph {
   }
 
   /**
-   * Overload GetMaxValue to support scatter_2d data
-   */
-  protected function GetMaxValue()
-  {
-    if(!$this->scatter_2d)
-      return $this->multi_graph->GetMaxValue();
-
-    $maxima = array();
-    $chunk_count = count($this->values);
-    for($i = 0; $i < $chunk_count; ++$i)
-      $maxima[] = array_reduce($this->values[$i], 'pointgraph_vmax', null);
-
-    return max($maxima);
-  }
-
-  /**
-   * Overload GetMinValue to support scatter_2d data
-   */
-  protected function GetMinValue()
-  {
-    if(!$this->scatter_2d)
-      return $this->multi_graph->GetMinValue();
-
-    $minima = array();
-    $chunk_count = count($this->values);
-    for($i = 0; $i < $chunk_count; ++$i)
-      $minima[] = array_reduce($this->values[$i], 'pointgraph_vmin', null);
-
-    return min($minima);
-  }
-
-  /**
-   * Overload GetMaxKey to support scatter_2d data
+   * Overload GetMaxKey
    */
   protected function GetMaxKey()
   {
-    if(!$this->scatter_2d)
-      return $this->multi_graph->GetMaxKey();
-
-    $maxima = array();
-    $chunk_count = count($this->values);
-    for($i = 0; $i < $chunk_count; ++$i)
-      $maxima[] = array_reduce($this->values[$i], 'pointgraph_kmax', null);
-    return max($maxima);
+    return $this->multi_graph->GetMaxKey();
   }
 
   /**
-   * Overload GetMinKey to support scatter_2d data
+   * Overload GetMinKey
    */
   protected function GetMinKey()
   {
-    if(!$this->scatter_2d)
-      return $this->multi_graph->GetMinKey();
-
-    $minima = array();
-    $chunk_count = count($this->values);
-    for($i = 0; $i < $chunk_count; ++$i)
-      $minima[] = array_reduce($this->values[$i], 'pointgraph_kmin', null);
-
-    return min($minima);
+    return $this->multi_graph->GetMinKey();
   }
 
 }

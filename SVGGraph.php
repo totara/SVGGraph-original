@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2012 Graham Breach
+ * Copyright (C) 2009-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -47,7 +47,10 @@ class SVGGraph {
   }
   public function Links($links)
   {
-    $this->links = func_get_args();
+    if(is_array($links)) 
+      $this->links = $links;
+    else
+      $this->links = func_get_args();
   }
   public function Colours($colours)
   {
@@ -110,6 +113,7 @@ abstract class Graph {
   protected $links = array();
 
   protected $gradients = array();
+  protected $gradient_map = array();
   protected $defs = array();
 
   protected $namespaces = array();
@@ -117,6 +121,9 @@ abstract class Graph {
   private static $last_id = 0;
   protected $legend_reverse = false;
   protected $force_assoc = false;
+  protected $repeated_keys = 'error';
+  protected $require_structured = false;
+  protected $require_integer_keys = true;
 
   public function __construct($w, $h, $settings = NULL)
   {
@@ -154,10 +161,8 @@ abstract class Graph {
    */
   public function __get($name)
   {
-    if(isset($this->settings[$name]))
-      return $this->settings[$name];
-
-    return NULL;
+    $this->{$name} = isset($this->settings[$name]) ? $this->settings[$name] : null;
+    return $this->{$name};
   }
 
 
@@ -177,92 +182,42 @@ abstract class Graph {
    */
   public function Values($values)
   {
-    $this->values = array();
+    $new_values = array();
     $v = func_get_args();
     if(count($v) == 1)
       $v = array_shift($v);
+
+    $set_values = true;
     if(is_array($v)) {
       reset($v);
       $first_key = key($v);
       if(!is_null($first_key) && is_array($v[$first_key])) {
         foreach($v as $data_set)
-          $this->values[] = $data_set;
-        return;
+          $new_values[] = $data_set;
+        $set_values = false;
       }
     }
-    $this->values[] = $v;
-  }
 
-  /**
-   * Returns a row of values
-   */
-  protected function GetValues($row = 0)
-  {
-    if(is_array($this->values[$row]))
-      return $this->values[$row];
-    
-    return $this->values;
-  }
+    if($set_values)
+      $new_values[] = $v;
 
-  /**
-   * Returns the key value for an index, if associative
-   */
-  protected function GetKey($index)
-  {
-    $k = array_keys($this->values[0]);
-
-    // this works around a strange bug - if you just return the key at $index,
-    // for a non-associative array it repeats some!
-    if(!$this->force_assoc && is_int($k[0]))
-      return $index;
-    if(isset($k[$index])) {
-      $index = (string)$index;
-      $index = (int)$index;
-      return $k[$index];
+    if($this->scatter_2d) {
+      $this->scatter_2d = false;
+      $this->structure = array('key' => 0, 'value' => 1, 'datasets' => true);
     }
-    return NULL;
-  }
 
-  /**
-   * Returns the minimum value
-   */
-  protected function GetMinValue()
-  {
-    if(is_array($this->values[0]))
-      return min($this->values[0]);
-    return min($this->values);
-  }
-
-  /**
-   * Returns the maximum value
-   */
-  protected function GetMaxValue()
-  {
-    if(is_array($this->values[0]))
-      return max($this->values[0]);
-    return max($this->values);
-  }
-
-  /**
-   * Returns the maximum key value
-   */
-  protected function GetMaxKey()
-  {
-    if(!$this->force_assoc && is_numeric($this->GetKey(0)))
-      return max(array_keys($this->values[0]));
-
-    // if associative, return the index of the last key
-    return $this->GetHorizontalCount() - 1;
-  }
-
-  /**
-   * Returns the minimum key value
-   */
-  protected function GetMinKey()
-  {
-    if(!$this->force_assoc && is_numeric($this->GetKey(0)))
-      return min(array_keys($this->values[0]));
-    return 0;
+    if($this->structured_data || is_array($this->structure)) {
+      $this->structured_data = true;
+      require_once 'SVGGraphStructuredData.php';
+      $this->values = new SVGGraphStructuredData($new_values,
+        $this->force_assoc, $this->structure, $this->repeated_keys,
+        $this->require_integer_keys, $this->require_structured);
+    } else {
+      require_once 'SVGGraphData.php';
+      $this->values = new SVGGraphData($new_values, $this->force_assoc);
+      if(!$this->values->error && !empty($this->require_structured))
+        $this->values->error = get_class($this) . ' requires structured data';
+    }
   }
 
   /**
@@ -270,8 +225,28 @@ abstract class Graph {
    */
   public function Links()
   {
-    $args = func_get_args();
-    $this->links = (is_array($args[0]) ? $args[0] : $args);
+    $this->links = func_get_args();
+  }
+
+  protected function GetMinValue()
+  {
+    return $this->values->GetMinValue();
+  }
+  protected function GetMaxValue()
+  {
+    return $this->values->GetMaxValue();
+  }
+  protected function GetMinKey()
+  {
+    return $this->values->GetMinKey();
+  }
+  protected function GetMaxKey()
+  {
+    return $this->values->GetMaxKey();
+  }
+  protected function GetKey($i)
+  {
+    return $this->values->GetKey($i);
   }
 
   /**
@@ -286,14 +261,12 @@ abstract class Graph {
     $contents .= $this->Draw();
     $contents .= $this->DrawLegend();
 
-    // rounded rects need a clip path
-    if($this->back_round) {
+    // rounded rects might need a clip path
+    if($this->back_round && $this->back_round_clip) {
       $group = array('clip-path' => "url(#{$canvas_id})");
-      $body = $this->Element('g', $group, NULL, $contents);
-    } else {
-      $body = $contents;
+      return $this->Element('g', $group, NULL, $contents);
     }
-    return $body;
+    return $contents;
   }
 
 
@@ -759,8 +732,8 @@ abstract class Graph {
    * Returns [width,height] of text 
    * $text = string OR text length
    */
-  protected function TextSize($text, $font_size, $font_adjust, $angle = 0,
-    $line_spacing = 0)
+  protected static function TextSize($text, $font_size, $font_adjust,
+    $angle = 0, $line_spacing = 0)
   {
     $height = $font_size;
     if(is_int($text)) {
@@ -816,7 +789,7 @@ abstract class Graph {
     $text = array('x' => $this->pad_left, 'y' => $this->height - 3);
     $style = array(
       'font-family' => 'monospace',
-      'font-size' => '12px',
+      'font-size' => '11px',
       'font-weight' => 'bold',
     );
     
@@ -868,9 +841,9 @@ abstract class Graph {
     $content = NULL)
   {
     // these properties require units to work well
-    $require_units = array('stroke-width', 'stroke-dashoffset',
-      'font-size', 'baseline-shift', 'kerning', 'letter-spacing',
-      'word-spacing');
+    $require_units = array('stroke-width' => 1, 'stroke-dashoffset' => 1,
+      'font-size' => 1, 'baseline-shift' => 1, 'kerning' => 1, 
+      'letter-spacing' =>1, 'word-spacing' => 1);
 
     if($this->namespace && strpos($name, ':') === FALSE)
       $name = 'svg:' . $name;
@@ -880,7 +853,7 @@ abstract class Graph {
 
         // if units required, add px
         if(is_numeric($val)) {
-          if(array_search($attr, $require_units) !== FALSE)
+          if(isset($require_units[$attr]))
             $val .= 'px';
         } else {
           $val = htmlspecialchars($val);
@@ -893,7 +866,7 @@ abstract class Graph {
       foreach($styles as $attr => $val) {
         // check units again
         if(is_numeric($val)) {
-          if(array_search($attr, $require_units) !== FALSE)
+          if(isset($require_units[$attr]))
             $val .= 'px';
         } else {
           $val = htmlspecialchars($val);
@@ -914,13 +887,16 @@ abstract class Graph {
   /**
    * Returns a link URL or NULL if none
    */
-  protected function GetLinkURL($key, $row = 0)
+  protected function GetLinkURL($item, $key, $row = 0)
   {
-    if(!is_array($this->links[$row]) || !isset($this->links[$row][$key]))
-      return NULL;
+    $link = is_null($item) ? null : $item->Data('link');
+    if(is_null($link) && is_array($this->links[$row]) &&
+      isset($this->links[$row][$key])) {
+      $link = $this->links[$row][$key];
+    }
 
-    $link = $this->links[$row][$key];
-    if(strpos($link,'//') === FALSE) // check for absolute links
+    // check for absolute links
+    if(!is_null($link) && strpos($link,'//') === FALSE)
       $link = $this->link_base . $link;
 
     return $link;
@@ -929,9 +905,9 @@ abstract class Graph {
   /**
    * Retrieves a link
    */
-  protected function GetLink($key, $content, $row = 0)
+  protected function GetLink($item, $key, $content, $row = 0)
   {
-    $link = $this->GetLinkURL($key, $row);
+    $link = $this->GetLinkURL($item, $key, $row);
     if(is_null($link))
       return $content;
 
@@ -942,19 +918,26 @@ abstract class Graph {
   /**
    * Returns a colour reference
    */
-  protected function GetColour($key, $no_gradient = FALSE)
+  protected function GetColour($item, $key, $no_gradient = FALSE)
   {
     $colour = 'none';
-    if(isset($this->colours[$key])) {
+    $icolour = is_null($item) ? null : $item->Data('colour');
+    if(!is_null($icolour)) {
+      $colour = $icolour;
+      $key = null; // don't reuse existing colours
+    } elseif(isset($this->colours[$key])) {
       $colour = $this->colours[$key];
-      if(is_array($colour)) {
-        if($no_gradient) {
-          // grab the first colour in the array, discarding opacity
-          list($colour) = explode(':', $colour[0]);
-        } else {
-          $gradient_id = $this->AddGradient($colour, $key);
-          $colour = "url(#{$gradient_id})";
-        }
+    }
+    if(is_array($colour)) {
+      if($no_gradient) {
+        // grab the first colour in the array, discarding opacity
+        $colour = $colour[0];
+        $colon = strpos($colour, ':');
+        if($colon)
+          $colour = substr($colour, 0, $colon);
+      } else {
+        $gradient_id = $this->AddGradient($colour, $key);
+        $colour = "url(#{$gradient_id})";
       }
     }
     return $colour;
@@ -974,25 +957,10 @@ abstract class Graph {
   /**
    * Checks that the data are valid
    */
-  protected function CheckValues(&$values)
+  protected function CheckValues()
   {
-    if(count($values) == 0 || count($values[0]) == 0)
-      throw new Exception('No data');
-  }
-
-  /**
-   * Checks if the keys are associative
-   */
-  protected function AssociativeKeys()
-  {
-    if($this->force_assoc)
-      return true;
-
-    $values = $this->GetValues();
-    foreach(array_keys($values) as $k)
-      if(!is_integer($k))
-        return true;
-    return false;
+    if($this->values->error)
+      throw new Exception($this->values->error);
   }
 
   /**
@@ -1064,23 +1032,22 @@ abstract class Graph {
    */
   public function AddGradient($colours, $key = null)
   {
-    if(is_null($key) || !array_key_exists($key, $this->gradients)) {
+    if(is_null($key) || !isset($this->gradients[$key])) {
 
       // find out if this gradient already stored
-      $hash = crc32(serialize($colours));
-      foreach($this->gradients as $k => $g) {
-        if($g['hash'] == $hash)
-          return $g['id'];
-      }
+      $hash = serialize($colours);
+      if(isset($this->gradient_map[$hash]))
+        return $this->gradient_map[$hash];
 
       $id = $this->NewID();
       if(is_null($key))
         $key = $id;
       $this->gradients[$key] = array(
         'id' => $id,
-        'colours' => $colours,
-        'hash' => $hash,
+        'colours' => $colours
       );
+      $this->gradient_map[$hash] = $id;
+      return $id;
     }
     return $this->gradients[$key]['id'];
   }
@@ -1149,22 +1116,19 @@ abstract class Graph {
    * Default tooltip contents are key and value, or whatever
    * $key is if $value is not set
    */
-  protected function SetTooltip(&$element, $key, $value = NULL,
+  protected function SetTooltip(&$element, &$item, $key, $value = NULL,
     $duplicate = FALSE)
   {
-    $text = $this->TooltipText(str_replace("\n", ' ', $key), $value);
-    $this->LoadJavascript();
+    // use structured data tooltips if specified
+    if(is_array($this->structure) && isset($this->structure['tooltip'])) {
+      $text = $item->Data('tooltip');
+      if(is_null($text))
+        return;
+    } else {
+      $text = is_null($value) ? $key : $key . ', ' . $value;
+    }
+    $text = addslashes(str_replace("\n", '\n', $text));
     Graph::$javascript->SetTooltip($element, $text, $duplicate);
-  }
-
-  /**
-   * Sets the text to use for a tooltip
-   */
-  protected function TooltipText($key, $value = NULL)
-  {
-    if(is_null($value))
-      return addslashes($key);
-    return addslashes($key . ', ' . $value);
   }
 
   /**
@@ -1217,6 +1181,10 @@ abstract class Graph {
 
     try {
       $this->CheckValues($this->values);
+
+      if($this->show_tooltips)
+        $this->LoadJavascript();
+
       // get the body content from the subclass
       $body = $this->DrawGraph();
     } catch(Exception $e) {

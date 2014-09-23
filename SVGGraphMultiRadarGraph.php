@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2012 Graham Breach
+ * Copyright (C) 2011-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -28,8 +28,6 @@ require_once 'SVGGraphMultiGraph.php';
 class MultiRadarGraph extends RadarGraph {
 
   protected $multi_graph;
-  private $line_styles = array();
-  private $fill_styles = array();
 
   protected function Draw()
   {
@@ -37,9 +35,7 @@ class MultiRadarGraph extends RadarGraph {
 
     $plots = '';
     $ccount = count($this->colours);
-    $chunk_count = count($this->values);
-    if(!$this->AssociativeKeys())
-      sort($this->multi_graph->all_keys, SORT_NUMERIC);
+    $chunk_count = count($this->multi_graph);
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
       $cmd = 'M';
@@ -51,7 +47,7 @@ class MultiRadarGraph extends RadarGraph {
         $this->multi_graph->Option($this->line_stroke_width, $i);
       $fill_style = null;
       if($fill) {
-        $attr['fill'] = $this->GetColour($i % $ccount);
+        $attr['fill'] = $this->GetColour(null, $i % $ccount);
         $fill_style = array('fill' => $attr['fill']);
         $opacity = $this->multi_graph->Option($this->fill_opacity, $i);
         if($opacity < 1.0) {
@@ -64,11 +60,10 @@ class MultiRadarGraph extends RadarGraph {
       $attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
 
 
-      foreach($this->multi_graph->all_keys as $key) {
-        $value = $this->multi_graph->GetValue($key, $i);
-        $point_pos = $this->GridPosition($key, $bnum);
-        if(!is_null($value) && !is_null($point_pos)) {
-          $val = $this->y0 + $value * $this->bar_unit_height;
+      foreach($this->multi_graph[$i] as $item) {
+        $point_pos = $this->GridPosition($item->key, $bnum);
+        if(!is_null($item->value) && !is_null($point_pos)) {
+          $val = $this->y0 + $item->value * $this->bar_unit_height;
           $angle = $this->arad + $point_pos / $this->g_height;
           $x = $this->xc + ($val * sin($angle));
           $y = $this->yc + ($val * cos($angle));
@@ -77,7 +72,7 @@ class MultiRadarGraph extends RadarGraph {
 
           // no need to repeat same L command
           $cmd = $cmd == 'M' ? 'L' : '';
-          $this->AddMarker($x, $y, $key, $value, NULL, $i);
+          $this->AddMarker($x, $y, $item, NULL, $i);
         }
         ++$bnum;
       }
@@ -85,10 +80,11 @@ class MultiRadarGraph extends RadarGraph {
       if($path != '') {
         $path .= "z";
         $attr['d'] = $path;
-        $attr['stroke'] = $this->GetColour($i % $ccount, true);
+        $attr['stroke'] = $this->GetColour(null, $i % $ccount, true);
         $plots .= $this->Element('path', $attr);
         unset($attr['d']);
-        $this->AddLineStyle($attr, $fill_style);
+        $this->line_styles[] = $attr;
+        $this->fill_styles[] = $fill_style;
       }
     }
 
@@ -102,49 +98,14 @@ class MultiRadarGraph extends RadarGraph {
   }
 
   /**
-   * Slightly less restrictive than the radar graph
-   */
-  protected function CheckValues(&$values)
-  {
-    GridGraph::CheckValues($values);
-
-    if($this->GetHorizontalCount() < 2)
-      throw new Exception('Not enough values for line graph');
-    if($this->multi_graph->GetMinValue() < 0)
-      throw new Exception('Negative value for radar graph');
-  }
-
-  /**
-   * Return line and marker for legend
-   */
-  protected function DrawLegendEntry($set, $x, $y, $w, $h)
-  {
-    if(!array_key_exists($set, $this->line_styles))
-      return '';
-
-    $marker = PointGraph::DrawLegendEntry($set, $x, $y, $w, $h);
-
-    $h1 = $h/2;
-    $y += $h1;
-    $line = $this->line_styles[$set];
-    $line['d'] = "M$x {$y}l$w 0";
-    $graph_line = $this->Element('path', $line);
-    if($this->fill_under && !empty($this->fill_styles[$set])) {
-      $fill = $this->fill_styles[$set];
-      $fill['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
-      $graph_line = $this->Element('path', $fill) . $graph_line;
-    }
-
-    return $graph_line . $marker;
-  }
-
-  /**
    * construct multigraph
    */
   public function Values($values)
   {
     parent::Values($values);
-    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
+    if(!$this->values->error)
+      $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
+        $this->require_integer_keys);
   }
 
   /**
@@ -152,7 +113,7 @@ class MultiRadarGraph extends RadarGraph {
    */
   protected function GetHorizontalCount()
   {
-    return $this->multi_graph->KeyCount();
+    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**
@@ -189,10 +150,5 @@ class MultiRadarGraph extends RadarGraph {
     return $this->multi_graph->GetMinKey();
   }
 
-  protected function AddLineStyle($style, $fill_style)
-  {
-    $this->line_styles[] = $style;
-    $this->fill_styles[] = $fill_style;
-  }
 }
 

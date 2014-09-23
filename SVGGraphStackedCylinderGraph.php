@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -20,9 +20,9 @@
  */
 
 require_once 'SVGGraphMultiGraph.php';
-require_once 'SVGGraphBarGraph.php';
+require_once 'SVGGraphCylinderGraph.php';
 
-class StackedBarGraph extends BarGraph {
+class StackedCylinderGraph extends CylinderGraph {
 
   protected $multi_graph;
   protected $legend_reverse = true;
@@ -37,11 +37,22 @@ class StackedBarGraph extends BarGraph {
     $this->SetStroke($bar_style);
     $bar = array('width' => $bar_width);
 
+    $this->block_width = $bar_width;
+
+    // make the top parallelogram, set it as a symbol for re-use
+    list($this->bx, $this->by) = $this->Project(0, 0, $this->block_width);
+    $top = $this->BarTop();
+
     $bspace = $this->bar_space / 2;
     $bnum = 0;
     $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
+    $groups = array_fill(0, $chunk_count, '');
 
+    // get the translation for the whole bar
+    list($tx, $ty) = $this->Project(0, 0, $this->bar_space / 2);
+    $group = array('transform' => "translate($tx,$ty)");
+    $bars = '';
     foreach($this->multi_graph as $itemlist) {
       $k = $itemlist[0]->key;
       $bar_pos = $this->GridPosition($k, $bnum);
@@ -49,37 +60,55 @@ class StackedBarGraph extends BarGraph {
       if(!is_null($bar_pos)) {
         $bar['x'] = $bspace + $bar_pos;
 
-        $ypos = $yneg = 0;
+        // sort the values from bottom to top, assigning position
+        $ypos = $yplus = $yminus = 0;
+        $chunk_values = array();
         for($j = 0; $j < $chunk_count; ++$j) {
           $item = $itemlist[$j];
           if(!is_null($item->value)) {
-            $this->Bar($item->value, $bar, $item->value >= 0 ? $ypos : $yneg);
-            if($item->value < 0)
-              $yneg -= $bar['height'];
-            else
-              $ypos += $bar['height'];
-
-            if($bar['height'] > 0) {
-              $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
-
-              if($this->show_tooltips)
-                $this->SetTooltip($bar, $item, $item->value, null,
-                  !$this->compat_events && $this->show_bar_labels);
-              $rect = $this->Element('rect', $bar, $bar_style);
-              if($this->show_bar_labels)
-                $rect .= $this->BarLabel($item, $bar, $j + 1 < $chunk_count);
-              $body .= $this->GetLink($item, $k, $rect);
-              unset($bar['id']); // clear for next value
-
-              if(!isset($this->bar_styles[$j]))
-                $this->bar_styles[$j] = $bar_style;
+            if($item->value < 0) {
+              array_unshift($chunk_values, array($j, $item->value, $yminus, $item));
+              $yminus += $item->value;
+            } else {
+              $chunk_values[] = array($j, $item->value, $yplus, $item);
+              $yplus += $item->value;
             }
           }
+        }
+
+        $bar_count = count($chunk_values);
+        $b = 0;
+        foreach($chunk_values as $chunk) {
+          $j = $chunk[0];
+          $value = $chunk[1];
+          $item = $chunk[3];
+          $colour = $j % $ccount;
+          $v = abs($value);
+          $t = ++$b == $bar_count ? $top : null;
+          $bar_sections = $this->Bar3D($item, $bar, $t, $colour,
+            $chunk[2] * $this->bar_unit_height);
+          $ypos = $ty;
+          $group['transform'] = "translate($tx," . $ypos . ")";
+          $group['fill'] = $this->GetColour($item, $colour);
+
+          if($this->show_tooltips)
+            $this->SetTooltip($group, $item, $value);
+          $link = $this->GetLink($item, $k, $bar_sections);
+          $bars .= $this->Element('g', $group, NULL, $link);
+          unset($group['id']); // make sure a new one is generated
+          $style = $group;
+          $this->SetStroke($style);
+
+          if(!array_key_exists($j, $this->bar_styles))
+            $this->bar_styles[$j] = $style;
         }
       }
       ++$bnum;
     }
 
+    $bgroup = array('fill' => 'none');
+    $this->SetStroke($bgroup, 'round');
+    $body .= $this->Element('g', $bgroup, NULL, $bars);
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }
@@ -99,7 +128,7 @@ class StackedBarGraph extends BarGraph {
    * Overridden to prevent drawing behind higher bars
    * $offset_y should be true for inner bars
    */
-  protected function BarLabel(&$item, &$bar, $offset_y = null)
+  protected function BarLabel($value, &$bar, $offset_y = null)
   {
     $font_size = $this->bar_label_font_size;
     $space = $this->bar_label_space;
@@ -107,17 +136,17 @@ class StackedBarGraph extends BarGraph {
 
       // bar too small, would be above
       if($bar['height'] < $font_size + 2 * $space)
-        return parent::BarLabel($item, $bar, ($bar['height'] + $font_size)/2);
+        return parent::BarLabel($value, $bar, ($bar['height'] + $font_size)/2);
 
       // option set to above
       if($this->bar_label_position == 'above') {
         $this->bar_label_position = 'top';
-        $label = parent::BarLabel($item, $bar);
+        $label = parent::BarLabel($value, $bar);
         $this->bar_label_position = 'above';
         return $label;
       }
     }
-    return parent::BarLabel($item, $bar);
+    return parent::BarLabel($value, $bar);
   }
 
   /**

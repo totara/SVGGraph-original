@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2012 Graham Breach
+ * Copyright (C) 2009-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -53,12 +53,13 @@ abstract class GridGraph extends Graph {
   protected $axes_calc_done = false;
   protected $sub_x;
   protected $sub_y;
-  protected $guidelines = array();
+  protected $guidelines;
   protected $min_guide = array('x' => null, 'y' => null);
   protected $max_guide = array('x' => null, 'y' => null);
 
   private $label_left_offset;
   private $label_bottom_offset;
+  private $grid_limit;
 
   /**
    * Modifies the graph padding to allow room for labels
@@ -327,22 +328,13 @@ abstract class GridGraph extends Graph {
    */
   protected function GetAxisEnds()
   {
-    $v_max = $this->GetMaxValue();
-    $v_min = $this->GetMinValue();
-    $k_max = $this->GetMaxKey();
-    $k_min = $this->GetMinKey();
-
     // check guides
-    if(empty($this->guidelines))
+    if(is_null($this->guidelines))
       $this->CalcGuidelines();
-    if(!is_null($this->max_guide['y']))
-      $v_max = max($v_max, $this->max_guide['y']);
-    if(!is_null($this->min_guide['y']))
-      $v_min = min($v_min, $this->min_guide['y']);
-    if(!is_null($this->max_guide['x']))
-      $k_max = max($k_max, $this->max_guide['x']);
-    if(!is_null($this->min_guide['x']))
-      $k_min = min($k_min, $this->min_guide['x']);
+    $v_max = max(0, $this->GetMaxValue(), (float)$this->max_guide['y']);
+    $v_min = min(0, $this->GetMinValue(), (float)$this->min_guide['y']);
+    $k_max = max(0, $this->GetMaxKey(), (float)$this->max_guide['x']);
+    $k_min = min(0, $this->GetMinKey(), (float)$this->min_guide['x']);
 
     // validate axes
     if((is_numeric($this->axis_max_h) && is_numeric($this->axis_min_h) &&
@@ -360,7 +352,19 @@ abstract class GridGraph extends Graph {
       ($this->axis_min_v >= ($this->flip_axes ? $k_max+1 : $v_max))))
         throw new Exception('No values in grid range');
 
-    return compact('v_max', 'v_min', 'k_max', 'k_min');
+    $ends = compact('v_max', 'v_min', 'k_max', 'k_min');
+
+    // use fixed values if set
+    if(is_numeric($this->axis_max_h))
+      $ends[$this->flip_axes ? 'v_max' : 'k_max'] = $this->axis_max_h;
+    if(is_numeric($this->axis_min_h))
+      $ends[$this->flip_axes ? 'v_min' : 'k_min'] = $this->axis_min_h;
+    if(is_numeric($this->axis_max_v))
+      $ends[$this->flip_axes ? 'k_max' : 'v_max'] = $this->axis_max_v;
+    if(is_numeric($this->axis_min_v))
+      $ends[$this->flip_axes ? 'k_min' : 'v_min'] = $this->axis_min_v;
+
+    return $ends;
   }
 
   /**
@@ -368,28 +372,21 @@ abstract class GridGraph extends Graph {
    */
   protected function GetAxes($ends, &$x_len, &$y_len)
   {
-    $h_by_count = $this->AssociativeKeys();
-    $x_max = $h_by_count ? $this->GetHorizontalCount() - 1 : 
-      max(0, $ends['k_max']);
-    $x_min = $h_by_count ? 0 : min(0, $ends['k_min']);
-    $y_max = max(0, $ends['v_max']);
-    $y_min = min(0, $ends['v_min']);
-
     if($this->flip_axes) {
-      $max_h = $this->GetFirst($this->axis_max_h, $y_max);
-      $min_h = $this->GetFirst($this->axis_min_h, $y_min);
-      $max_v = $this->GetFirst($this->axis_max_v, $x_max);
-      $min_v = $this->GetFirst($this->axis_min_v, $x_min);
+      $max_h = $ends['v_max'];
+      $min_h = $ends['v_min'];
+      $max_v = $ends['k_max'];
+      $min_v = $ends['k_min'];
       $x_min_unit = $this->minimum_units_y;
       $x_fit = false;
       $y_min_unit = 1;
       $y_fit = true;
 
     } else {
-      $max_h = $this->GetFirst($this->axis_max_h, $x_max);
-      $min_h = $this->GetFirst($this->axis_min_h, $x_min);
-      $max_v = $this->GetFirst($this->axis_max_v, $y_max);
-      $min_v = $this->GetFirst($this->axis_min_v, $y_min);
+      $max_h = $ends['k_max'];
+      $min_h = $ends['k_min'];
+      $max_v = $ends['v_max'];
+      $min_v = $ends['v_min'];
       $x_min_unit = 1;
       $x_fit = true;
       $y_min_unit = $this->minimum_units_y;
@@ -407,6 +404,10 @@ abstract class GridGraph extends Graph {
       $this->minimum_grid_spacing_v = 1;
     if(is_numeric($this->grid_division_h))
       $this->minimum_grid_spacing_h = 1;
+
+    if(!is_numeric($max_h) || !is_numeric($min_h) ||
+      !is_numeric($max_v) || !is_numeric($min_v))
+      throw new Exception('Non-numeric value');
 
     if(!is_numeric($this->grid_division_h))
       $x_axis = new Axis($x_len, $max_h, $min_h, $x_min_unit, $x_fit);
@@ -573,6 +574,15 @@ abstract class GridGraph extends Graph {
     if($this->sub_x)
       $this->x_subdivs = $this->GetGridSubdivisions($this->x_points,
         $this->sub_x, 1);
+
+    if($this->flip_axes) {
+      $this->grid_limit = $this->label_centre ?
+        $this->g_height - ($this->bar_unit_height / 2) : $this->g_height;
+    } else {
+      $this->grid_limit = $this->label_centre ?
+        $this->g_width - ($this->bar_unit_width / 2) : $this->g_width;
+    }
+    $this->grid_limit += 0.01; // allow for floating-point inaccuracy
   }
 
   /**
@@ -610,29 +620,7 @@ abstract class GridGraph extends Graph {
    */
   protected function GetHorizontalCount()
   {
-    $values = $this->GetValues();
-    return count($values);
-  }
-
-  /**
-   * Returns the key that takes up the most space
-   */
-  protected function GetLongestKey()
-  {
-    $longest_key = '';
-    if($this->show_axis_text_v) {
-      $max_len = 0;
-      foreach($this->values[0] as $k => $v) {
-        if(is_numeric($k))
-          $k = $this->NumString($k);
-        $len = strlen($k);
-        if($len > $max_len) {
-          $max_len = $len;
-          $longest_key = $k;
-        }
-      }
-    }
-    return $longest_key;
+    return $this->values->ItemsCount();
   }
 
   /**
@@ -808,7 +796,7 @@ abstract class GridGraph extends Graph {
     $y_rotate_offset = -$text_centre;
     $x = $xoff + $this->axis_text_space;
     if(!$inside)
-     $x = -$x;
+      $x = -$x;
 
     $position = array('x' => $x);
     $position['text-anchor'] = $inside ? 'start' : 'end';
@@ -857,6 +845,9 @@ abstract class GridGraph extends Graph {
       $yoff += $this->height - $this->pad_bottom;
     $positions = $this->XAxisTextPositions($points, $xoff, $yoff, $angle,
       $inside);
+    if(empty($positions))
+      return '';
+
     $labels = '';
     $anchor = $positions[0]['text-anchor'];
     foreach($positions as $pos) {
@@ -883,6 +874,9 @@ abstract class GridGraph extends Graph {
       $xoff -= $this->pad_left;
     $positions = $this->YAxisTextPositions($points, $xoff, $yoff, $angle,
       $inside);
+    if(empty($positions))
+      return '';
+
     $labels = '';
     $anchor = $positions[0]['text-anchor'];
     foreach($positions as $pos) {
@@ -977,9 +971,10 @@ abstract class GridGraph extends Graph {
 
     $this->CalcGrid();
     $x_axis_visible = $this->show_axis_h && $this->y0 >= 0 &&
-      $this->y0 < $this->g_height;
+      $this->y0 <= $this->g_height;
     $y_axis_visible = $this->show_axis_v && $this->x0 >= 0 &&
-      $this->x0 < $this->g_width;
+      $this->x0 <= $this->g_width;
+
     $yoff = $x_axis_visible ? $this->y0 : 0;
     $xoff = $y_axis_visible ? $this->x0 : 0;
 
@@ -1104,10 +1099,10 @@ abstract class GridGraph extends Graph {
   protected function Grid()
   {
     $this->CalcAxes();
-    if(!$this->show_grid)
+    $this->CalcGrid();
+    if(!$this->show_grid || (!$this->show_grid_h && !$this->show_grid_v))
       return '';
 
-    $this->CalcGrid();
     $back = $subpath = $path_h = $path_v = '';
     $back_colour = $this->grid_back_colour;
     if(!empty($back_colour) && $back_colour != 'none') {
@@ -1125,10 +1120,12 @@ abstract class GridGraph extends Graph {
     }
     if($this->show_grid_subdivisions) {
       $subpath_h = $subpath_v = '';
-      foreach($this->y_subdivs as $y) 
-        $subpath_v .= "M{$this->pad_left} {$y}h{$this->g_width}";
-      foreach($this->x_subdivs as $x) 
-        $subpath_h .= "M$x {$this->pad_top}v{$this->g_height}";
+      if($this->show_grid_h)
+        foreach($this->y_subdivs as $y) 
+          $subpath_v .= "M{$this->pad_left} {$y}h{$this->g_width}";
+      if($this->show_grid_v)
+        foreach($this->x_subdivs as $x) 
+          $subpath_h .= "M$x {$this->pad_top}v{$this->g_height}";
 
       if($subpath_h != '' || $subpath_v != '') {
         $colour_h = $this->GetFirst($this->grid_subdivision_colour_h,
@@ -1152,10 +1149,12 @@ abstract class GridGraph extends Graph {
       }
     }
 
-    foreach($this->y_points as $y) 
-      $path_v .= "M{$this->pad_left} {$y}h{$this->g_width}";
-    foreach($this->x_points as $x) 
-      $path_h .= "M$x {$this->pad_top}v{$this->g_height}";
+    if($this->show_grid_h)
+      foreach($this->y_points as $y) 
+        $path_v .= "M{$this->pad_left} {$y}h{$this->g_width}";
+    if($this->show_grid_v)
+      foreach($this->x_points as $x) 
+        $path_h .= "M$x {$this->pad_top}v{$this->g_height}";
 
     $colour_h = $this->GetFirst($this->grid_colour_h, $this->grid_colour);
     $colour_v = $this->GetFirst($this->grid_colour_v, $this->grid_colour);
@@ -1209,18 +1208,15 @@ abstract class GridGraph extends Graph {
   protected function GridPosition($key, $ikey)
   {
     $position = null;
-    $gkey = $this->AssociativeKeys() ? $ikey : $key;
+    $gkey = $this->values->AssociativeKeys() ? $ikey : $key;
+    $zero = -0.01; // catch values close to 0
     if($this->flip_axes) {
-      $top = $this->label_centre ?
-        $this->g_height - ($this->bar_unit_height / 2) : $this->g_height;
       $offset = $this->y0 + ($this->bar_unit_height * $gkey);
-      if($offset >= 0 && floor($offset) <= $top)
+      if($offset >= $zero && floor($offset) <= $this->grid_limit)
         $position = $this->height - $this->pad_bottom - $offset;
     } else {
-      $right_end = $this->label_centre ?
-        $this->g_width - ($this->bar_unit_width / 2) : $this->g_width;
       $offset = $this->x0 + ($this->bar_unit_width * $gkey);
-      if($offset >= 0 && floor($offset) <= $right_end)
+      if($offset >= $zero && floor($offset) <= $this->grid_limit)
         $position = $this->pad_left + $offset;
     }
     return $position;
@@ -1253,6 +1249,8 @@ abstract class GridGraph extends Graph {
    */
   protected function CalcGuidelines($g = null)
   {
+    if(is_null($this->guidelines))
+      $this->guidelines = array();
     if(is_null($g)) {
       // no guidelines?
       if(empty($this->guideline) && $this->guideline !== 0)

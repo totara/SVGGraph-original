@@ -1,3 +1,18 @@
+Version 2.11 (12/03/2013)
+------------
+- Added stacked and grouped cylinder graphs.
+- Added structured data support.
+- Added normal and horizontal floating bar graphs.
+- Added bubble graph.
+- Added box and whisker graph.
+- Added back_round_clip option.
+- Added reverse option for radar graphs.
+- Added support for negative values on radar graphs.
+- Added support for multi-line tooltips.
+- Fixed drawing of axes when all values negative.
+- Fixed svg node in namespaced XHTML.
+- Improved performance.
+
 Version 2.10 (23/10/2012)
 ------------
 - Added cylinder graph.

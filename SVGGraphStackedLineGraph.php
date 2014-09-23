@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012 Graham Breach
+ * Copyright (C) 2012-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -39,9 +39,7 @@ class StackedLineGraph extends MultiLineGraph {
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
     $ccount = count($this->colours);
-    $chunk_count = count($this->values);
-    if(!$this->AssociativeKeys())
-      sort($this->multi_graph->all_keys, SORT_NUMERIC);
+    $chunk_count = count($this->multi_graph);
     $stack = array();
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
@@ -58,29 +56,29 @@ class StackedLineGraph extends MultiLineGraph {
 
       $bottom = array();
       $point_count = 0;
-      foreach($this->multi_graph->all_keys as $key) {
-        $value = $this->multi_graph->GetValue($key, $i);
-        $point_pos = $this->GridPosition($key, $bnum);
-        if(!isset($stack[$key]))
-          $stack[$key] = 0;
-        if(!is_null($point_pos)) {
-          $bottom[$point_pos] = $stack[$key];
-          $x = $point_pos;
-          $y_size = ($stack[$key] + $value) * $this->bar_unit_height;
+      foreach($this->multi_graph[$i] as $item) {
+        $x = $this->GridPosition($item->key, $bnum);
+        // key might not be an integer, so convert to string for $stack
+        $strkey = "{$item->key}";
+        if(!isset($stack[$strkey]))
+          $stack[$strkey] = 0;
+        if(!is_null($x)) {
+          $bottom["$x"] = $stack[$strkey];
+          $y_size = ($stack[$strkey] + $item->value) * $this->bar_unit_height;
 
           $y = $y_axis_pos - $y_size;
-          $stack[$key] += $value;
+          $stack[$strkey] += $item->value;
 
           $path .= "$cmd$x $y ";
-          if($fill && $fillpath == '')
+          if($fill && empty($fillpath))
             $fillpath = "M$x {$y}L";
           else
             $fillpath .= "$x $y ";
 
           // no need to repeat same L command
           $cmd = $cmd == 'M' ? 'L' : '';
-          if(!is_null($value)) {
-            $this->AddMarker($x, $y, $key, $value, NULL, $i);
+          if(!is_null($item->value)) {
+            $this->AddMarker($x, $y, $item, NULL, $i);
             ++$point_count;
           }
         }
@@ -89,7 +87,7 @@ class StackedLineGraph extends MultiLineGraph {
 
       if($point_count > 0) {
         $attr['d'] = $path;
-        $attr['stroke'] = $this->GetColour($i % $ccount, true);
+        $attr['stroke'] = $this->GetColour(null, $i % $ccount, true);
         $graph_line = $this->Element('path', $attr);
         $fill_style = null;
 
@@ -104,7 +102,7 @@ class StackedLineGraph extends MultiLineGraph {
           }
           $fillpath .= 'z';
           $fill_style = array(
-            'fill' => $this->GetColour($i % $ccount),
+            'fill' => $this->GetColour(null, $i % $ccount),
             'd' => $fillpath,
             'stroke' => $attr['fill'],
           );
@@ -115,7 +113,8 @@ class StackedLineGraph extends MultiLineGraph {
 
         $plots[] = $graph_line;
         unset($attr['d']);
-        $this->AddLineStyle($attr, $fill_style);
+        $this->line_styles[] = $attr;
+        $this->fill_styles[] = $fill_style;
       }
     }
 

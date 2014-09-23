@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2010-2012 Graham Breach
+ * Copyright (C) 2010-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,28 +26,24 @@ require_once 'SVGGraphPointGraph.php';
  */
 class ScatterGraph extends PointGraph {
 
+  protected $repeated_keys = 'accept';
+  protected $require_integer_keys = false;
+
   protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
-    $values = $this->GetValues();
 
     // a scatter graph without markers is empty!
     if($this->marker_size == 0)
       $this->marker_size = 1;
 
     $bnum = 0;
-    foreach($values as $key => $value) {
-      if($this->scatter_2d && is_array($value)) {
-        $key = $value[0];
-        $value = $value[1];
-      }
-      $point_pos = $this->GridPosition($key, $bnum);
-      if(!is_null($value) && !is_null($point_pos)) {
-        $x = $point_pos;
-        $y = $this->height - $this->pad_bottom - $this->y0 
-          - ($value * $this->bar_unit_height);
-
-        $this->AddMarker($x, $y, $key, $value);
+    $y0 = $this->height - $this->pad_bottom - $this->y0;
+    foreach($this->values[0] as $item) {
+      $x = $this->GridPosition($item->key, $bnum);
+      if(!is_null($item->value) && !is_null($x)) {
+        $y = $y0 - ($item->value * $this->bar_unit_height);
+        $this->AddMarker($x, $y, $item);
       }
       ++$bnum;
     }
@@ -71,81 +67,15 @@ class ScatterGraph extends PointGraph {
   }
 
   /**
-   * Sets up values array
-   */
-  public function Values($values)
-  {
-    if(!$this->scatter_2d)
-      return parent::Values($values);
-
-    $this->values = array();
-    $v = func_get_args();
-    if(count($v) == 1)
-      $v = $v[0];
-    if(is_array($v) && isset($v[0]) && is_array($v[0]) && is_array($v[0][0]))
-      $this->values = $v;
-    elseif(is_array($v) && isset($v[0]) && is_array($v[0]))
-      $this->values[0] = $v;
-    else
-      throw new Exception(
-        'Scatter 2D mode requires array of array(x,y) points'
-      );
-  }
-
-  /**
    * Checks that the data produces a 2-D plot
    */
-  protected function CheckValues(&$values)
+  protected function CheckValues()
   {
-    parent::CheckValues($values);
+    parent::CheckValues();
 
     // using force_assoc makes things work properly
-    if($this->AssociativeKeys())
+    if($this->values->AssociativeKeys())
       $this->force_assoc = true;
-  }
-
-  /**
-   * Overload GetMaxValue to support scatter_2d data
-   */
-  protected function GetMaxValue()
-  {
-    if(!$this->scatter_2d)
-      return parent::GetMaxValue();
-
-    return array_reduce($this->values[0], 'pointgraph_vmax', null);
-  }
-
-  /**
-   * Overload GetMinValue to support scatter_2d data
-   */
-  protected function GetMinValue()
-  {
-    if(!$this->scatter_2d)
-      return parent::GetMinValue();
-
-    return array_reduce($this->values[0], 'pointgraph_vmin', null);
-  }
-
-  /**
-   * Overload GetMaxKey to support scatter_2d data
-   */
-  protected function GetMaxKey()
-  {
-    if(!$this->scatter_2d)
-      return parent::GetMaxKey();
-
-    return array_reduce($this->values[0], 'pointgraph_kmax', null);
-  }
-
-  /**
-   * Overload GetMinKey to support scatter_2d data
-   */
-  protected function GetMinKey()
-  {
-    if(!$this->scatter_2d)
-      return parent::GetMinKey();
-
-    return array_reduce($this->values[0], 'pointgraph_kmin', null);
   }
 
 }

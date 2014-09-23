@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2012 Graham Breach
+ * Copyright (C) 2009-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -43,18 +43,25 @@ abstract class ThreeDGraph extends GridGraph {
    */
   protected function AdjustAxes(&$x_len, &$y_len)
   {
-    if($this->AssociativeKeys()) {
-      $bars = $this->GetHorizontalCount();
-    } else {
-      $ends = $this->GetAxisEnds();
-      $bars = max(0, $ends['k_max']) - min(0, $ends['k_min']) + 1;
-    }
+    // make sure project_angle is in range
+    if($this->project_angle < 1)
+      $this->project_angle = 1;
+    elseif($this->project_angle > 90)
+      $this->project_angle = 90;
+
+    $ends = $this->GetAxisEnds();
+    $bars = $ends['k_max'] - $ends['k_min'] + 1;
     $a = deg2rad($this->project_angle);
 
     $depth = $this->depth;
     $u = $x_len / ($bars + $depth * cos($a));
-    $c = $u * $depth * cos($a);
     $d = $u * $depth * sin($a);
+    if($d > $y_len) {
+      // doesn't fit - use 1/2 y length
+      $d = $y_len / 2;
+      $u = $d / $depth * sin($a);
+    }
+    $c = $u * $depth * cos($a);
     $x_len -= $c;
     $y_len -= $d;
     $this->depth_unit = $u;
@@ -67,10 +74,10 @@ abstract class ThreeDGraph extends GridGraph {
   protected function Grid()
   {
     $this->CalcAxes();
-    if(!$this->show_grid)
+    $this->CalcGrid();
+    if(!$this->show_grid || (!$this->show_grid_h && !$this->show_grid_v))
       return '';
 
-    $this->CalcGrid();
     $x_w = $this->g_width;
     $y_h = $this->g_height;
     $xleft = $this->pad_left;
@@ -98,10 +105,12 @@ abstract class ThreeDGraph extends GridGraph {
     }
     if($this->show_grid_subdivisions) {
       $subpath_h = $subpath_v = '';
-      foreach($this->y_subdivs as $y) 
-        $subpath_v .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
-      foreach($this->x_subdivs as $x) 
-        $subpath_h .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
+      if($this->show_grid_h)
+        foreach($this->y_subdivs as $y) 
+          $subpath_v .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
+      if($this->show_grid_v)
+        foreach($this->x_subdivs as $x) 
+          $subpath_h .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
       if($subpath_h != '' || $subpath_v != '') {
         $colour_h = $this->GetFirst($this->grid_subdivision_colour_h,
           $this->grid_subdivision_colour, $this->grid_colour_h,
@@ -126,10 +135,12 @@ abstract class ThreeDGraph extends GridGraph {
 
     // start with axis lines
     $path = "M$xleft {$ybottom}l$x_w 0M$xleft {$ybottom}l0 " . -$y_h;
-    foreach($this->y_points as $y)
-      $path_v .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
-    foreach($this->x_points as $x)
-      $path_h .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
+    if($this->show_grid_h)
+      foreach($this->y_points as $y)
+        $path_v .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
+    if($this->show_grid_v)
+      foreach($this->x_points as $x)
+        $path_h .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
 
     $colour_h = $this->GetFirst($this->grid_colour_h, $this->grid_colour);
     $colour_v = $this->GetFirst($this->grid_colour_v, $this->grid_colour);

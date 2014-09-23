@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2012 Graham Breach
+ * Copyright (C) 2011-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,17 +19,16 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-require_once 'SVGGraphPointGraph.php';
+require_once 'SVGGraphLineGraph.php';
 require_once 'SVGGraphMultiGraph.php';
 
 /**
  * MultiLineGraph - joined line, with axes and grid
  */
-class MultiLineGraph extends PointGraph {
+class MultiLineGraph extends LineGraph {
 
+  protected $require_integer_keys = false;
   protected $multi_graph;
-  private $line_styles = array();
-  private $fill_styles = array();
 
   protected function Draw()
   {
@@ -40,9 +39,7 @@ class MultiLineGraph extends PointGraph {
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
     $ccount = count($this->colours);
-    $chunk_count = count($this->values);
-    if(!$this->AssociativeKeys())
-      sort($this->multi_graph->all_keys, SORT_NUMERIC);
+    $chunk_count = count($this->multi_graph);
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
       $cmd = 'M';
@@ -56,37 +53,35 @@ class MultiLineGraph extends PointGraph {
         $attr['stroke-dasharray'] = $dash;
       $attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
 
+      foreach($this->multi_graph[$i] as $item) {
+        $x = $this->GridPosition($item->key, $bnum);
+        if(!is_null($x) && !is_null($item->value)) {
+          $y = $y_axis_pos - ($item->value * $this->bar_unit_height);
 
-      foreach($this->multi_graph->all_keys as $key) {
-        $value = $this->multi_graph->GetValue($key, $i);
-        $point_pos = $this->GridPosition($key, $bnum);
-        if(!is_null($value) && !is_null($point_pos)) {
-          $x = $point_pos;
-          $y = $y_axis_pos - ($value * $this->bar_unit_height);
-
-          if($fill && $path == '')
+          if($fill && empty($fillpath))
             $fillpath = "M$x {$y_bottom}L";
           $path .= "$cmd$x $y ";
           $fillpath .= "$x $y ";
 
           // no need to repeat same L command
           $cmd = $cmd == 'M' ? 'L' : '';
-          $this->AddMarker($x, $y, $key, $value, NULL, $i);
+          $this->AddMarker($x, $y, $item, NULL, $i);
+          $last_x = $x;
         }
         ++$bnum;
       }
 
-      if($path != '') {
+      if(!empty($path)) {
         $attr['d'] = $path;
-        $attr['stroke'] = $this->GetColour($i % $ccount, true);
+        $attr['stroke'] = $this->GetColour(null, $i % $ccount, true);
         $graph_line = $this->Element('path', $attr);
         $fill_style = null;
 
         if($fill) {
           $opacity = $this->multi_graph->Option($this->fill_opacity, $i);
-          $fillpath .= "L$x {$y_bottom}z";
+          $fillpath .= "L{$last_x} {$y_bottom}z";
           $fill_style = array(
-            'fill' => $this->GetColour($i % $ccount),
+            'fill' => $this->GetColour(null, $i % $ccount),
             'd' => $fillpath,
             'stroke' => $attr['fill'],
           );
@@ -97,7 +92,8 @@ class MultiLineGraph extends PointGraph {
         $plots .= $graph_line;
 
         unset($attr['d']);
-        $this->AddLineStyle($attr, $fill_style);
+        $this->line_styles[] = $attr;
+        $this->fill_styles[] = $fill_style;
       }
     }
 
@@ -112,55 +108,23 @@ class MultiLineGraph extends PointGraph {
   }
 
   /**
-   * Requires at least two values
-   */
-  protected function CheckValues(&$values)
-  {
-    parent::CheckValues($values);
-
-    if($this->GetHorizontalCount() < 2)
-      throw new Exception('Not enough values for line graph');
-  }
-
-  /**
-   * Return line and marker for legend
-   */
-  protected function DrawLegendEntry($set, $x, $y, $w, $h)
-  {
-    if(!array_key_exists($set, $this->line_styles))
-      return '';
-
-    $marker = parent::DrawLegendEntry($set, $x, $y, $w, $h);
-
-    $h1 = $h/2;
-    $y += $h1;
-    $line = $this->line_styles[$set];
-    $line['d'] = "M$x {$y}l$w 0";
-    $graph_line = $this->Element('path', $line);
-    if($this->fill_under) {
-      $fill = $this->fill_styles[$set];
-      $fill['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
-      $graph_line = $this->Element('path', $fill) . $graph_line;
-    }
-
-    return $graph_line . $marker;
-  }
-
-  /**
    * construct multigraph
    */
   public function Values($values)
   {
     parent::Values($values);
-    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
+    if(!$this->values->error)
+      $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
+        $this->require_integer_keys);
   }
+
 
   /**
    * The horizontal count is reduced by one
    */
   protected function GetHorizontalCount()
   {
-    return $this->multi_graph->KeyCount();
+    return $this->multi_graph->ItemsCount();
   }
 
   /**
@@ -179,14 +143,6 @@ class MultiLineGraph extends PointGraph {
     return $this->multi_graph->GetMinValue();
   }
 
-  /**
-   * Returns the key from the MultiGraph
-   */
-  protected function GetKey($index)
-  {
-    return $this->multi_graph->GetKey($index);
-  }
-
   protected function GetMaxKey()
   {
     return $this->multi_graph->GetMaxKey();
@@ -197,10 +153,13 @@ class MultiLineGraph extends PointGraph {
     return $this->multi_graph->GetMinKey();
   }
 
-  protected function AddLineStyle($style, $fill_style = null)
+  /**
+   * Returns the key from the MultiGraph
+   */
+  protected function GetKey($index)
   {
-    $this->line_styles[] = $style;
-    $this->fill_styles[] = $fill_style;
+    return $this->multi_graph->GetKey($index);
   }
+
 }
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2012 Graham Breach
+ * Copyright (C) 2011-2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -41,50 +41,41 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
     $bspace = $this->bar_space / 2;
     $b_start = $this->height - $this->pad_bottom - ($this->bar_space / 2);
     $ccount = count($this->colours);
-    $chunk_count = count($this->values);
-    $groups = array_fill(0, $chunk_count, '');
+    $chunk_count = count($this->multi_graph);
 
-    foreach($this->multi_graph->all_keys as $k) {
+    foreach($this->multi_graph as $itemlist) {
+      $k = $itemlist[0]->key;
       $bar_pos = $this->GridPosition($k, $bnum);
       if(!is_null($bar_pos)) {
         $bar['y'] = $bar_pos - $bspace - $bar_height;
 
         $xpos = $xneg = 0;
         for($j = 0; $j < $chunk_count; ++$j) {
-          $value = $this->multi_graph->GetValue($k, $j);
-          $this->Bar($value, $bar, $value >= 0 ? $xpos : $xneg);
-          if($value < 0)
+          $item = $itemlist[$j];
+          $this->Bar($item->value, $bar, $item->value >= 0 ? $xpos : $xneg);
+          if($item->value < 0)
             $xneg -= $bar['width'];
           else
             $xpos += $bar['width'];
 
           if($bar['width'] > 0) {
-            $bar_style['fill'] = $this->GetColour($j % $ccount);
+            $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
 
             if($this->show_tooltips)
-              $this->SetTooltip($bar, $value, null,
+              $this->SetTooltip($bar, $item, $item->value, null,
                 !$this->compat_events && $this->show_bar_labels);
-            if($this->show_bar_labels) {
-              $rect = $this->Element('rect', $bar, $bar_style);
-              $rect .= $this->BarLabel($value, $bar, $j + 1 < $chunk_count);
-              $body .= $this->GetLink($k, $rect);
-            } else {
-              $rect = $this->Element('rect', $bar);
-              $groups[$j] .= $this->GetLink($k, $rect);
-            }
+            $rect = $this->Element('rect', $bar, $bar_style);
+            if($this->show_bar_labels)
+              $rect .= $this->BarLabel($item, $bar, $j + 1 < $chunk_count);
+            $body .= $this->GetLink($item, $k, $rect);
             unset($bar['id']); // clear ID for next generated value
 
-            if(!array_key_exists($j, $this->bar_styles))
+            if(!isset($this->bar_styles[$j]))
               $this->bar_styles[$j] = $bar_style;
           }
         }
       }
       ++$bnum;
-    }
-    if(!$this->show_bar_labels) {
-      foreach($groups as $j => $g)
-        if(array_key_exists($j, $this->bar_styles))
-          $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
     }
 
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
@@ -95,26 +86,29 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
    * Overridden to prevent drawing behind higher bars
    * $offset_y should be true for inner bars
    */
-  protected function BarLabel($value, &$bar, $offset_x = null)
+  protected function BarLabel($item, &$bar, $offset_x = null)
   {
-    list($text_size) = $this->TextSize(strlen($value),
+    $content = $item->Data('label');
+    if(is_null($content))
+      $content = $item->value;
+    list($text_size) = $this->TextSize(strlen($content),
       $this->bar_label_font_size, $this->bar_label_font_adjust);
     $space = $this->bar_label_space;
     if($offset_x) {
 
       // bar too small, would be above
       if($bar['width'] < $text_size + 2 * $space)
-        return parent::BarLabel($value, $bar, ($bar['width'] + $text_size)/2);
+        return parent::BarLabel($item, $bar, ($bar['width'] + $text_size)/2);
 
       // option set to above
       if($this->bar_label_position == 'above') {
         $this->bar_label_position = 'top';
-        $label = parent::BarLabel($value, $bar);
+        $label = parent::BarLabel($item, $bar);
         $this->bar_label_position = 'above';
         return $label;
       }
     }
-    return parent::BarLabel($value, $bar);
+    return parent::BarLabel($item, $bar);
   }
 
   /**
@@ -123,7 +117,9 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
   public function Values($values)
   {
     parent::Values($values);
-    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
+    if(!$this->values->error)
+      $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
+        $this->require_integer_keys);
   }
 
   /**
@@ -131,7 +127,7 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
    */
   protected function GetHorizontalCount()
   {
-    return $this->multi_graph->KeyCount();
+    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**
@@ -139,19 +135,7 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
    */
   protected function GetMaxValue()
   {
-    $stack = array();
-    $chunk_count = count($this->values);
-
-    foreach($this->multi_graph->all_keys as $k) {
-      $s = 0;
-      for($j = 0; $j < $chunk_count; ++$j) {
-        $v = $this->multi_graph->GetValue($k, $j);
-        if($v > 0)
-          $s += $v;
-      }
-      $stack[] = $s;
-    }
-    return max($stack);
+    return $this->multi_graph->GetMaxSumValue();
   }
 
   /**
@@ -159,19 +143,7 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
    */
   protected function GetMinValue()
   {
-    $stack = array();
-    $chunk_count = count($this->values);
-
-    foreach($this->multi_graph->all_keys as $k) {
-      $s = 0;
-      for($j = 0; $j < $chunk_count; ++$j) {
-        $v = $this->multi_graph->GetValue($k, $j);
-        if($v <= 0)
-          $s += $v;
-      }
-      $stack[] = $s;
-    }
-    return min($stack);
+    return $this->multi_graph->GetMinSumValue();
   }
 
   /**
@@ -198,12 +170,5 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
     return $this->multi_graph->GetMinKey();
   }
 
-  /**
-   * Return the longest of all keys
-   */
-  protected function GetLongestKey()
-  {
-    return $this->multi_graph->GetLongestKey();
-  }
 }
 
