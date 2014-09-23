@@ -439,6 +439,7 @@ JAVASCRIPT;
       $this->AddFunction('newel');
       $this->AddFunction('getE');
       $this->AddFunction('setattr');
+      $this->AddFunction('finditem');
       $this->InsertVariable('initfns', NULL, 'initDrag');
       $fn = <<<JAVASCRIPT
 function initDrag() {

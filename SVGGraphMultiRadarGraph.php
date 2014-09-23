@@ -19,13 +19,13 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-require_once 'SVGGraphPointGraph.php';
+require_once 'SVGGraphRadarGraph.php';
 require_once 'SVGGraphMultiGraph.php';
 
 /**
- * MultiLineGraph - joined line, with axes and grid
+ * MultiRadarGraph - multiple radar graphs on one plot
  */
-class MultiLineGraph extends PointGraph {
+class MultiRadarGraph extends RadarGraph {
 
   protected $multi_graph;
   private $line_styles = array();
@@ -33,13 +33,10 @@ class MultiLineGraph extends PointGraph {
   public function Draw()
   {
     $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc);
-    $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
+    $this->CalcAxes($assoc, true);
+    $body = $this->Grid();
 
     $plots = '';
-    $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
-    $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
-
     $ccount = count($this->colours);
     $chunk_count = count($this->values);
     if(!$assoc)
@@ -54,7 +51,6 @@ class MultiLineGraph extends PointGraph {
       $stroke_width = 
         $this->multi_graph->Option($this->line_stroke_width, $i);
       if($fill) {
-        $cmd = 'L';
         $attr['fill'] = $this->GetColour($i % $ccount);
         $attr['fill-opacity'] = 
           $this->multi_graph->Option($this->fill_opacity, $i);
@@ -68,11 +64,11 @@ class MultiLineGraph extends PointGraph {
         $value = $this->multi_graph->GetValue($key, $i);
         $point_pos = $this->GridPosition($key, $bnum);
         if(!is_null($value) && !is_null($point_pos)) {
-          $x = $point_pos;
-          $y = $y_axis_pos - ($value * $this->bar_unit_height);
+          $val = $this->y0 + $value * $this->bar_unit_height;
+          $angle = $this->arad + $point_pos / $this->g_height;
+          $x = $this->xc + ($val * sin($angle));
+          $y = $this->yc + ($val * cos($angle));
 
-          if($fill && $path == '')
-            $path = "M$x $y_bottom";
           $path .= "$cmd$x $y ";
 
           // no need to repeat same L command
@@ -82,8 +78,7 @@ class MultiLineGraph extends PointGraph {
         ++$bnum;
       }
 
-      if($fill)
-        $path .= "$cmd$x {$y_bottom}z";
+      $path .= "z";
 
       $attr['d'] = $path;
       $attr['stroke'] = $this->GetColour($i % $ccount, true);
@@ -95,7 +90,6 @@ class MultiLineGraph extends PointGraph {
     $group = array();
     $this->ClipGrid($group);
     $body .= $this->Element('g', $group, NULL, $plots);
-    $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE);
     $body .= $this->Axes();
     $body .= $this->CrossHairs();
     $body .= $this->DrawMarkers();
@@ -103,14 +97,16 @@ class MultiLineGraph extends PointGraph {
   }
 
   /**
-   * Requires at least two values
+   * Slightly less restrictive than the radar graph
    */
   protected function CheckValues(&$values)
   {
-    parent::CheckValues($values);
+    GridGraph::CheckValues($values);
 
     if($this->GetHorizontalCount() < 2)
       throw new Exception('Not enough values for line graph');
+    if($this->multi_graph->GetMinValue() < 0)
+      throw new Exception('Negative value for radar graph');
   }
 
   /**
@@ -121,7 +117,7 @@ class MultiLineGraph extends PointGraph {
     if(!array_key_exists($set, $this->line_styles))
       return '';
 
-    $marker = parent::DrawLegendEntry($set, $x, $y, $w, $h);
+    $marker = PointGraph::DrawLegendEntry($set, $x, $y, $w, $h);
 
     $h1 = $h/2;
     $y += $h1;

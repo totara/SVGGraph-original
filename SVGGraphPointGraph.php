@@ -228,6 +228,39 @@ abstract class PointGraph extends GridGraph {
       }
     }
   }
+
+}
+
+/**
+ * These functions are used by scatter graphs to find the maximum and
+ * minimum keys and values in scatter_2d data
+ */
+function pointgraph_vmax($m, $e)
+{
+  if(is_null($m))
+    return $e[1];
+  return $e[1] > $m ? $e[1] : $m;
+}
+
+function pointgraph_vmin($m, $e)
+{
+  if(is_null($m))
+    return $e[1];
+  return $e[1] < $m ? $e[1] : $m;
+}
+
+function pointgraph_kmax($m, $e)
+{
+  if(is_null($m))
+    return $e[0];
+  return $e[0] > $m ? $e[0] : $m;
+}
+
+function pointgraph_kmin($m, $e)
+{
+  if(is_null($m))
+    return $e[0];
+  return $e[0] < $m ? $e[0] : $m;
 }
 
 class Marker {
@@ -244,34 +277,3 @@ class Marker {
   }
 }
 
-/**
- * These functions are used by scatter graphs to find the maximum and
- * minimum keys and values in scatter_2d data
- */
-function vmax($m, $e)
-{
-  if(is_null($m))
-    return $e[1];
-  return $e[1] > $m ? $e[1] : $m;
-}
-
-function vmin($m, $e)
-{
-  if(is_null($m))
-    return $e[1];
-  return $e[1] < $m ? $e[1] : $m;
-}
-
-function kmax($m, $e)
-{
-  if(is_null($m))
-    return $e[0];
-  return $e[0] > $m ? $e[0] : $m;
-}
-
-function kmin($m, $e)
-{
-  if(is_null($m))
-    return $e[0];
-  return $e[0] < $m ? $e[0] : $m;
-}

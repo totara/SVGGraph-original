@@ -22,11 +22,13 @@
 class MultiGraph {
 
   private $values;
+  private $force_assoc;
   public $all_keys;
 
-  public function __construct($values)
+  public function __construct($values, $force_assoc)
   {
     $this->values =& $values;
+    $this->force_assoc = $force_assoc;
     $this->all_keys = array();
 
     // combine all array keys
@@ -91,7 +93,7 @@ class MultiGraph {
    */
   public function GetKey($index)
   {
-    if(is_int($this->all_keys[0]))
+    if(!$this->force_assoc && is_int($this->all_keys[0]))
       return $index;
 
     // round to the nearest index
@@ -104,7 +106,7 @@ class MultiGraph {
    */
   public function GetMaxKey()
   {
-    return is_numeric($this->all_keys[0]) ?
+    return !$this->force_assoc && is_numeric($this->all_keys[0]) ?
       max($this->all_keys) : $this->KeyCount() - 1;
   }
 
@@ -113,7 +115,8 @@ class MultiGraph {
    */
   public function GetMinKey()
   {
-    return is_numeric($this->all_keys[0]) ? min($this->all_keys) : 0;
+    return !$this->force_assoc && is_numeric($this->all_keys[0]) ?
+      min($this->all_keys) : 0;
   }
 
   /**
@@ -131,6 +134,46 @@ class MultiGraph {
       }
     }
     return $longest_key;
+  }
+
+  /**
+   * Returns the maximum sum value
+   */
+  public function GetMaxSumValue()
+  {
+    $stack = array();
+    $chunk_count = count($this->values);
+
+    foreach($this->all_keys as $k) {
+      $s = 0;
+      for($j = 0; $j < $chunk_count; ++$j) {
+        $v = $this->GetValue($k, $j);
+        if($v > 0)
+          $s += $v;
+      }
+      $stack[] = $s;
+    }
+    return max($stack);
+  }
+
+  /**
+   * Returns the minimum sum value
+   */
+  public function GetMinSumValue()
+  {
+    $stack = array();
+    $chunk_count = count($this->values);
+
+    foreach($this->all_keys as $k) {
+      $s = 0;
+      for($j = 0; $j < $chunk_count; ++$j) {
+        $v = $this->GetValue($k, $j);
+        if($v <= 0)
+          $s += $v;
+      }
+      $stack[] = $s;
+    }
+    return min($stack);
   }
 
   /**

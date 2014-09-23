@@ -105,7 +105,7 @@ class ScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return parent::GetMaxValue();
 
-    return array_reduce($this->values[0], 'vmax', null);
+    return array_reduce($this->values[0], 'pointgraph_vmax', null);
   }
 
   /**
@@ -116,7 +116,7 @@ class ScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return parent::GetMinValue();
 
-    return array_reduce($this->values[0], 'vmin', null);
+    return array_reduce($this->values[0], 'pointgraph_vmin', null);
   }
 
   /**
@@ -127,7 +127,7 @@ class ScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return parent::GetMaxKey();
 
-    return array_reduce($this->values[0], 'kmax', null);
+    return array_reduce($this->values[0], 'pointgraph_kmax', null);
   }
 
   /**
@@ -138,7 +138,7 @@ class ScatterGraph extends PointGraph {
     if(!$this->scatter_2d)
       return parent::GetMinKey();
 
-    return array_reduce($this->values[0], 'kmin', null);
+    return array_reduce($this->values[0], 'pointgraph_kmin', null);
   }
 
 }

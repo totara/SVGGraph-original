@@ -48,7 +48,6 @@ class LineGraph extends PointGraph {
     $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
-    $ccount = count($this->colours);
     $path = '';
     if($this->fill_under) {
       $cmd = 'L';
@@ -110,9 +109,13 @@ class LineGraph extends PointGraph {
 
     $marker = parent::DrawLegendEntry($set, $x, $y, $w, $h);
 
-    $y += $h/2;
+    $h1 = $h/2;
+    $y += $h1;
     $attr = $this->line_style;
-    $attr['d'] = "M$x {$y}l$w 0";
+    if($this->fill_under)
+      $attr['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
+    else
+      $attr['d'] = "M$x {$y}l$w 0";
     return $this->Element('path', $attr) . $marker;
   }
 

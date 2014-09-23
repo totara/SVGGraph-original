@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.7.1');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.8');
 
 class SVGGraph {
 
@@ -116,6 +116,7 @@ abstract class Graph {
   protected static $javascript = NULL;
   private static $last_id = 0;
   protected $legend_reverse = false;
+  protected $force_assoc = false;
 
   public function __construct($w, $h, $settings = NULL)
   {
@@ -180,11 +181,17 @@ abstract class Graph {
     $this->values = array();
     $v = func_get_args();
     if(count($v) == 1)
-      $v = $v[0];
-    if(is_array($v) && isset($v[0]) && is_array($v[0]))
-      $this->values = $v;
-    else
-      $this->values[0] = $v;
+      $v = array_shift($v);
+    if(is_array($v)) {
+      reset($v);
+      $first_key = key($v);
+      if(!is_null($first_key) && is_array($v[$first_key])) {
+        foreach($v as $data_set)
+          $this->values[] = $data_set;
+        return;
+      }
+    }
+    $this->values[] = $v;
   }
 
   /**
@@ -207,7 +214,7 @@ abstract class Graph {
 
     // this works around a strange bug - if you just return the key at $index,
     // for a non-associative array it repeats some!
-    if(is_int($k[0]))
+    if(!$this->force_assoc && is_int($k[0]))
       return $index;
     if(isset($k[$index])) {
       $index = (string)$index;
@@ -242,8 +249,7 @@ abstract class Graph {
    */
   protected function GetMaxKey()
   {
-    $k0 = $this->GetKey(0);
-    if(is_numeric($k0))
+    if(!$this->force_assoc && is_numeric($this->GetKey(0)))
       return max(array_keys($this->values[0]));
 
     // if associative, return the index of the last key
@@ -255,8 +261,7 @@ abstract class Graph {
    */
   protected function GetMinKey()
   {
-    $k0 = $this->GetKey(0);
-    if(is_numeric($k0))
+    if(!$this->force_assoc && is_numeric($this->GetKey(0)))
       return min(array_keys($this->values[0]));
     return 0;
   }
@@ -869,6 +874,9 @@ abstract class Graph {
    */
   protected function AssociativeKeys()
   {
+    if($this->force_assoc)
+      return true;
+
     $values = $this->GetValues();
     foreach(array_keys($values) as $k)
       if(!is_integer($k))

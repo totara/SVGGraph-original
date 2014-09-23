@@ -90,7 +90,7 @@ class GroupedBarGraph extends BarGraph {
   public function Values($values)
   {
     parent::Values($values);
-    $this->multi_graph = new MultiGraph($this->values);
+    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
   }
 
   /**

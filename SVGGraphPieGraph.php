@@ -228,13 +228,9 @@ class PieGraph extends Graph {
   protected function CheckValues(&$values)
   {
     parent::CheckValues($values);
-    $sum = 0;
-    foreach($values[0] as $key => $val) {
-      if($val < 0)
-        throw new Exception('Negative value for pie chart');
-      $sum += $val;
-    }
-    if($sum <= 0)
+    if($this->GetMinValue() < 0)
+      throw new Exception('Negative value for pie chart');
+    if(array_sum($values[0]) <= 0)
       throw new Exception('Empty pie chart');
   }
 

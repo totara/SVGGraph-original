@@ -76,12 +76,12 @@ abstract class GridGraph extends Graph {
     // if the label_x or label_y are set but not _h and _v, assign them
     $lh = $this->flip_axes ? $this->label_y : $this->label_x;
     $lv = $this->flip_axes ? $this->label_x : $this->label_y;
-    if(!strlen($this->label_h) && strlen($lh))
+    if(empty($this->label_h) && !empty($lh))
       $this->label_h = $lh;
-    if(!strlen($this->label_v) && strlen($lv))
+    if(empty($this->label_v) && !empty($lv))
       $this->label_v = $lv;
 
-    if(strlen($this->label_v) > 0) {
+    if(!empty($this->label_v)) {
       // increase padding
       $lines = $this->CountLines($this->label_v);
       $this->label_left_offset = $this->pad_left + $this->label_space +
@@ -89,28 +89,51 @@ abstract class GridGraph extends Graph {
       $this->pad_left += $lines * $this->label_font_size +
         2 * $this->label_space;
     }
-    if($this->show_axis_text_v) {
-      // modify padding for axis markings - this is the font height,
-      // plus the cosine of the text angle x size x length-1 x adjustment
-      $this->pad_left += ($this->axis_font_size * ($len_v - 1) *
-        $this->axis_font_adjust * cos(deg2rad($this->axis_text_angle_v))) +
-        $this->axis_font_size;
-    }
-
-    if(strlen($this->label_h) > 0) {
+    if(!empty($this->label_h)) {
       $lines = $this->CountLines($this->label_h);
       $this->label_bottom_offset = $this->pad_bottom + $this->label_space +
         $this->label_font_size * ($lines - 1);
       $this->pad_bottom += $lines * $this->label_font_size +
         2 * $this->label_space;
     }
-    if($this->show_axis_text_h) {
-      // similar to vertical version
-      $this->pad_bottom += ($this->axis_font_size * ($len_h - 1) *
-        $this->axis_font_adjust * sin(deg2rad(abs($this->axis_text_angle_h)))) +
-        $this->axis_font_size;
+    if($this->show_axes) {
+      if($this->show_axis_text_v) {
+        // modify padding for axis markings - this is the font height,
+        // plus the cosine of the text angle x size x length-1 x adjustment
+        $this->pad_left += ($this->axis_font_size * ($len_v - 1) *
+          $this->axis_font_adjust *
+          cos(deg2rad($this->axis_text_angle_v))) +
+          $this->axis_font_size + 2 * $this->axis_text_space;
+      }
+
+      if($this->show_axis_text_h) {
+        // similar to vertical version
+        $this->pad_bottom += ($this->axis_font_size * ($len_h - 1) *
+          $this->axis_font_adjust *
+          sin(deg2rad(abs($this->axis_text_angle_h)))) +
+          $this->axis_font_size + 2 * $this->axis_text_space;
+      }
+
+      // make space for divisions
+      $div_size = 0;
+      if($this->show_divisions)
+        $div_size = $this->division_size;
+      if($this->show_subdivisions && $this->subdivision_size > $div_size)
+        $div_size = $this->subdivision_size;
+
+      $this->pad_bottom += $div_size;
+      $this->pad_left += $div_size;
     }
     $this->label_adjust_done = true;
+  }
+
+  /**
+   * Sets up grid width and height to fill padded area
+   */
+  protected function SetGridDimensions()
+  {
+    $this->g_height = $this->height - $this->pad_top - $this->pad_bottom;
+    $this->g_width = $this->width - $this->pad_left - $this->pad_right;
   }
 
   /**
@@ -170,10 +193,8 @@ abstract class GridGraph extends Graph {
     if(!$this->label_adjust_done)
       $this->LabelAdjustment($v_max, $this->GetLongestKey());
 
-    if(is_null($this->g_height))
-      $this->g_height = $this->height - $this->pad_top - $this->pad_bottom;
-    if(is_null($this->g_width))
-      $this->g_width = $this->width - $this->pad_left - $this->pad_right;
+    if(is_null($this->g_height) || is_null($this->g_width))
+      $this->SetGridDimensions();
 
     $x_max = $h_by_count ? $this->GetHorizontalCount() - 1 : max(0, $k_max);
     $x_min = $h_by_count ? 0 : min(0, $k_min);
@@ -418,53 +439,169 @@ abstract class GridGraph extends Graph {
   }
 
   /**
-   * Draws bar or line graph axes
+   * Returns the X axis SVG fragment
    */
-  protected function Axes()
+  protected function XAxis($yoff)
   {
-    if(!$this->show_axes)
+    $points = array();
+    $points['x1'] = $this->pad_left - $this->axis_overlap;
+    $points['x2'] = $this->width - $this->pad_right + $this->axis_overlap;
+    $points['y1'] = $points['y2'] = 
+      $this->height - $this->pad_bottom - $yoff;
+    return $this->Element('line', $points);
+  }
+
+  /**
+   * Returns the Y axis SVG fragment
+   */
+  protected function YAxis($xoff)
+  {
+    $points['x1'] = $points['x2'] = $this->pad_left + $xoff;
+    $points['y1'] = $this->pad_top - $this->axis_overlap;
+    $points['y2'] = $this->height - $this->pad_bottom + $this->axis_overlap;
+    return $this->Element('line', $points);
+  }
+
+  /**
+   * Returns X-axis divisions as a path
+   */
+  protected function XAxisDivisions(&$points, $size, $yoff)
+  {
+    $path = '';
+    $y = $this->height - $this->pad_bottom - $yoff;
+    foreach($points as $x)
+      $path .= "M$x {$y}v{$size}";
+    return $path;
+  }
+
+  /**
+   * Returns Y-axis divisions as a path
+   */
+  protected function YAxisDivisions(&$points, $size, $xoff)
+  {
+    $path = '';
+    $x = $this->pad_left + $xoff - $size;
+    foreach($points as $y)
+      $path .= "M$x {$y}h{$size}";
+    return $path;
+  }
+
+  /**
+   * Returns the X-axis text fragment
+   */
+  protected function XAxisText(&$points, $xoff, $yoff, $angle)
+  {
+    $labels = '';
+    $x_prev = -$this->width;
+    $min_space = $this->minimum_grid_spacing_h;
+    $count = count($points);
+    $label_centre_x = $this->label_centre && !$this->flip_axes;
+    $text = array(
+      'y' => $this->height - $this->pad_bottom + $yoff +
+        $this->axis_font_size + $this->axis_text_space
+    );
+    $p = 0;
+    foreach($points as $label => $x) {
+      $key = $this->flip_axes ? $label : $this->GetKey($label);
+      if(strlen($key) > 0 && $x - $x_prev >= $min_space
+         &&  (++$p < $count || !$label_centre_x)) {
+        $text['x'] = $x + $xoff;
+        if($angle != 0) {
+          $rcx = $text['x'];
+          $rcy = $text['y'] - ($this->axis_font_size / 2);
+          $text['transform'] = "rotate($angle,$rcx,$rcy)";
+        }
+        $labels .= $this->Element('text', $text, NULL, $key);
+      }
+      $x_prev = $x;
+    }
+    if($angle == 0) {
+      $tgroup = array('text-anchor' => 'middle');
+    } else {
+      $tgroup = array('text-anchor' => $this->axis_text_angle_h < 0 ?
+        'end' : 'start');
+    }
+    return $this->Element('g', $tgroup, NULL, $labels);
+  }
+
+  /**
+   * Returns the Y-axis text fragment
+   */
+  protected function YAxisText(&$points, $xoff, $yoff, $angle)
+  {
+    $labels = '';
+    $y_prev = $this->height;
+    $min_space = $this->minimum_grid_spacing_v;
+    $text_centre = $this->axis_font_size * 0.3;
+    $label_centre_y = $this->label_centre && $this->flip_axes;
+
+    $text = array(
+      'x' => $this->pad_left - $xoff - $this->axis_text_space
+    );
+    $count = count($points);
+    $p = 0;
+    foreach($points as $label => $y) {
+      $key = $this->flip_axes ? $this->GetKey($label) : $label;
+
+      if(strlen($key) && $y_prev - $y >= $min_space &&
+        (++$p < $count || !$label_centre_y)) {
+        $text['y'] = $y + $text_centre + $yoff;
+        if($angle != 0) {
+          $rcx = $text['x'] - ($this->axis_font_size / 2);
+          $rcy = $text['y'] - ($this->axis_font_size / 2);
+          $text['transform'] = "rotate($angle,$rcx,$rcy)";
+        }
+        $labels .= $this->Element('text', $text, NULL, $key);
+      }
+      $y_prev = $y;
+    }
+    return $this->Element('g', array('text-anchor' => 'end'), NULL, $labels);
+  }
+
+  /**
+   * Returns the horizontal axis label
+   */
+  protected function HLabel(&$attribs)
+  {
+    if(empty($this->label_h))
       return '';
 
-    $x_axis_visible = $this->y0 >= 0 && $this->y0 < $this->g_height;
-    $y_axis_visible = $this->x0 >= 0 && $this->x0 < $this->g_width;
-    $yoff = $x_axis_visible ? $this->y0 : 0;
-    $xoff = $y_axis_visible ? $this->x0 : 0;
+    $x = ($this->width - $this->pad_left - $this->pad_right) / 2 +
+      $this->pad_left;
+    $y = $this->height - $this->label_bottom_offset;
+    $pos = array('x' => $x, 'y' => $y);
+    return $this->Text($this->label_h, $this->label_font_size,
+      array_merge($attribs, $pos));
+  }
 
-    $points = array();
-    $axis_group = $x_axis = $y_axis = '';
-    if($x_axis_visible) {
-      $points['x1'] = $this->pad_left - $this->axis_overlap;
-      $points['x2'] = $this->width - $this->pad_right + $this->axis_overlap;
-      $points['y1'] = $points['y2'] = 
-        $this->height - $this->pad_bottom - $yoff;
-      $x_axis = $this->Element('line', $points);
-    }
+  /**
+   * Returns the vertical axis label
+   */
+  protected function VLabel(&$attribs)
+  {
+    if(empty($this->label_v))
+      return '';
 
-    if($y_axis_visible) {
-      $points['x1'] = $points['x2'] = $this->pad_left + $xoff;
-      $points['y1'] = $this->pad_top - $this->axis_overlap;
-      $points['y2'] = $this->height - $this->pad_bottom + $this->axis_overlap;
-      $y_axis = $this->Element('line', $points);
-    }
+    $x = $this->label_left_offset;
+    $y = ($this->height - $this->pad_bottom - $this->pad_top) / 2 +
+      $this->pad_top;
+    $pos = array(
+      'x' => $x,
+      'y' => $y,
+      'transform' => "rotate(270,$x,$y)",
+    );
+    return $this->Text($this->label_v, $this->label_font_size,
+      array_merge($attribs, $pos));
+  }
 
-    if($x_axis != '' || $y_axis != '') {
-      $line = array('stroke-width' => 2, 'stroke' => $this->axis_colour);
-      $axis_group = $this->Element('g', $line, NULL, $x_axis . $y_axis);
-    }
-
-    $label_group = $divisions = '';
-    $grid_bottom = $this->height - $this->pad_bottom;
-    $grid_top = $this->pad_top; // or $grid_bottom - $this->axis_height ?
-    $grid_left = $this->pad_left;
-    $grid_right = $this->width - $this->pad_right;
-
-    $this->CalcGrid();
-
-    // set up label properties
-    if(strlen($this->label_h) > 0 || strlen($this->label_v) > 0) {
-      $label_text = array(
-        'text-anchor' => 'middle',
-      );
+  /**
+   * Returns the labels grouped with the provided axis division labels
+   */
+  protected function Labels($axis_text = '')
+  {
+    $labels = $axis_text;
+    if(!empty($this->label_h) || !empty($this->label_v)) {
+      $label_text = array('text-anchor' => 'middle');
       if($this->label_font != $this->axis_font)
         $label_text['font-family'] = $this->label_font;
       if($this->label_font_size != $this->axis_font_size)
@@ -474,159 +611,112 @@ abstract class GridGraph extends Graph {
       if(!empty($this->label_colour) &&
         $this->label_colour != $this->axis_text_colour)
         $label_text['fill'] = $this->label_colour;
+
+      if(!empty($this->label_h)) {
+        $label_text['y'] = $this->height - $this->label_bottom_offset;
+        $label_text['x'] = $this->pad_left +
+          ($this->width - $this->pad_left - $this->pad_right) / 2;
+        $labels .= $this->Text($this->label_h, $this->label_font_size,
+          $label_text);
+      }
+
+      $labels .= $this->VLabel($label_text);
     }
 
-    if($this->show_axis_text_v || $this->show_axis_text_h ||
-      $this->show_divisions) {
-      $text = array('x' => $this->pad_left - $this->axis_overlap);
-  
-      $x_offset = $y_offset = 0;
-      $label_centre_x = $this->label_centre && !$this->flip_axes;
-      $label_centre_y = $this->label_centre && $this->flip_axes;
-      if($this->label_centre) {
-        if($this->flip_axes)
-          $y_offset = -0.5 * $this->bar_unit_height;
-        else
-          $x_offset = 0.5 * $this->bar_unit_width;
-      }
-
-      $d_path = $sd_path = $v_group = '';
-      $y_prev = $this->height;
-      arsort($this->y_points);
-      if($this->show_axis_text_v || $this->show_divisions) {
-        $labels = '';
-        $text_centre = $this->axis_font_size * 0.3;
-
-        $points = count($this->y_points);
-        $p = 0;
-        foreach($this->y_points as $label => $y) {
-          $key = $this->flip_axes ? $this->GetKey($label) : $label;
-
-          if($this->show_axis_text_v && strlen($key) &&
-            $y_prev - $y >= $this->minimum_grid_spacing_v &&
-            (++$p < $points || !$label_centre_y)) {
-            $text['y'] = $y + $text_centre + $y_offset;
-            if($this->axis_text_angle_v != 0) {
-              $rcx = $text['x'] - ($this->axis_font_size / 2);
-              $rcy = $text['y'] - ($this->axis_font_size / 2);
-              $text['transform'] = 
-                "rotate($this->axis_text_angle_v,$rcx,$rcy)";
-            }
-            $labels .= $this->Element('text', $text, NULL, $key);
-          }
-          $d_path .= 'M' . ($grid_left + $xoff) .
-            " {$y}l-{$this->division_size} 0";
-          $y_prev = $y;
-        }
-        foreach($this->y_subdivs as $y) {
-          $sd_path .= 'M' . ($grid_left + $xoff) .
-            " {$y}l-{$this->subdivision_size} 0";
-        }
-
-        if($this->show_axis_text_v)
-          $v_group = $this->Element('g', array('text-anchor' => 'end'),
-            NULL, $labels);
-      }
-      if(strlen($this->label_v) > 0) {
-        $label_text['y'] = $this->pad_top +
-          ($this->height - $this->pad_bottom) / 2;
-        $label_text['x'] = $this->label_left_offset;
-        $label_text['transform'] =
-          "rotate(270,$label_text[x],$label_text[y])";
-        $v_group .= $this->Text($this->label_v, $this->label_font_size,
-          $label_text);
-      }
-
-      $h_group = '';
-      $x_prev = -$this->width;
-      asort($this->x_points);
-      if($this->show_axis_text_h || $this->show_divisions) {
-        $labels = '';
-        $text['y'] = $this->height - $this->pad_bottom + $this->axis_font_size;
-        $w = $this->width - $this->pad_left - $this->pad_right;
-
-        $points = count($this->x_points);
-        $p = 0;
-        foreach($this->x_points as $label => $x) {
-
-          $key = $this->flip_axes ? $label : $this->GetKey($label);
-          if($this->show_axis_text_h && strlen($key) &&
-            $x - $x_prev >= $this->minimum_grid_spacing_h &&
-            (++$p < $points || !$label_centre_x)) {
-            $text['x'] = $x + $x_offset;
-            if($this->axis_text_angle_h != 0) {
-              $rcx = $text['x'];
-              $rcy = $text['y'] - ($this->axis_font_size / 2);
-              $text['transform'] = 
-                "rotate($this->axis_text_angle_h,$rcx,$rcy)";
-            }
-            $labels .= $this->Element('text', $text, NULL, $key);
-          }
-            
-          $d_path .= "M$x " . ($grid_bottom - $yoff) .
-            "l0 {$this->division_size}";
-          $x_prev = $x;
-        }
-        foreach($this->x_subdivs as $x) {
-          $sd_path .= "M$x " . ($grid_bottom - $yoff) . 
-            "l0 {$this->subdivision_size}";
-        }
-
-        if($this->show_axis_text_h) {
-          if($this->axis_text_angle_h == 0) {
-            $tgroup = array('text-anchor' => 'middle');
-          } else {
-            $tgroup = array('text-anchor' => $this->axis_text_angle_h < 0 ?
-              'end' : 'start');
-          }
-          $h_group = $this->Element('g', $tgroup, NULL, $labels);
-        }
-      }
-      if(strlen($this->label_h) > 0) {
-        $label_text['y'] = $this->height - $this->label_bottom_offset;
-        $label_text['x'] = $this->pad_left + ($w / 2);
-        unset($label_text['transform']);
-        $h_group .= $this->Text($this->label_h, $this->label_font_size,
-          $label_text);
-      }
-
+    if(!empty($labels)) {
       $font = array(
         'font-size' => $this->axis_font_size,
         'font-family' => $this->axis_font,
         'fill' => empty($this->axis_text_colour) ?
           $this->axis_colour : $this->axis_text_colour,
       );
-      if(strlen($h_group) > 0 || strlen($v_group) > 0) {
-        $label_group = $this->Element('g', $font, NULL, 
-          $h_group . $v_group);
-      }
+      $labels = $this->Element('g', $font, NULL, $labels);
+    }
+    return $labels;
+  }
 
-      if($this->show_divisions) {
-        $colour = empty($this->division_colour) ? $this->axis_colour :
-          $this->division_colour;
-        if(!$this->show_subdivisions || empty($this->subdivision_colour) ||
-          $this->subdivision_colour == $colour) {
-          $div = array(
-            'd' => $d_path . $sd_path,
+  /**
+   * Draws bar or line graph axes
+   */
+  protected function Axes()
+  {
+    if(!$this->show_axes)
+      return $this->Labels();
+
+    $this->CalcGrid();
+    $x_axis_visible = $this->y0 >= 0 && $this->y0 < $this->g_height;
+    $y_axis_visible = $this->x0 >= 0 && $this->x0 < $this->g_width;
+    $yoff = $x_axis_visible ? $this->y0 : 0;
+    $xoff = $y_axis_visible ? $this->x0 : 0;
+
+    $axis_group = $axes = $label_group = $divisions = 
+      $d_path = $sd_path = $axis_text = '';
+    if($x_axis_visible)
+      $axes .= $this->XAxis($yoff);
+    if($y_axis_visible)
+      $axes .= $this->YAxis($xoff);
+
+    if($axes != '') {
+      $line = array(
+        'stroke-width' => $this->axis_stroke_width,
+        'stroke' => $this->axis_colour
+      );
+      $axis_group = $this->Element('g', $line, NULL, $axes);
+    }
+
+    $x_offset = $y_offset = 0;
+    if($this->label_centre) {
+      if($this->flip_axes)
+        $y_offset = -0.5 * $this->bar_unit_height;
+      else
+        $x_offset = 0.5 * $this->bar_unit_width;
+    }
+
+    arsort($this->y_points);
+    asort($this->x_points);
+    if($this->show_axis_text_v)
+      $axis_text .= $this->YAxisText($this->y_points, $this->division_size,
+        $y_offset, $this->axis_text_angle_v);
+    if($this->show_axis_text_h)
+      $axis_text .= $this->XAxisText($this->x_points, $x_offset,
+        $this->division_size, $this->axis_text_angle_h);
+
+    $label_group = $this->Labels($axis_text);
+
+    if($this->show_divisions) {
+      $d_path .= $this->YAxisDivisions($this->y_points,
+        $this->division_size, $xoff);
+      $sd_path .= $this->YAxisDivisions($this->y_subdivs,
+        $this->subdivision_size, $xoff);
+      $d_path .= $this->XAxisDivisions($this->x_points,
+        $this->division_size, $yoff);
+      $sd_path .= $this->XAxisDivisions($this->x_subdivs,
+        $this->subdivision_size, $yoff);
+
+      $colour = empty($this->division_colour) ? $this->axis_colour :
+        $this->division_colour;
+      if(!$this->show_subdivisions || empty($this->subdivision_colour) ||
+        $this->subdivision_colour == $colour) {
+        $div = array(
+          'd' => $d_path . $sd_path,
+          'stroke-width' => 1,
+          'stroke' => $colour
+        );
+        $divisions = $this->Element('path', $div);
+      } else {
+        $div = array(
+          'd' => $d_path,
+          'stroke-width' => 1,
+          'stroke' => $colour
+        );
+        $divisions = $this->Element('path', $div);
+        if($sd_path != '') {
+          $sdiv = array(
+            'd' => $sd_path,
             'stroke-width' => 1,
-            'stroke' => $colour
+            'stroke' => $this->subdivision_colour
           );
-          $divisions = $this->Element('path', $div);
-        } else {
-          $div = array(
-            'd' => $d_path,
-            'stroke-width' => 1,
-            'stroke' => $colour
-          );
-          $divisions = $this->Element('path', $div);
-          if($sd_path != '') {
-            $sdiv = array(
-              'd' => $sd_path,
-              'stroke-width' => 1,
-              'stroke' => $this->subdivision_colour
-            );
-            $divisions .= $this->Element('path', $sdiv);
-          }
+          $divisions .= $this->Element('path', $sdiv);
         }
       }
     }

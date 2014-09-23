@@ -1,3 +1,15 @@
+Version 2.8
+-----------
+- Added stacked line graph.
+- Added radar graph and multi-radar graph.
+- Added axis_text_space option.
+- Added axis_stroke_width option.
+- Added force_assoc option.
+- Fixed legend dragging without tooltips enabled.
+- Fixed display of labels when axes disabled.
+- Fixed use of associative array data.
+- Added fill to legend display for line graphs.
+
 Version 2.7.1 (02/07/2012)
 -------------
 - Fixed order of entries in multi-line graphs.

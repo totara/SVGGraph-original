@@ -96,7 +96,7 @@ class StackedBarGraph extends BarGraph {
   public function Values($values)
   {
     parent::Values($values);
-    $this->multi_graph = new MultiGraph($this->values);
+    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
   }
 
   /**
@@ -112,19 +112,7 @@ class StackedBarGraph extends BarGraph {
    */
   protected function GetMaxValue()
   {
-    $stack = array();
-    $chunk_count = count($this->values);
-
-    foreach($this->multi_graph->all_keys as $k) {
-      $s = 0;
-      for($j = 0; $j < $chunk_count; ++$j) {
-        $v = $this->multi_graph->GetValue($k, $j);
-        if($v > 0)
-          $s += $v;
-      }
-      $stack[] = $s;
-    }
-    return max($stack);
+    return $this->multi_graph->GetMaxSumValue();
   }
 
   /**
@@ -132,19 +120,7 @@ class StackedBarGraph extends BarGraph {
    */
   protected function GetMinValue()
   {
-    $stack = array();
-    $chunk_count = count($this->values);
-
-    foreach($this->multi_graph->all_keys as $k) {
-      $s = 0;
-      for($j = 0; $j < $chunk_count; ++$j) {
-        $v = $this->multi_graph->GetValue($k, $j);
-        if($v <= 0)
-          $s += $v;
-      }
-      $stack[] = $s;
-    }
-    return min($stack);
+    return $this->multi_graph->GetMinSumValue();
   }
 
   /**

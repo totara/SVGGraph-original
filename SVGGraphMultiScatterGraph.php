@@ -90,7 +90,7 @@ class MultiScatterGraph extends PointGraph {
           'Scatter 2D mode requires array of array(x,y) points'
         );
     }
-    $this->multi_graph = new MultiGraph($this->values);
+    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
   }
 
   /**
@@ -118,7 +118,7 @@ class MultiScatterGraph extends PointGraph {
     $maxima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
-      $maxima[] = array_reduce($this->values[$i], 'vmax', null);
+      $maxima[] = array_reduce($this->values[$i], 'pointgraph_vmax', null);
 
     return max($maxima);
   }
@@ -134,7 +134,7 @@ class MultiScatterGraph extends PointGraph {
     $minima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
-      $minima[] = array_reduce($this->values[$i], 'vmin', null);
+      $minima[] = array_reduce($this->values[$i], 'pointgraph_vmin', null);
 
     return min($minima);
   }
@@ -150,7 +150,7 @@ class MultiScatterGraph extends PointGraph {
     $maxima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
-      $maxima[] = array_reduce($this->values[$i], 'kmax', null);
+      $maxima[] = array_reduce($this->values[$i], 'pointgraph_kmax', null);
     return max($maxima);
   }
 
@@ -165,7 +165,7 @@ class MultiScatterGraph extends PointGraph {
     $minima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
-      $minima[] = array_reduce($this->values[$i], 'kmin', null);
+      $minima[] = array_reduce($this->values[$i], 'pointgraph_kmin', null);
 
     return min($minima);
   }

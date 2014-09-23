@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2012 Graham Breach
+ * Copyright (C) 2012 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,14 +21,14 @@
 
 require_once 'SVGGraphPointGraph.php';
 require_once 'SVGGraphMultiGraph.php';
+require_once 'SVGGraphMultiLineGraph.php';
 
 /**
- * MultiLineGraph - joined line, with axes and grid
+ * StackedLineGraph - multiple joined lines with values added together
  */
-class MultiLineGraph extends PointGraph {
+class StackedLineGraph extends MultiLineGraph {
 
-  protected $multi_graph;
-  private $line_styles = array();
+  protected $legend_reverse = true;
 
   public function Draw()
   {
@@ -36,7 +36,7 @@ class MultiLineGraph extends PointGraph {
     $this->CalcAxes($assoc);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
-    $plots = '';
+    $plots = array();
     $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
@@ -44,6 +44,7 @@ class MultiLineGraph extends PointGraph {
     $chunk_count = count($this->values);
     if(!$assoc)
       sort($this->multi_graph->all_keys, SORT_NUMERIC);
+    $stack = array();
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
       $cmd = 'M';
@@ -64,12 +65,18 @@ class MultiLineGraph extends PointGraph {
       $attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
 
 
+      $bottom = array();
       foreach($this->multi_graph->all_keys as $key) {
         $value = $this->multi_graph->GetValue($key, $i);
         $point_pos = $this->GridPosition($key, $bnum);
-        if(!is_null($value) && !is_null($point_pos)) {
+        if(!isset($stack[$key]))
+          $stack[$key] = 0;
+        if(!is_null($point_pos)) {
+          $bottom[$point_pos] = $stack[$key];
           $x = $point_pos;
-          $y = $y_axis_pos - ($value * $this->bar_unit_height);
+          $y_size = ($stack[$key] + $value) * $this->bar_unit_height;
+          $y = $y_axis_pos - $y_size;
+          $stack[$key] += $value;
 
           if($fill && $path == '')
             $path = "M$x $y_bottom";
@@ -82,19 +89,26 @@ class MultiLineGraph extends PointGraph {
         ++$bnum;
       }
 
-      if($fill)
-        $path .= "$cmd$x {$y_bottom}z";
+      if($fill) {
+        $bpoints = array_reverse($bottom, TRUE);
+        foreach($bpoints as $x => $pos) {
+          $y = $y_axis_pos - ($pos * $this->bar_unit_height);
+          $path .= "$x $y ";
+        }
+      }
 
       $attr['d'] = $path;
       $attr['stroke'] = $this->GetColour($i % $ccount, true);
-      $plots .= $this->Element('path', $attr);
+      $plots[] = $this->Element('path', $attr);
       unset($attr['d']);
       $this->AddLineStyle($attr);
     }
 
     $group = array();
     $this->ClipGrid($group);
-    $body .= $this->Element('g', $group, NULL, $plots);
+
+    $plots = array_reverse($plots);
+    $body .= $this->Element('g', $group, NULL, implode($plots));
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE);
     $body .= $this->Axes();
     $body .= $this->CrossHairs();
@@ -102,61 +116,13 @@ class MultiLineGraph extends PointGraph {
     return $body;
   }
 
-  /**
-   * Requires at least two values
-   */
-  protected function CheckValues(&$values)
-  {
-    parent::CheckValues($values);
-
-    if($this->GetHorizontalCount() < 2)
-      throw new Exception('Not enough values for line graph');
-  }
-
-  /**
-   * Return line and marker for legend
-   */
-  protected function DrawLegendEntry($set, $x, $y, $w, $h)
-  {
-    if(!array_key_exists($set, $this->line_styles))
-      return '';
-
-    $marker = parent::DrawLegendEntry($set, $x, $y, $w, $h);
-
-    $h1 = $h/2;
-    $y += $h1;
-    $attr = $this->line_styles[$set];
-    if($this->fill_under)
-      $attr['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
-    else
-      $attr['d'] = "M$x {$y}l$w 0";
-
-    return $this->Element('path', $attr) . $marker;
-  }
-
-  /**
-   * construct multigraph
-   */
-  public function Values($values)
-  {
-    parent::Values($values);
-    $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
-  }
-
-  /**
-   * The horizontal count is reduced by one
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->multi_graph->KeyCount();
-  }
 
   /**
    * Returns the maximum value
    */
   protected function GetMaxValue()
   {
-    return $this->multi_graph->GetMaxValue();
+    return $this->multi_graph->GetMaxSumValue();
   }
 
   /**
@@ -164,30 +130,8 @@ class MultiLineGraph extends PointGraph {
    */
   protected function GetMinValue()
   {
-    return $this->multi_graph->GetMinValue();
+    return $this->multi_graph->GetMinSumValue();
   }
 
-  /**
-   * Returns the key from the MultiGraph
-   */
-  protected function GetKey($index)
-  {
-    return $this->multi_graph->GetKey($index);
-  }
-
-  protected function GetMaxKey()
-  {
-    return $this->multi_graph->GetMaxKey();
-  }
-
-  protected function GetMinKey()
-  {
-    return $this->multi_graph->GetMinKey();
-  }
-
-  protected function AddLineStyle($style)
-  {
-    $this->line_styles[] = $style;
-  }
 }
 
