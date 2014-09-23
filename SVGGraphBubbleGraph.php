@@ -48,24 +48,11 @@ class BubbleGraph extends PointGraph {
           $circle = array('cx' => $x, 'cy' => $y, 'r' => $r);
           if($area < 0) {
             // draw negative bubbles with a checked pattern
-            $pid = $this->NewID();
-            $check_size = 4;
-            $pat = array(
-              'id' => $pid, 'x' => 0, 'y' => 0, 
-              'width' => $check_size * 2,
-              'height' => $check_size * 2,
-              'patternUnits' => 'userSpaceOnUse'
+            $pattern = array(
+              $this->GetColour($item, $bnum % $ccount),
+              'pattern' => 'check', 'size' => 8
             );
-            $prect = array(
-              'x' => 0, 'y' => 0,
-              'width' => $check_size, 'height' => $check_size,
-              'fill' => $this->GetColour($item, $bnum % $ccount),
-            );
-            $pcontent = $this->Element('rect', $prect);
-            $prect['x'] = $prect['y'] = $check_size;
-            $pcontent .= $this->Element('rect', $prect);
-            $pattern = $this->Element('pattern', $pat, null, $pcontent);
-            $this->defs[] = $pattern;
+            $pid = $this->AddPattern($pattern);
             $circle_style = array('fill' => "url(#{$pid})");
           } else {
             $circle_style = array('fill' => $this->GetColour($item, $bnum % $ccount));

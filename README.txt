@@ -1,8 +1,8 @@
-SVGGraph Library version 2.12
+SVGGraph Library version 2.14
 =============================
 
 This library provides PHP classes and functions for easily creating SVG
-graphs from data. As of version 2.0, SVGGraph works with PHP 5 only,
+graphs from data. As of version 2.0, SVGGraph works with PHP 5 only -
 PHP 4 support has been dropped.
 
 Here is a basic example:
@@ -12,6 +12,7 @@ Here is a basic example:
  $graph->Links('/Tom/', '/Dick/', '/Harry/');
  $graph->Render('BarGraph');
 
+Full documentation is available at http://www.goat1000.com/
 
 Graph types
 ===========
@@ -57,8 +58,11 @@ At the moment these types of graph are supported by SVGGraph:
 
  StackedBar3DGraph - a 3D bar graph version of the stacked bar graph;
 
- GroupedBar3DGraph - a 3D bar graph version of the grouped bar graph.
+ GroupedBar3DGraph - a 3D bar graph version of the grouped bar graph;
 
+ StackedCylinderGraph - a cylinder-bar version of the stacked bar graph;
+
+ GroupedCylinderGraph - a cylinder-bar version of the grouped bar graph.
  
 Using SVGGraph
 ==============

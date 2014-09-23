@@ -80,48 +80,59 @@ class PieGraph extends Graph {
 
     $unit_slice = 2.0 * M_PI / $this->total;
     $ccount = count($this->colours);
-    $vcount = count($this->values[0]);
+    $vcount = 0;
     $sub_total = 0.0;
 
     // need to store the original position of each value, because the
     // sorted list must still refer to the relevant legend entries
     $position = 0;
     $values = array();
-    foreach($this->values[0] as $item)
+    foreach($this->values[0] as $item) {
       $values[$item->key] = array($position++, $item->value, $item);
+      if(!is_null($item->value))
+        ++$vcount;
+    }
     if($this->sort)
-      uasort($values, 'PieGraph::svggpsort');
+      uasort($values, 'pie_rsort');
 
     $body = $labels = '';
     $slice = 0;
+    $slices = array();
     foreach($values as $key => $value) {
 
       // get the original array position of the value
       $original_position = $value[0];
       $item = $value[2];
       $value = $value[1];
+      if($this->legend_show_empty || $item->value != 0) {
+        $attr = array('fill' => $this->GetColour($item, $slice % $ccount, true,
+          true));
+        $this->SetStroke($attr, $item, 0, 'round');
+
+        // store the current style referenced by the original position
+        $this->slice_styles[$original_position] = $attr;
+        ++$slice;
+      }
+
       if(!$value)
         continue;
-      ++$slice;
 
       $angle_start = $sub_total * $unit_slice;
       $angle_end = ($sub_total + $value) * $unit_slice;
 
-      // get the path (or whatever) for a pie slice
-      $attr = array('fill' => $this->GetColour($item, ($slice-1) % $ccount, true));
-      $this->SetStroke($attr, $item, 0, 'round');
-
-      // store the current style referenced by the original position
-      $this->slice_styles[$original_position] = $attr;
       if($this->show_tooltips)
         $this->SetTooltip($attr, $item, $key, $value, !$this->compat_events);
   
       $t_style = NULL;
       if($this->show_labels) {
-        $ac = $this->s_angle + ($sub_total + ($value * 0.5)) * $unit_slice;
-        $xc = $this->label_position * $this->radius_x * cos($ac);
-        $yc = ($this->reverse ? -1 : 1) * $this->label_position *
-          $this->radius_y * sin($ac);
+        if($vcount > 1) {
+          $ac = $this->s_angle + ($sub_total + ($value * 0.5)) * $unit_slice;
+          $xc = $this->label_position * $this->radius_x * cos($ac);
+          $yc = ($this->reverse ? -1 : 1) * $this->label_position *
+            $this->radius_y * sin($ac);
+        } else {
+          $xc = $yc = 0;
+        }
 
         $text['id'] = $this->NewID();
         if($this->label_fade_in_speed && $this->compat_events)
@@ -162,11 +173,22 @@ class PieGraph extends Graph {
       if($speed_in || $speed_out)
         $this->SetFader($attr, $speed_in, $speed_out, $text['id'],
           !$this->compat_events);
-      $path = $this->GetSlice($angle_start, $angle_end, $attr);
-      $body .= $this->GetLink($item, $key, $path);
+
+      $this->CalcSlice($angle_start, $angle_end, $x1, $y1, $x2, $y2);
+      $single_slice = ($vcount == 1) || 
+        ((string)$x1 == (string)$x2 && (string)$y1 == (string)$y2 &&
+          (string)$angle_start != (string)$angle_end);
+
+      $path = $this->GetSlice($angle_start, $angle_end, $attr, $single_slice);
+      $this_slice = $this->GetLink($item, $key, $path);
+      if($single_slice)
+        array_unshift($slices, $this_slice);
+      else
+        $slices[] = $this_slice;
 
       $sub_total += $value;
     }
+    $body .= implode($slices);
 
     if($this->show_labels) {
       $label_group = array(
@@ -184,15 +206,14 @@ class PieGraph extends Graph {
   /**
    * Returns a single slice of pie
    */
-  protected function GetSlice($angle_start, $angle_end, &$attr)
+  protected function GetSlice($angle_start, $angle_end, &$attr, $single_slice)
   {
     $x_start = $y_start = $x_end = $y_end = 0;
     $angle_start += $this->s_angle;
     $angle_end += $this->s_angle;
     $this->CalcSlice($angle_start, $angle_end, $x_start, $y_start,
       $x_end, $y_end);
-    if((string)$x_start == (string)$x_end &&
-      (string)$y_start == (string)$y_end) {
+    if($single_slice) {
       $attr['cx'] = $this->x_centre;
       $attr['cy'] = $this->y_centre;
       $attr['rx'] = $this->radius_x;
@@ -254,20 +275,20 @@ class PieGraph extends Graph {
    */
   protected function DrawLegendEntry($set, $x, $y, $w, $h)
   {
-    if(!array_key_exists($set, $this->slice_styles))
+    if(!isset($this->slice_styles[$set]))
       return '';
 
     $bar = array('x' => $x, 'y' => $y, 'width' => $w, 'height' => $h);
     return $this->Element('rect', $bar, $this->slice_styles[$set]);
   }
 
-  /**
-   *  Sort callback function reverse-sorts by value
-   */
-  public static function svggpsort($a, $b)
-  {
-    return $b[1] - $a[1];
-  }
+}
 
+/**
+ *  Sort callback function reverse-sorts by value
+ */
+function pie_rsort($a, $b)
+{
+  return $b[1] - $a[1];
 }
 

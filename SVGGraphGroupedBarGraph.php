@@ -47,6 +47,7 @@ class GroupedBarGraph extends BarGraph {
     $bspace = $this->bar_space / 2;
     $bnum = 0;
     $ccount = count($this->colours);
+    $bars_shown = array_fill(0, $chunk_count, 0);
 
     foreach($this->multi_graph as $itemlist) {
       $k = $itemlist[0]->key;
@@ -55,12 +56,14 @@ class GroupedBarGraph extends BarGraph {
         for($j = 0; $j < $chunk_count; ++$j) {
           $bar['x'] = $bspace + $bar_pos + ($j * $chunk_unit_width);
           $item = $itemlist[$j];
+          $this->SetStroke($bar_style, $item, $j);
+          $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
+
           if(!is_null($item->value)) {
-            $this->SetStroke($bar_style, $item, $j);
             $this->Bar($item->value, $bar);
 
             if($bar['height'] > 0) {
-              $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
+              ++$bars_shown[$j];
 
               if($this->show_tooltips)
                 $this->SetTooltip($bar, $item, $item->value, null,
@@ -70,14 +73,18 @@ class GroupedBarGraph extends BarGraph {
                 $rect .= $this->BarLabel($item, $bar);
               $body .= $this->GetLink($item, $k, $rect);
               unset($bar['id']); // clear for next generated value
-
-              if(!isset($this->bar_styles[$j]))
-                $this->bar_styles[$j] = $bar_style;
             }
           }
+          $this->bar_styles[$j] = $bar_style;
         }
       }
       ++$bnum;
+    }
+    if(!$this->legend_show_empty) {
+      foreach($bars_shown as $j => $bar) {
+        if(!$bar)
+          $this->bar_styles[$j] = NULL;
+      }
     }
 
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();

@@ -201,12 +201,8 @@ class RadarGraph extends LineGraph {
     $r = $this->radius;
 
     $back = $subpath = '';
-    $back_colour = $this->grid_back_colour;
+    $back_colour = $this->ParseColour($this->grid_back_colour);
     if(!empty($back_colour) && $back_colour != 'none') {
-      if(is_array($back_colour)) {
-        $gradient_id = $this->AddGradient($back_colour);
-        $back_colour = "url(#{$gradient_id})";
-      }
       // use the YGrid function to get the path
       $points = array(new GridPoint($r, '', 0));
       $bpath = array(
@@ -429,7 +425,7 @@ class RadarGraph extends LineGraph {
       $label = $grid_point->text;
       $x = $grid_point->position;
       $key = $this->GetKey($label);
-      if(strlen($key) > 0 && ++$p < $count) {
+      if(mb_strlen($key, $this->encoding) > 0 && ++$p < $count) {
         $a = $this->arad + $direction * $x / $this->radius;
         $s = sin($a);
         $c = cos($a);
@@ -445,8 +441,8 @@ class RadarGraph extends LineGraph {
           'sin' => $s,
           'cos' => $c
         );
-        $size = $this->TextSize((string)$key, $font_size, $font_adjust, $angle,
-          $font_size);
+        $size = $this->TextSize((string)$key, $font_size, $font_adjust,
+          $this->encoding, $angle, $font_size);
         // $s == +1 or -1 is a particular case: vertically centre
         $lines = $this->CountLines($key);
         if(pow($s, 2) == 1)
@@ -532,7 +528,7 @@ class RadarGraph extends LineGraph {
     foreach($points as $grid_point) {
       $key = $grid_point->text;
       $y = $grid_point->position;
-      if(strlen($key) > 0) {
+      if(mb_strlen($key, $this->encoding) > 0) {
         $x1 = $y * $s;
         $y1 = $y * $c;
         $position['x'] = $this->xc + $x1 + $x2 + $x3;
@@ -542,8 +538,8 @@ class RadarGraph extends LineGraph {
           $rcy = $position['y'];
           $position['transform'] = "rotate($angle,$rcx,$rcy)";
         }
-        $size = $this->TextSize((string)$key, $font_size, $font_adjust, $angle,
-          $font_size);
+        $size = $this->TextSize((string)$key, $font_size, $font_adjust, 
+          $this->encoding, $angle, $font_size);
         $position['text'] = $key;
         $position['w'] = $size[0];
         $position['h'] = $size[1];

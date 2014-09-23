@@ -678,7 +678,7 @@ abstract class GridGraph extends Graph {
       if($inside && !$label_centre_x && $key == '0')
         $key = '';
 
-      if(strlen($key) > 0 && $x - $x_prev >= $min_space
+      if(mb_strlen($key, $this->encoding) > 0 && $x - $x_prev >= $min_space
          &&  (++$p < $count || !$label_centre_x)) {
         $position['x'] = $x + $xoff;
         if($angle != 0) {
@@ -687,8 +687,8 @@ abstract class GridGraph extends Graph {
           $rcy = $position['y'] + $y_rotate_offset;
           $position['transform'] = "rotate($angle,$rcx,$rcy)";
         }
-        $size = $this->TextSize((string)$key, $font_size, $font_adjust, $angle,
-          $font_size);
+        $size = $this->TextSize((string)$key, $font_size, $font_adjust,
+          $this->encoding, $angle, $font_size);
         $position['text'] = $key;
         $position['w'] = $size[0];
         $position['h'] = $size[1];
@@ -731,7 +731,7 @@ abstract class GridGraph extends Graph {
       if($inside && !$label_centre_y && $key == '0')
         $key = '';
 
-      if(strlen($key) && $y_prev - $y >= $min_space &&
+      if(mb_strlen($key, $this->encoding) && $y_prev - $y >= $min_space &&
         (++$p < $count || !$label_centre_y)) {
         $position['y'] = $y + $text_centre + $yoff;
         if($angle != 0) {
@@ -739,8 +739,8 @@ abstract class GridGraph extends Graph {
           $rcy = $position['y'] + $y_rotate_offset;
           $position['transform'] = "rotate($angle,$rcx,$rcy)";
         }
-        $size = $this->TextSize((string)$key, $font_size, $font_adjust, $angle,
-          $font_size);
+        $size = $this->TextSize((string)$key, $font_size, $font_adjust, 
+          $this->encoding, $angle, $font_size);
         $position['text'] = $key;
         $position['w'] = $size[0];
         $position['h'] = $size[1];
@@ -1040,13 +1040,9 @@ abstract class GridGraph extends Graph {
       return '';
 
     $back = $subpath = $path_h = $path_v = '';
-    $back_colour = $this->grid_back_colour;
+    $back_colour = $this->ParseColour($this->grid_back_colour);
     if(!empty($back_colour) && $back_colour != 'none') {
 
-      if(is_array($back_colour)) {
-        $gradient_id = $this->AddGradient($back_colour);
-        $back_colour = "url(#{$gradient_id})";
-      }
       $rect = array(
         'x' => $this->pad_left, 'y' => $this->pad_top,
         'width' => $this->g_width, 'height' => $this->g_height,
@@ -1414,7 +1410,7 @@ abstract class GridGraph extends Graph {
           $font_size = $line['text']['font-size'];
       }
       list($text_w, $text_h) = $this->TextSize($line['title'], 
-        $font_size, $font_adjust, $text_angle, $font_size);
+        $font_size, $font_adjust, $this->encoding, $text_angle, $font_size);
 
       list($x, $y, $text_right) = Graph::RelativePosition(
         $text_pos, $y, $x, $y + $h, $x + $w,

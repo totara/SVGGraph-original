@@ -1,3 +1,17 @@
+Version 2.14 (05/10/2013)
+------------
+- Added pattern fill support.
+- Added total labels for stacked bar graphs.
+- Better validation of structured data.
+- Better handling of non-ASCII strings.
+- Replaced rgba() values with opacity attributes.
+- Fixed compatibility with PHP 5.1.x.
+- Fixed drawing of pie graphs containing relatively small values.
+- Fixed X axis calculations for negative or non-integral values.
+- Fixed structured axis_text when units_label or units_before_label used.
+- Fixed position of labels on stacked bar graphs with negative values.
+- Fixed legend entries skipping NULL or 0 values.
+
 Version 2.13 (31/07/2013)
 ------------
 - Added PopulationPyramid graph.

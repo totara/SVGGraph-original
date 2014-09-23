@@ -156,13 +156,14 @@ JAVASCRIPT;
       $this->InsertVariable('tooltipOn', '');
       $max_x = $this->graph->width - $this->tooltip_stroke_width;
       $max_y = $this->graph->height - $this->tooltip_stroke_width;
-      if($this->tooltip_shadow_opacity) {
+      if(is_numeric($this->tooltip_shadow_opacity)) {
         $ttoffs = (2 - $this->tooltip_stroke_width/2);
         $max_x -= $ttoffs;
         $max_y -= $ttoffs;
         $shadow = <<<JAVASCRIPT
     shadow = newel('rect',{
-      fill: 'rgba(0,0,0,{$this->tooltip_shadow_opacity})',
+      fill: '#000',
+      opacity: {$this->tooltip_shadow_opacity},
       x:'{$ttoffs}px',y:'{$ttoffs}px',
       width:'10px',height:'10px',
       id: 'ttshdw',
@@ -174,11 +175,7 @@ JAVASCRIPT;
         $shadow = '';
       }
       $dpad = 2 * $this->tooltip_padding;
-      $back_colour = $this->tooltip_back_colour;
-      if(is_array($back_colour)) {
-        $gradient_id = $this->graph->AddGradient($back_colour);
-        $back_colour = "url(#{$gradient_id})";
-      }
+      $back_colour = $this->graph->ParseColour($this->tooltip_back_colour);
       $fn = <<<JAVASCRIPT
 function tooltip(e,callback,on,param) {
   var tt = getE('tooltip'), rect = getE('ttrect'), shadow = getE('ttshdw'),

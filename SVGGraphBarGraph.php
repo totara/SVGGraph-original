@@ -32,7 +32,6 @@ class BarGraph extends GridGraph {
 
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
       $this->bar_unit_width - $this->bar_space);
-    $bar_style = array();
 
     $bnum = 0;
     $bspace = $this->bar_space / 2;
@@ -42,14 +41,18 @@ class BarGraph extends GridGraph {
       // assign bar in the loop so it doesn't keep ID
       $bar = array('width' => $bar_width);
       $bar_pos = $this->GridPosition($item->key, $bnum);
-      if(!is_null($item->value) && !is_null($bar_pos)) {
+      if($this->legend_show_empty || $item->value != 0) {
+        $bar_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
         $this->SetStroke($bar_style, $item);
+      } else {
+        $bar_style = NULL;
+      }
+
+      if(!is_null($item->value) && !is_null($bar_pos)) {
         $bar['x'] = $bspace + $bar_pos;
         $this->Bar($item->value, $bar);
 
         if($bar['height'] > 0) {
-          $bar_style['fill'] = $this->GetColour($item, $bnum % $ccount);
-
           if($this->show_tooltips)
             $this->SetTooltip($bar, $item, $item->value, null,
               !$this->compat_events && $this->show_bar_labels);
@@ -57,10 +60,9 @@ class BarGraph extends GridGraph {
           if($this->show_bar_labels)
             $rect .= $this->BarLabel($item, $bar);
           $body .= $this->GetLink($item, $item->key, $rect);
-
-          $this->bar_styles[] = $bar_style;
         }
       }
+      $this->bar_styles[] = $bar_style;
       ++$bnum;
     }
 
@@ -96,6 +98,21 @@ class BarGraph extends GridGraph {
   }
 
   /**
+   * Returns the position for a bar label
+   */
+  protected function BarLabelPosition(&$bar)
+  {
+    $pos = $this->bar_label_position;
+    if(empty($pos))
+      $pos = 'top';
+    $top = $bar['y'] + $this->bar_label_font_size + $this->bar_label_space;
+    $bottom = $bar['y'] + $bar['height'] - $this->bar_label_space;
+    if($top > $bottom)
+      $pos = 'above';
+    return $pos;
+  }
+
+  /**
    * Text labels in or above the bar
    */
   protected function BarLabel(&$item, &$bar, $offset_y = null)
@@ -113,15 +130,7 @@ class BarGraph extends GridGraph {
     if(!is_null($offset_y)) {
       $y = $bar['y'] + $offset_y;
     } else {
-      // find positions
-      $pos = $this->bar_label_position;
-      if(empty($pos))
-        $pos = 'top';
-      $top = $bar['y'] + $font_size + $space;
-      $bottom = $bar['y'] + $bar['height'] - $space;
-      if($top > $bottom)
-        $pos = 'above';
-
+      $pos = $this->BarLabelPosition($bar);
       $swap = ($bar['y'] >= $this->height - $this->pad_bottom - $this->y_axis->Zero());
       switch($pos) {
       case 'above' :
@@ -131,14 +140,16 @@ class BarGraph extends GridGraph {
           $colour = $acolour;
         break;
       case 'bottom' :
-        $y = $swap ? $top : $bottom;
+        $y = $bar['y'] + (!$swap ? $bar['height'] - $this->bar_label_space :
+          $this->bar_label_font_size + $this->bar_label_space);
         break;
       case 'centre' :
         $y = $bar['y'] + ($bar['height'] + $font_size) / 2;
         break;
       case 'top' :
       default :
-        $y = $swap ? $bottom : $top;
+        $y = $bar['y'] + ($swap ? $bar['height'] - $this->bar_label_space :
+          $this->bar_label_font_size + $this->bar_label_space);
         break;
       }
     }

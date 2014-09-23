@@ -27,12 +27,16 @@ require_once 'SVGGraphAxis.php';
 class AxisFixed extends Axis { 
 
   protected $step;
+  protected $orig_max_value;
+  protected $orig_min_value;
 
   public function __construct($length, $max_val, $min_val, $step,
     $units_before, $units_after)
   {
     parent::__construct($length, $max_val, $min_val, 1, false, $units_before,
       $units_after);
+    $this->orig_max_value = $max_val;
+    $this->orig_min_value = $min_val;
     $this->step = $step;
   }
 
@@ -42,22 +46,25 @@ class AxisFixed extends Axis {
    */
   protected function Grid($min, $round_up = false)
   {
+    // use the original min/max to prevent compounding of floating-point
+    // rounding problems
+    $min = $this->orig_min_value;
+    $max = $this->orig_max_value;
+
     // if min and max are the same side of 0, only adjust one of them
-    if($this->max_value * $this->min_value >= 0) {
-      $count = $this->max_value - $this->min_value;
+    if($max * $min >= 0) {
+      $count = $max - $min;
       // $round_up means bars, so add space for the bar
       if($round_up)
         ++$count;
-      if(abs($this->max_value) >= abs($this->min_value)) {
-        $this->max_value = $this->min_value +
-          $this->step * ceil($count / $this->step);
+      if(abs($max) >= abs($min)) {
+        $this->max_value = $min + $this->step * ceil($count / $this->step);
       } else {
-        $this->min_value = $this->max_value -
-          $this->step * ceil($count / $this->step);
+        $this->min_value = $max - $this->step * ceil($count / $this->step);
       }
     } else {
-      $this->max_value = $this->step * ceil($this->max_value / $this->step);
-      $this->min_value = $this->step * floor($this->min_value / $this->step);
+      $this->max_value = $this->step * ceil($max / $this->step);
+      $this->min_value = $this->step * floor($min / $this->step);
     }
 
     $count = ($this->max_value - $this->min_value) / $this->step;
@@ -68,6 +75,17 @@ class AxisFixed extends Axis {
     $grid = $this->length / $count;
     $this->zero = (-$this->min_value / $this->step) * $grid;
     return $grid;
+  }
+
+  /**
+   * Sets the bar style, adding an extra unit
+   */
+  public function Bar()
+  {
+    if(!$this->rounded_up) {
+      $this->orig_max_value += $this->min_unit;
+      parent::Bar();
+    }
   }
 }
 

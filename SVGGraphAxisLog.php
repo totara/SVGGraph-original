@@ -116,7 +116,7 @@ class AxisLog extends Axis {
       ++$l;
     }
 
-    usort($points, ($this->direction < 0 ? 'GridPoint::rsort' : 'GridPoint::sort'));
+    usort($points, ($this->direction < 0 ? 'gridpoint_rsort' : 'gridpoint_sort'));
     return $points;
   }
 

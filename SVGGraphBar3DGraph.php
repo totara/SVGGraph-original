@@ -51,21 +51,27 @@ class Bar3DGraph extends ThreeDGraph {
     foreach($this->values[0] as $item) {
       $bar_pos = $this->GridPosition($item->key, $bnum);
 
+      if($this->legend_show_empty || !is_null($item->value)) {
+        $bar_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
+        $this->SetStroke($bar_style, $item);
+      } else {
+        $bar_style = NULL;
+      }
+      $this->bar_styles[] = $bar_style;
+
       if(!is_null($item->value) && !is_null($bar_pos)) {
         $bar['x'] = $bspace + $bar_pos;
-        $colour = $bnum % $ccount;
 
-        $bar_sections = $this->Bar3D($item, $bar, $top, $colour);
+        $bar_sections = $this->Bar3D($item, $bar, $top, $bnum % $ccount);
         if($bar_sections != '') {
           $link = $this->GetLink($item, $item->key, $bar_sections);
 
-          $group['fill'] = $this->GetColour($item, $colour);
+          $group = array_merge($group, $bar_style);
           if($this->show_tooltips)
             $this->SetTooltip($group, $item, $item->value);
           $this->SetStroke($group, $item, 0, 'round');
           $bars .= $this->Element('g', $group, NULL, $link);
           unset($group['id']); // make sure a new one is generated
-          $this->bar_styles[] = $group;
         }
       }
       ++$bnum;
@@ -148,7 +154,7 @@ class Bar3DGraph extends ThreeDGraph {
    */
   protected function DrawLegendEntry($set, $x, $y, $w, $h)
   {
-    if(!array_key_exists($set, $this->bar_styles))
+    if(!isset($this->bar_styles[$set]))
       return '';
 
     $bar = array('x' => $x, 'y' => $y, 'width' => $w, 'height' => $h);

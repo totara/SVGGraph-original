@@ -39,7 +39,7 @@ class Pie3DGraph extends PieGraph {
   /**
    * Override the parent to draw 3D slice
    */
-  protected function GetSlice($angle_start, $angle_end, &$attr)
+  protected function GetSlice($angle_start, $angle_end, &$attr, $single_slice)
   {
     $x_start = $y_start = $x_end = $y_end = 0;
     $angle_start += $this->s_angle;
@@ -57,7 +57,8 @@ class Pie3DGraph extends PieGraph {
     $angle_end_lower = $this->LowerHalf($angle_end);
 
     // cope with the lower half filled exactly
-    if(($this->reverse && $angle_start == M_PI && $angle_end == M_PI * 2) ||
+    if($single_slice ||
+      ($this->reverse && $angle_start == M_PI && $angle_end == M_PI * 2) ||
       (!$this->reverse && $angle_start == 0 && $angle_end == M_PI)) {
       $angle_end_lower = $angle_start_lower = true;
     }
@@ -74,8 +75,7 @@ class Pie3DGraph extends PieGraph {
       }
     }
 
-    if((string)$x_start == (string)$x_end &&
-      (string)$y_start == (string)$y_end) {
+    if($single_slice) {
       $attr_path = array('d' => $path);
       $attr_ellipse = array(
         'cx' => $this->x_centre, 'cy' => $this->y_centre,

@@ -90,12 +90,8 @@ abstract class ThreeDGraph extends GridGraph {
     list($xd,$yd) = $this->Project(0, 0, $z);
 
     $back = $subpath = $path_h = $path_v = '';
-    $back_colour = $this->grid_back_colour;
+    $back_colour = $this->ParseColour($this->grid_back_colour);
     if(!empty($back_colour) && $back_colour != 'none') {
-      if(is_array($back_colour)) {
-        $gradient_id = $this->AddGradient($back_colour);
-        $back_colour = "url(#{$gradient_id})";
-      }
       $bpath = array(
         'd' => "M$xleft {$ybottom}v-{$y_h}l{$xd} {$yd}h{$x_w}v{$y_h}l" .
           -$xd . " " . -$yd . "z",

@@ -294,7 +294,8 @@ class Axis {
       $points[] = new GridPoint($position, $text, $value);
     }
 
-    usort($points, ($this->direction < 0 ? 'GridPoint::rsort' : 'GridPoint::sort'));
+    // using 'GridPoint::sort' silently fails in PHP 5.1.x
+    usort($points, ($this->direction < 0 ? 'gridpoint_rsort' : 'gridpoint_sort'));
     $this->grid_spacing = $spacing;
     return $points;
   }
@@ -385,5 +386,15 @@ class GridPoint {
     return $b->position - $a->position;
   }
 
+}
+
+function gridpoint_sort($a, $b)
+{
+  return $a->position - $b->position;
+}
+
+function gridpoint_rsort($a, $b)
+{
+  return $b->position - $a->position;
 }
 

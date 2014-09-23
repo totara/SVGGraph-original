@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.13');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.14');
 
 class SVGGraph {
 
@@ -114,6 +114,7 @@ abstract class Graph {
 
   protected $gradients = array();
   protected $gradient_map = array();
+  protected $pattern_list = NULL;
   protected $defs = array();
 
   protected $namespaces = array();
@@ -220,6 +221,11 @@ abstract class Graph {
     if($this->structured_data || is_array($this->structure)) {
       $this->structured_data = true;
       require_once 'SVGGraphStructuredData.php';
+      if(is_array($this->structure)) {
+        $this->structure['_before'] = $this->units_before_x;
+        $this->structure['_after'] = $this->units_x;
+        $this->structure['_encoding'] = $this->encoding;
+      }
       $this->values = new SVGGraphStructuredData($new_values,
         $this->force_assoc, $this->structure, $this->repeated_keys,
         $this->require_integer_keys, $this->require_structured);
@@ -296,8 +302,8 @@ abstract class Graph {
       $entry = $this->DrawLegendEntry($key, 0, 0, 20, 20);
       if($entry != '') {
         ++$entry_count;
-        if(strlen($value) > $longest)
-          $longest = strlen($value);
+        if(mb_strlen($value, $this->encoding) > $longest)
+          $longest = mb_strlen($value, $this->encoding);
       }
     }
     if(!$entry_count)
@@ -326,7 +332,8 @@ abstract class Graph {
 
       $start_y += $title_font_size + $this->legend_padding;
       $title_width = $this->legend_padding * 2 +
-        $title_font_size * $title_font_adjust * strlen($this->legend_title);
+        $title_font_size * $title_font_adjust * 
+        mb_strlen($this->legend_title, $this->encoding);
     }
 
     $columns = max(1, min(ceil($this->legend_columns), $entry_count));
@@ -402,13 +409,8 @@ abstract class Graph {
     }
 
     // create box and title
-    $back_colour = $this->legend_back_colour;
-    if(is_array($back_colour)) {
-      $gradient_id = $this->AddGradient($back_colour);
-      $back_colour = "url(#{$gradient_id})";
-    }
     $box = array(
-      'fill' => $back_colour,
+      'fill' => $this->ParseColour($this->legend_back_colour),
       'width' => $width,
       'height' => $height,
     );
@@ -449,7 +451,8 @@ abstract class Graph {
     // add shadow if not completely transparent
     if($this->legend_shadow_opacity > 0) {
       $box['x'] = $box['y'] = 2 + ($this->legend_stroke_width / 2);
-      $box['fill'] = "rgba(0,0,0,$this->legend_shadow_opacity)";
+      $box['fill'] = '#000';
+      $box['opacity'] = $this->legend_shadow_opacity;
       unset($box['stroke'], $box['stroke-width']);
       $rect = $this->Element('rect', $box) . $rect;
     }
@@ -567,7 +570,7 @@ abstract class Graph {
   protected function DrawTitle()
   {
     // graph_title is available for all graph types
-    if(strlen($this->graph_title) <= 0)
+    if(mb_strlen($this->graph_title, $this->encoding) <= 0)
       return '';
 
     $pos = $this->graph_title_position;
@@ -668,13 +671,9 @@ abstract class Graph {
   protected function Canvas($id)
   {
     $bg = $this->BackgroundImage();
-    if(is_array($this->back_colour)) {
-      $gradient_id = $this->AddGradient($this->back_colour);
-      $this->back_colour = "url(#{$gradient_id})";
-    }
     $canvas = array(
       'width' => '100%', 'height' => '100%',
-      'fill' => $this->back_colour,
+      'fill' => $this->ParseColour($this->back_colour),
       'stroke-width' => 0
     );
     if($this->back_round)
@@ -743,7 +742,7 @@ abstract class Graph {
    * Returns [width,height] of text 
    * $text = string OR text length
    */
-  protected static function TextSize($text, $font_size, $font_adjust,
+  protected static function TextSize($text, $font_size, $font_adjust, $encoding,
     $angle = 0, $line_spacing = 0)
   {
     $height = $font_size;
@@ -756,11 +755,11 @@ abstract class Graph {
         $len = 0;
         $lines = explode("\n", $text);
         foreach($lines as $l)
-          if(strlen($l) > $len)
-            $len = strlen($l);
+          if(mb_strlen($l, $encoding) > $len)
+            $len = mb_strlen($l, $encoding);
         $height += $line_spacing * (count($lines) - 1);
       } else {
-        $len = strlen($text);
+        $len = mb_strlen($text, $encoding);
       }
     }
     $width = $len * $font_size * $font_adjust;
@@ -850,9 +849,9 @@ abstract class Graph {
   }
 
   /**
-   * Draws an element
+   * Builds an element
    */
-  protected function Element($name, $attribs = NULL, $styles = NULL,
+  public function Element($name, $attribs = NULL, $styles = NULL,
     $content = NULL)
   {
     // these properties require units to work well
@@ -933,7 +932,8 @@ abstract class Graph {
   /**
    * Returns a colour reference
    */
-  protected function GetColour($item, $key, $no_gradient = FALSE)
+  protected function GetColour($item, $key, $no_gradient = FALSE,
+    $allow_pattern = FALSE)
   {
     $colour = 'none';
     $icolour = is_null($item) ? null : $item->Data('colour');
@@ -943,10 +943,27 @@ abstract class Graph {
     } elseif(isset($this->colours[$key])) {
       $colour = $this->colours[$key];
     }
+    return $this->ParseColour($colour, $key, $no_gradient, $allow_pattern);
+  }
+
+  /**
+   * Converts a SVGGraph colour/gradient/pattern to a SVG attribute
+   */
+  public function ParseColour($colour, $key = NULL, $no_gradient = FALSE,
+    $allow_pattern = FALSE)
+  {
     if(is_array($colour)) {
-      if($no_gradient) {
+      if(!isset($colour['pattern']))
+        $allow_pattern = FALSE;
+      if($no_gradient && !$allow_pattern) {
         $colour = $this->SolidColour($colour);
+      } elseif(isset($colour['pattern'])) {
+        $pattern_id = $this->AddPattern($colour);
+        $colour = "url(#{$pattern_id})";
       } else {
+        $err = array_diff_key($colour, array_keys(array_keys($colour)));
+        if($err)
+          throw new Exception('Malformed gradient/pattern');
         $gradient_id = $this->AddGradient($colour, $key);
         $colour = "url(#{$gradient_id})";
       }
@@ -1060,6 +1077,18 @@ abstract class Graph {
   {
     $this->LoadJavascript();
     Graph::$javascript->InsertComment($details);
+  }
+
+  /**
+   * Adds a pattern, returning the element ID
+   */
+  public function AddPattern($pattern)
+  {
+    if(is_null($this->pattern_list)) {
+      require_once 'SVGGraphPattern.php';
+      $this->pattern_list = new SVGGraphPatternList($this);
+    }
+    return $this->pattern_list->Add($pattern);
   }
 
   /**
@@ -1258,6 +1287,9 @@ abstract class Graph {
     // insert any gradients that are used
     foreach($this->gradients as $key => $gradient)
       $this->defs[] = $this->MakeLinearGradient($key);
+    // and any patterns
+    if(!is_null($this->pattern_list))
+      $this->pattern_list->MakePatterns($this->defs);
 
     // show defs and body content
     if(count($this->defs))

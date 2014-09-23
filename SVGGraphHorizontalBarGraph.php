@@ -34,7 +34,6 @@ class HorizontalBarGraph extends GridGraph {
 
     $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
       $this->bar_unit_height - $this->bar_space);
-    $bar_style = array();
 
     $bnum = 0;
     $bspace = $this->bar_space / 2;
@@ -42,14 +41,18 @@ class HorizontalBarGraph extends GridGraph {
     foreach($this->values[0] as $item) {
       $bar = array('height' => $bar_height);
       $bar_pos = $this->GridPosition($item->key, $bnum);
+      if($this->legend_show_empty || $item->value != 0) {
+        $bar_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
+        $this->SetStroke($bar_style, $item);
+      } else {
+        $bar_style = NULL;
+      }
+
       if(!is_null($item->value) && !is_null($bar_pos)) {
         $bar['y'] = $bar_pos - $bspace - $bar_height;
         $this->Bar($item->value, $bar);
 
         if($bar['width'] > 0) {
-          $this->SetStroke($bar_style, $item);
-          $bar_style['fill'] = $this->GetColour($item, $bnum % $ccount);
-
           if($this->show_tooltips)
             $this->SetTooltip($bar, $item, $item->value, null,
               !$this->compat_events && $this->show_bar_labels);
@@ -57,9 +60,9 @@ class HorizontalBarGraph extends GridGraph {
           if($this->show_bar_labels)
             $rect .= $this->BarLabel($item, $bar);
           $body .= $this->GetLink($item, $item->key, $rect);
-          $this->bar_styles[] = $bar_style;
         }
       }
+      $this->bar_styles[] = $bar_style;
       ++$bnum;
     }
 
@@ -95,18 +98,38 @@ class HorizontalBarGraph extends GridGraph {
   }
 
   /**
+   * Returns the position for a bar label
+   */
+  protected function BarLabelPosition(&$item, &$bar)
+  {
+    $content = $item->Data('label');
+    if(is_null($content))
+      $content = $this->units_before_label . Graph::NumString($item->value) .
+        $this->units_label;
+    list($text_size) = $this->TextSize($content, $this->bar_label_font_size,
+      $this->bar_label_font_adjust, $this->encoding);
+
+    $pos = $this->bar_label_position;
+    if(empty($pos))
+      $pos = 'top';
+    $top = $bar['x'] + $bar['width'] - $this->bar_label_space;
+    $bottom = $bar['x'] + $this->bar_label_space;
+
+    if($top - $text_size < $bottom)
+      $pos = 'above';
+    return $pos;
+  }
+
+  /**
    * Text labels in or above the bar
    */
-  protected function BarLabel($item, &$bar, $offset_x = null)
+  protected function BarLabel(&$item, &$bar, $offset_x = null)
   {
     $content = $item->Data('label');
     if(is_null($content))
       $content = $this->units_before_label . Graph::NumString($item->value) .
         $this->units_label;
     $font_size = $this->bar_label_font_size;
-    list($text_size) = $this->TextSize($content, $this->bar_label_font_size,
-      $this->bar_label_font_adjust);
-    $space = $this->bar_label_space;
     $y = $bar['y'] + ($bar['height'] + $font_size) / 2 - $font_size / 8;
     $colour = $this->bar_label_colour;
     $acolour = $this->bar_label_colour_above;
@@ -116,19 +139,15 @@ class HorizontalBarGraph extends GridGraph {
       $x = $bar['x'] + $bar['width'] - $offset_x;
       $anchor = 'start';
     } else {
-      // find positions - if $top > $bottom, text will not fit
-      $pos = $this->bar_label_position;
-      if(empty($pos))
-        $pos = 'top';
-      $top = $bar['x'] + $bar['width'] - $space;
-      $bottom = $bar['x'] + $space;
-      if($top - $text_size < $bottom)
-        $pos = 'above';
+      $pos = $this->BarLabelPosition($item, $bar);
+      $top = $bar['x'] + $bar['width'] - $this->bar_label_space;
+      $bottom = $bar['x'] + $this->bar_label_space;
 
       $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + $this->x_axis->Zero());
       switch($pos) {
       case 'above' :
-        $x = $swap ? $bottom - $space * 2 : $top + $space * 2;
+        $x = $swap ? $bottom - $this->bar_label_space * 2 :
+          $top + $this->bar_label_space * 2;
         $anchor = $swap ? 'end' : 'start';
         if(!empty($acolour))
           $colour = $acolour;
@@ -167,7 +186,7 @@ class HorizontalBarGraph extends GridGraph {
    */
   protected function DrawLegendEntry($set, $x, $y, $w, $h)
   {
-    if(!array_key_exists($set, $this->bar_styles))
+    if(!isset($this->bar_styles[$set]))
       return '';
 
     $bar = array('x' => $x, 'y' => $y, 'width' => $w, 'height' => $h);
