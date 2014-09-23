@@ -49,26 +49,31 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 		$bar = array('height' => $chunk_height);
 
 		$bnum = 0;
-		$b_start = $this->height - $this->pad_bottom - $this->bar_unit_height + ($this->bar_space / 2);
+		$bspace = $this->bar_space / 2;
 		$ccount = count($this->colours);
 
 		foreach($this->multi_graph->all_keys as $k) {
 
-			for($j = 0; $j < $chunk_count; ++$j) {
-				$bar['y'] = $b_start - ($this->bar_unit_height * $bnum) + (($chunk_count - 1 - $j) * $chunk_unit_height);
-				$value = $this->multi_graph->GetValue($k, $j);
-				$bar['width'] = abs($value * $this->bar_unit_width);
-				$bar['x'] = $this->pad_left + $this->x0 + 
-					($value < 0 ? -$bar['width'] : 0);
-				$this->Bar($value, $bar);
+			$bar_pos = $this->GridPosition($k, $bnum);
 
-				if($bar['width'] > 0) {
-					$bar_style['fill'] = $this->GetColour($j % $ccount);
+			if(!is_null($bar_pos)) {
+				for($j = 0; $j < $chunk_count; ++$j) {
+					$bar['y'] = $bar_pos - $bspace - $bar_height +
+						(($chunk_count - 1 - $j) * $chunk_unit_height);
+					$value = $this->multi_graph->GetValue($k, $j);
+					$bar['width'] = abs($value * $this->bar_unit_width);
+					$bar['x'] = $this->pad_left + $this->x0 + 
+						($value < 0 ? -$bar['width'] : 0);
+					$this->Bar($value, $bar);
 
-					if($this->show_tooltips)
-						$this->SetTooltip($bar, $value);
-					$rect = $this->Element('rect', $bar, $bar_style);
-					$body .= $this->GetLink($k, $rect);
+					if($bar['width'] > 0) {
+						$bar_style['fill'] = $this->GetColour($j % $ccount);
+
+						if($this->show_tooltips)
+							$this->SetTooltip($bar, $value);
+						$rect = $this->Element('rect', $bar, $bar_style);
+						$body .= $this->GetLink($k, $rect);
+					}
 				}
 			}
 			++$bnum;

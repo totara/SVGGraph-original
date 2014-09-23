@@ -39,19 +39,22 @@ class BarGraph extends GridGraph {
 		$bar = array('width' => $bar_width);
 
 		$bnum = 0;
-		$b_start = $this->pad_left + ($this->bar_space / 2);
+		$bspace = $this->bar_space / 2;
 		$ccount = count($this->colours);
 		foreach($values as $key => $value) {
-			$bar['x'] = $b_start + ($this->bar_unit_width * $bnum);
-			$this->Bar($value, $bar);
+			$bar_pos = $this->GridPosition($key, $bnum);
+			if(!is_null($bar_pos)) {
+				$bar['x'] = $bspace + $bar_pos;
+				$this->Bar($value, $bar);
 
-			if($bar['height'] > 0) {
-				$bar_style['fill'] = $this->GetColour($bnum % $ccount);
+				if($bar['height'] > 0) {
+					$bar_style['fill'] = $this->GetColour($bnum % $ccount);
 
-				if($this->show_tooltips)
-					$this->SetTooltip($bar, $value);
-				$rect = $this->Element('rect', $bar, $bar_style);
-				$body .= $this->GetLink($key, $rect);
+					if($this->show_tooltips)
+						$this->SetTooltip($bar, $value);
+					$rect = $this->Element('rect', $bar, $bar_style);
+					$body .= $this->GetLink($key, $rect);
+				}
 			}
 			++$bnum;
 		}

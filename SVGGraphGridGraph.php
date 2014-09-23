@@ -19,6 +19,9 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
+require_once('SVGGraphAxis.php');
+require_once('SVGGraphAxisFixed.php');
+
 abstract class GridGraph extends Graph {
 	protected $grid_colour = 'rgb(220,220,220)';
 	protected $axis_colour = 'rgb(0,0,0)';
@@ -86,7 +89,6 @@ abstract class GridGraph extends Graph {
 
 		$v_max = $this->GetMaxValue();
 		$v_min = $this->GetMinValue();
-		$k_count = $this->GetHorizontalCount();
 		$k_max = $this->GetMaxKey();
 		$k_min = $this->GetMinKey();
 
@@ -114,49 +116,55 @@ abstract class GridGraph extends Graph {
 		if(is_null($this->g_width))
 			$this->g_width = $this->width - $this->pad_left - $this->pad_right;
 
-		$x_max = $h_by_count ? $k_count - 1 : max(0, $k_max);
+		$x_max = $h_by_count ? $this->GetHorizontalCount() - 1 : max(0, $k_max);
 		$x_min = $h_by_count ? 0 : min(0, $k_min);
+		$y_max = max(0, $v_max);
+		$y_min = min(0, $v_min);
 		$x_len = $this->g_width;
 		$y_len = $this->g_height;
 		$bar_h = $bar_v = null;
+
+		$max_h = $this->axis_max_h;
+		$min_h = $this->axis_min_h;
+		$max_v = $this->axis_max_v;
+		$min_v = $this->axis_min_v;
+
 		if($this->flip_axes) {
 
-			if(is_null($this->grid_division_h)) {
-				$x_axis = new Axis($x_len,
-					is_null($this->axis_max_h) ? max(0, $v_max) : $this->axis_max_h,
-					is_null($this->axis_min_h) ? min(0, $v_min) : $this->axis_min_h);
-			} else {
-				$x_axis = new AxisFixed($x_len,
-					is_null($this->axis_max_h) ? max(0, $v_max) : $this->axis_max_h,
-					is_null($this->axis_min_h) ? min(0, $v_min) : $this->axis_min_h,
-					$this->grid_division_h);
-			}
+			if(is_null($max_h)) $max_h = $y_max;
+			if(is_null($min_h)) $min_h = $y_min;
+			if(is_null($max_v)) $max_v = $x_max;
+			if(is_null($min_v)) $min_v = $x_min;
 
-			$y_axis = new Axis($y_len,
-				is_null($this->axis_max_v) ? $x_max : $this->axis_max_v,
-				is_null($this->axis_min_v) ? $x_min : $this->axis_min_v,
-				1, true);
+			$x_min_unit = 0;
+			$x_fit = false;
+			$y_min_unit = 1;
+			$y_fit = true;
 			$bar_v = $bar;
 
 		} else {
 
-			$x_axis = new Axis($x_len,
-				is_null($this->axis_max_h) ? $x_max : $this->axis_max_h,
-				is_null($this->axis_min_h) ? $x_min : $this->axis_min_h,
-				1, true);
-	
-			if(is_null($this->grid_division_v)) {
-				$y_axis = new Axis($y_len,
-					is_null($this->axis_max_v) ? max(0, $v_max) : $this->axis_max_v,
-					is_null($this->axis_min_v) ? min(0, $v_min) : $this->axis_min_v);
-			} else {
-				$y_axis = new AxisFixed($y_len,
-					is_null($this->axis_max_v) ? max(0, $v_max) : $this->axis_max_v,
-					is_null($this->axis_min_v) ? min(0, $v_min) : $this->axis_min_v,
-					$this->grid_division_v);
-			}
+			if(is_null($max_h)) $max_h = $x_max;
+			if(is_null($min_h)) $min_h = $x_min;
+			if(is_null($max_v)) $max_v = $y_max;
+			if(is_null($min_v)) $min_v = $y_min;
+
+			$x_min_unit = 1;
+			$x_fit = true;
+			$y_min_unit = 0;
+			$y_fit = false;
 			$bar_h = $bar;
 		}
+
+		if(is_null($this->grid_division_h))
+			$x_axis = new Axis($x_len, $max_h, $min_h, $x_min_unit, $x_fit);
+		else
+			$x_axis = new AxisFixed($x_len, $max_h, $min_h, $this->grid_division_h);
+
+		if(is_null($this->grid_division_v))
+			$y_axis = new Axis($y_len, $max_v, $min_v, $y_min_unit, $y_fit);
+		else
+			$y_axis = new AxisFixed($y_len, $max_v, $min_v, $this->grid_division_v);
 
 		if(is_null($this->minimum_grid_spacing_h))
 			$this->minimum_grid_spacing_h = $this->minimum_grid_spacing;
@@ -416,6 +424,29 @@ abstract class GridGraph extends Graph {
 		$this->defs[] = $this->Element('clipPath', array('id' => 'clipGrid'), NULL,
 			$this->Element('rect', $rect));
 		$attr['clip-path'] = 'url(#clipGrid)';
+	}
+
+	/**
+	 * Returns the grid position for a bar or point, or NULL if not on grid
+	 * $key  = actual value array index
+	 * $ikey = integer position in array
+	 */
+	protected function GridPosition($key, $ikey)
+	{
+		$position = null;
+		$gkey = $this->AssociativeKeys() ? $ikey : $key;
+		if($this->flip_axes) {
+			$top = $this->label_centre ? $this->g_height - ($this->bar_unit_height / 2) : $this->g_height;
+			$offset = $this->y0 + ($this->bar_unit_height * $gkey);
+			if($offset >= 0 && floor($offset) <= $top)
+				$position = $this->height - $this->pad_bottom - $offset;
+		} else {
+			$right_end = $this->label_centre ? $this->g_width - ($this->bar_unit_width / 2) : $this->g_width;
+			$offset = $this->x0 + ($this->bar_unit_width * $gkey);
+			if($offset >= 0 && floor($offset) <= $right_end)
+				$position = $this->pad_left + $offset;
+		}
+		return $position;
 	}
 }
 

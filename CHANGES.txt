@@ -1,3 +1,11 @@
+Version 2.4 (07/07/2011)
+-----------
+- Added multiple scatter graph.
+- Added option to use full x,y data for scatter graphs.
+- Added support for per-dataset marker options.
+- Added support for per-dataset fill_under options.
+- Fixed axis options are now available on both axes.
+
 Version 2.3 (26/04/2011)
 -----------
 - Added horizontal bar graph.

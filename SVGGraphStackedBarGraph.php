@@ -39,35 +39,39 @@ class StackedBarGraph extends BarGraph {
 		$bar_style = array('stroke' => $this->stroke_colour);
 		$bar = array('width' => $bar_width);
 
-		$b_start = $this->pad_left + ($this->bar_space / 2);
+		$bspace = $this->bar_space / 2;
 		$bnum = 0;
 		$ccount = count($this->colours);
 		$chunk_count = count($this->values);
 		foreach($this->multi_graph->all_keys as $k) {
-			$bar['x'] = $b_start + ($this->bar_unit_width * $bnum);
+			$bar_pos = $this->GridPosition($k, $bnum);
 
-			$ypos = $yneg = $yplus = $yminus = 0;
-			for($j = 0; $j < $chunk_count; ++$j) {
-				$value = $this->multi_graph->GetValue($k, $j);
-				$this->Bar($value > 0 ? $value + $yplus : $value - $yminus, $bar);
-				if($value < 0) {
-					$bar['height'] -= $yneg;
-					$bar['y'] += $yneg;
-					$yneg += $bar['height'];
-					$yminus -= $value;
-				} else {
-					$bar['height'] -= $ypos;
-					$ypos += $bar['height'];
-					$yplus += $value;
-				}
+			if(!is_null($bar_pos)) {
+				$bar['x'] = $bspace + $bar_pos;
 
-				if($bar['height'] > 0) {
-					$bar_style['fill'] = $this->GetColour($j % $ccount);
+				$ypos = $yneg = $yplus = $yminus = 0;
+				for($j = 0; $j < $chunk_count; ++$j) {
+					$value = $this->multi_graph->GetValue($k, $j);
+					$this->Bar($value > 0 ? $value + $yplus : $value - $yminus, $bar);
+					if($value < 0) {
+						$bar['height'] -= $yneg;
+						$bar['y'] += $yneg;
+						$yneg += $bar['height'];
+						$yminus -= $value;
+					} else {
+						$bar['height'] -= $ypos;
+						$ypos += $bar['height'];
+						$yplus += $value;
+					}
 
-					if($this->show_tooltips)
-						$this->SetTooltip($bar, $value);
-					$rect = $this->Element('rect', $bar, $bar_style);
-					$body .= $this->GetLink($k, $rect);
+					if($bar['height'] > 0) {
+						$bar_style['fill'] = $this->GetColour($j % $ccount);
+
+						if($this->show_tooltips)
+							$this->SetTooltip($bar, $value);
+						$rect = $this->Element('rect', $bar, $bar_style);
+						$body .= $this->GetLink($k, $rect);
+					}
 				}
 			}
 			++$bnum;

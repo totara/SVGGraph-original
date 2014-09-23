@@ -44,7 +44,6 @@ class LineGraph extends PointGraph {
 		$ccount = count($this->colours);
 		$path = '';
 		if($this->fill_under) {
-			$path = 'M' . $this->pad_left . ' ' . ($this->height - $this->pad_bottom - $this->y0);
 			$cmd = 'L';
 			$attr['fill'] = $this->GetColour(0);
 			if($this->fill_opacity < 1.0)
@@ -53,9 +52,13 @@ class LineGraph extends PointGraph {
 
 		$values = $this->GetValues();
 		foreach($values as $key => $value) {
-			if(!is_null($value)) {
-				$x = $this->pad_left + ($this->bar_unit_width * $bnum);
+			$point_pos = $this->GridPosition($key, $bnum);
+			if(!is_null($value) && !is_null($point_pos)) {
+				$x = $point_pos;
 				$y = $this->height - $this->pad_bottom - $this->y0 - ($value * $this->bar_unit_height);
+
+				if($this->fill_under && $path == '')
+					$path = 'M' . $x . ' ' . ($this->height - $this->pad_bottom - $this->y0);
 
 				$path .= "$cmd$x $y ";
 

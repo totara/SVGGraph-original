@@ -52,6 +52,7 @@ class Bar3DGraph extends ThreeDGraph {
 		$top = array('xlink:href' => '#bTop');
 
 		$bnum = 0;
+		$bspace = $this->bar_space / 2;
 		$ccount = count($this->colours);
 
 		// get the translation for the whole bar
@@ -59,13 +60,14 @@ class Bar3DGraph extends ThreeDGraph {
 		$group = array('transform' => "translate($tx,$ty)");
 
 		$baseline = $this->height - $this->pad_bottom - $this->y0;
-		$b_start = $this->pad_left + ($this->bar_space / 2);
 		$bar = array('width' => $block_width);
 
 		$bars = '';
 		foreach($values as $key => $value) {
-			if(!is_null($value)) {
-				$bar['x'] = $b_start + ($this->bar_unit_width * $bnum);
+			$bar_pos = $this->GridPosition($key, $bnum);
+
+			if(!is_null($value) && !is_null($bar_pos)) {
+				$bar['x'] = $bspace + $bar_pos;
 				$bar['height'] = abs($value) * $this->bar_unit_height;
 				$bar['y'] = $baseline - ($value > 0 ? $bar['height'] : 0);
 				$this->Bar($value, $bar);

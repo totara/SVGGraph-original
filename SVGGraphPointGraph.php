@@ -32,6 +32,10 @@ abstract class PointGraph extends GridGraph {
 
 	private $markers = array();
 	private $marker_attrs = array();
+	private $marker_ids = array();
+	private $marker_used = array();
+	private $marker_elements = array();
+	private $marker_types = array();
 
 	/**
 	 * Changes to crosshair cursor by overlaying a transparent rectangle
@@ -49,9 +53,9 @@ abstract class PointGraph extends GridGraph {
 	/**
 	 * Adds a marker to the list
 	 */
-	protected function AddMarker($x, $y, $key, $value, $extra = NULL)
+	protected function AddMarker($x, $y, $key, $value, $extra = NULL, $set = 0)
 	{
-		$this->markers[] = new Marker($x, $y, $key, $value, $extra);
+		$this->markers[$set][] = new Marker($x, $y, $key, $value, $extra);
 	}
 
 	/**
@@ -70,60 +74,119 @@ abstract class PointGraph extends GridGraph {
 		if($this->marker_size == 0 || count($this->markers) == 0)
 			return '';
 
-		$marker = array('id' => 'lMrk', 'cursor' => 'crosshair');
-		$marker = array_merge($this->marker_attrs, $marker);
-		if(!is_null($this->marker_colour))
-			$marker['fill'] = !is_null($this->marker_colour) ? $this->marker_colour : $this->GetColour(0, true);
-
-		switch($this->marker_type) {
-		case 'triangle' :
-			$type = 'path';
-			$a = $this->marker_size;
-			$o = $a * tan(pi() / 6);
-			$h = $a / cos(pi() / 6);
-			$marker['d'] = "M$a,$o L0,-$h L-$a,$o z";
-			break;
-		case 'square' :
-			$type = 'rect';
-			$marker['x'] = $marker['y'] = -$this->marker_size;
-			$marker['width'] = $marker['height'] = $this->marker_size * 2;
-			break;
-		case 'circle' :
-		default :
-			$type = 'circle';
-			$marker['r'] = $this->marker_size;
-		}
-
-		// add marker symbol to defs area
-		$this->defs[] = $this->Element('symbol', NULL, NULL, $this->Element($type, $marker, NULL));
+		$this->CreateMarkers();
 
 		$markers = '';
-		$linked = false;
-		foreach($this->markers as $m) {
-			$use = array('x' => $m->x, 'y' => $m->y, 'xlink:href' => '#lMrk');
-			if(is_array($m->extra))
-				$use = array_merge($m->extra, $use);
-			if($this->show_tooltips)
-				$this->SetTooltip($use, $m->key, $m->value);
-
-
-			if($this->GetLinkURL($m->key)) {
-				$use['xlink:href'] = '#lMrkA';
-				$markers .= $this->GetLink($m->key, $this->Element('use', $use));
-				$linked = true;
-			} else {
-				$markers .= $this->Element('use', $use);
-			}
+		foreach($this->markers as $set => $data) {
+			if($this->marker_ids[$set] && count($data))
+				$markers .= $this->DrawMarkerSet($set, $data);
 		}
-		if($linked) {
-			// add a link without crosshair
-			unset($marker['cursor']);
-			$marker['id'] = 'lMrkA';
-			$this->defs[] = $this->Element('symbol', NULL, NULL, $this->Element($type, $marker, NULL));
+		foreach(array_keys($this->marker_used) as $id) {
+			$this->defs[] = $this->marker_elements[$id];
 		}
 		return $markers;
 	}
 
+	/**
+	 * Draws a single set of markers
+	 * */
+	protected function DrawMarkerSet($set, &$marker_data)
+	{
+		$markers = '';
+		foreach($marker_data as $m) {
+			$markers .= $this->GetMarker($m, $set);
+		}
+		return $markers;
+	}
+
+
+	/**
+	 * Returns a marker element
+	 */
+	private function GetMarker($marker, $set)
+	{
+		$id = $this->marker_ids[$set];
+		$use = array('x' => $marker->x, 'y' => $marker->y, 'xlink:href' => '#' . $id);
+		if(is_array($marker->extra))
+			$use = array_merge($marker->extra, $use);
+		if($this->show_tooltips)
+			$this->SetTooltip($use, $marker->key, $marker->value);
+
+		if($this->GetLinkURL($marker->key)) {
+			$id .= 'A';
+			$use['xlink:href'] .= 'A';
+			$element = $this->GetLink($marker->key, $this->Element('use', $use));
+		} else {
+			$element = $this->Element('use', $use);
+		}
+		if(!isset($this->marker_used[$id]))
+			$this->marker_used[$id] = 1;
+		return $element;
+	}
+
+	/**
+	 * Creates the marker types
+	 */
+	private function CreateMarkers()
+	{
+		foreach(array_keys($this->markers) as $set) {
+			$id = 'lMrk' . $set;
+			$marker = array('id' => $id, 'cursor' => 'crosshair');
+			$marker = array_merge($this->marker_attrs, $marker);
+
+			$type = is_array($this->marker_type) ?
+				$this->marker_type[$set % count($this->marker_type)] :
+				$this->marker_type;
+			$size = is_array($this->marker_size) ?
+				$this->marker_size[$set % count($this->marker_size)] :
+				$this->marker_size;
+			if(isset($this->marker_colour)) {
+				$marker['fill'] = is_array($this->marker_colour) ?
+					$this->marker_colour[$set % count($this->marker_colour)] :
+					$this->marker_colour;
+			} else {
+				$marker['fill'] = $this->GetColour($set, true);
+			}
+
+			$m_key = "$type:$size:{$marker['fill']}";
+			if(isset($this->marker_types[$m_key])) {
+				$this->marker_ids[$set] = $this->marker_types[$m_key];
+			} else {
+
+				switch($type) {
+				case 'triangle' :
+					$type = 'path';
+					$a = $size;
+					$o = $a * tan(pi() / 6);
+					$h = $a / cos(pi() / 6);
+					$marker['d'] = "M$a,$o L0,-$h L-$a,$o z";
+					break;
+				case 'square' :
+					$type = 'rect';
+					$marker['x'] = $marker['y'] = -$size;
+					$marker['width'] = $marker['height'] = $size * 2;
+					break;
+				case 'circle' :
+				default :
+					$type = 'circle';
+					$marker['r'] = $size;
+				}
+
+				$this->marker_elements[$marker['id']] = $this->Element('symbol', NULL, NULL, $this->Element($type, $marker, NULL));
+
+				// add link version
+				unset($marker['cursor']);
+				$marker['id'] .= 'A';
+				$this->marker_elements[$marker['id']] = $this->Element('symbol', NULL, NULL, $this->Element($type, $marker, NULL));
+
+				// set the ID for this data set to use
+				$this->marker_ids[$set] = $id;
+
+				// save this marker style for reuse
+				$this->marker_types[$m_key] = $id;
+			}
+		}
+	}
 }
 
 class Marker {

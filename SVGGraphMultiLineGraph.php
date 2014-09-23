@@ -23,7 +23,7 @@ require_once('SVGGraphPointGraph.php');
 require_once('SVGGraphMultiGraph.php');
 
 /**
- * LineGraph - joined line, with axes and grid
+ * MultiLineGraph - joined line, with axes and grid
  */
 class MultiLineGraph extends PointGraph {
 
@@ -47,30 +47,36 @@ class MultiLineGraph extends PointGraph {
 			$bnum = 0;
 			$cmd = 'M';
 			$path = '';
-			if($this->fill_under) {
-				$path = 'M' . $this->pad_left . ' ' . ($this->height - $this->pad_bottom - $this->y0);
+			$fill = $this->fill_under && (!is_array($this->fill_under) || $this->fill_under[$i % count($this->fill_under)]);
+			if($fill) {
 				$cmd = 'L';
 				$attr['fill'] = $this->GetColour($i % $ccount);
 				$attr['fill-opacity'] = $this->fill_opacity;
+			} else {
+				unset($attr['fill-opacity']);
+				$attr['fill'] = 'none';
 			}
 
 
 			foreach($this->multi_graph->all_keys as $key) {
 				$value = $this->multi_graph->GetValue($key, $i);
-				if(!is_null($value)) {
-					$x = $this->pad_left + ($this->bar_unit_width * $bnum);
+				$point_pos = $this->GridPosition($key, $bnum);
+				if(!is_null($value) && !is_null($point_pos)) {
+					$x = $point_pos;
 					$y = $this->height - $this->pad_bottom - $this->y0 - ($value * $this->bar_unit_height);
 
+					if($fill && $path == '')
+						$path = 'M' . $x . ' ' . ($this->height - $this->pad_bottom - $this->y0);
 					$path .= "$cmd$x $y ";
 
 					// no need to repeat same L command
 					$cmd = $cmd == 'M' ? 'L' : '';
-					$this->AddMarker($x, $y, $key, $value);
+					$this->AddMarker($x, $y, $key, $value, NULL, $i);
 				}
 				++$bnum;
 			}
 
-			if($this->fill_under)
+			if($fill)
 				$path .= $cmd . $x . ' ' . ($this->height - $this->pad_bottom - $this->y0) . 'z';
 
 			$attr['d'] = $path;

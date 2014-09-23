@@ -41,35 +41,39 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 		$bar = array('height' => $bar_height);
 
 		$bnum = 0;
+		$bspace = $this->bar_space / 2;
 		$b_start = $this->height - $this->pad_bottom - ($this->bar_space / 2);
 		$ccount = count($this->colours);
 		$chunk_count = count($this->values);
 		foreach($this->multi_graph->all_keys as $k) {
-			$bar['y'] = $b_start - $bar_height - ($this->bar_unit_height * $bnum);
+			$bar_pos = $this->GridPosition($k, $bnum);
+			if(!is_null($bar_pos)) {
+				$bar['y'] = $bar_pos - $bspace - $bar_height;
 
-			$xpos = $xneg = $this->pad_left + $this->x0;
-			$xpos = $xneg = $xplus = $xminus = 0;
-			for($j = 0; $j < $chunk_count; ++$j) {
-				$value = $this->multi_graph->GetValue($k, $j);
-				$this->Bar($value > 0 ? $value + $xplus : $value - $xminus, $bar);
-				if($value < 0) {
-					$bar['width'] -= $xneg;
-					$xneg += $bar['width'];
-					$xminus -= $value;
-				} else {
-					$bar['width'] -= $xpos;
-					$bar['x'] += $xpos;
-					$xpos += $bar['width'];
-					$xplus += $value;
-				}
+				$xpos = $xneg = $this->pad_left + $this->x0;
+				$xpos = $xneg = $xplus = $xminus = 0;
+				for($j = 0; $j < $chunk_count; ++$j) {
+					$value = $this->multi_graph->GetValue($k, $j);
+					$this->Bar($value > 0 ? $value + $xplus : $value - $xminus, $bar);
+					if($value < 0) {
+						$bar['width'] -= $xneg;
+						$xneg += $bar['width'];
+						$xminus -= $value;
+					} else {
+						$bar['width'] -= $xpos;
+						$bar['x'] += $xpos;
+						$xpos += $bar['width'];
+						$xplus += $value;
+					}
 
-				if($bar['width'] > 0) {
-					$bar_style['fill'] = $this->GetColour($j % $ccount);
+					if($bar['width'] > 0) {
+						$bar_style['fill'] = $this->GetColour($j % $ccount);
 
-					if($this->show_tooltips)
-						$this->SetTooltip($bar, $value);
-					$rect = $this->Element('rect', $bar, $bar_style);
-					$body .= $this->GetLink($k, $rect);
+						if($this->show_tooltips)
+							$this->SetTooltip($bar, $value);
+						$rect = $this->Element('rect', $bar, $bar_style);
+						$body .= $this->GetLink($k, $rect);
+					}
 				}
 			}
 			++$bnum;

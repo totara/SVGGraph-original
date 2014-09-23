@@ -1,4 +1,4 @@
-SVGGraph Library version 2.3
+SVGGraph Library version 2.4
 ============================
 
 This library provides PHP classes and functions for easily creating SVG
@@ -37,11 +37,13 @@ At the moment these types of graph are supported by SVGGraph:
  StackedBarGraph - multiple data sets drawn as bars, stacked one on top of
                    another;
 
- GroupedBarGraph - multiple data sets drawn as bars, side-by-side.
+ GroupedBarGraph - multiple data sets drawn as bars, side-by-side;
 
- HorizontalBarGraph - a bar graph with the axes swapped.
+ MultiScatterGraph - scatter graph supporting multiple data sets;
 
- HorizontalStackedBarGraph - a stacked bar graph drawn horizontally.
+ HorizontalBarGraph - a bar graph with the axes swapped;
+
+ HorizontalStackedBarGraph - a stacked bar graph drawn horizontally;
 
  HorizontalGroupedBarGraph - a grouped bar graph drawn horizontally.
 
@@ -134,6 +136,21 @@ an outer array:
   array('first' => 3, 'second' => 4, 'third' => 2)
  );
  $graph->Values($data);
+
+Scatter graphs draw markers at x,y coordinates, given as the key and value in
+the data array:
+ $data = array(5 => 20, 6 => 30, 10 => 90, 20 => 50);
+ $graph->Values($data);
+
+This will draw the markers at (5,20), (6,30), (10,90) and (20,50). The new 
+scatter_2d option in version 2.4 allows points to occupy the same x-
+coordinate by passing the values as pairs of coordinates:
+ $graph = new SVGGraph(200,100, array('scatter_2d' => true));
+ $data = array(array(5,20), array(6,30), array(5,90), array(10,50));
+ $graph->Values($data);
+
+Note: data in this format are not supported by any of the non-scatter graph
+types.
 
 Hyperlinks
 ==========
@@ -255,8 +272,8 @@ single or double quotes.
  tooltip_offset         10                  Distance between cursor and tooltip
 
 These options are common to the Bar, Line, Bar3D, Scatter, StackedBar,
-GroupedBar, MultiLine, HorizontalBar, HorizontalStackedBar and
-HorizontalGroupedBar graph types:
+GroupedBar, MultiLine, MultiScatter, HorizontalBar, HorizontalStackedBar
+and HorizontalGroupedBar graph types:
  show_grid              true                Grid on/off option
  show_axes              true                Axes on/off option
  show_divisions         true                Axis division points on/off
@@ -274,15 +291,11 @@ HorizontalGroupedBar graph types:
  minimum_grid_spacing   15                  Minimum distance between grid/axis lines
  minimum_grid_spacing_v NULL                Minimum distance between vertical grid lines
  minimum_grid_spacing_h NULL                Minimum distance between horizontal grid lines
-
-These options are for all non-horizontal grid-based graph types:
  axis_min_v             NULL                Minimum value for Y-axis
  axis_max_v             NULL                Maximum value for Y-axis
- grid_division_v        NULL                Division step value for Y-axis (minimum_grid_spacing is ignored)
-
-These corresponding options are for the horizontal grid-based graph types:
  axis_min_h             NULL                Minimum value for X-axis
  axis_max_h             NULL                Maximum value for X-axis
+ grid_division_v        NULL                Division step value for Y-axis (minimum_grid_spacing is ignored)
  grid_division_h        NULL                Division step value for X-axis (minimum_grid_spacing is ignored)
 
 BarGraph and StackedBarGraph options:
@@ -306,6 +319,9 @@ LineGraph and MultiLineGraph options:
  fill_under           false               If true, the area under the line is filled
  fill_opacity         1                   Opacity of the filled area (MultiLine default is 0.5)
 
+ScatterGraph and MultiScatterGraph options:
+ scatter_2d           false             If true, supports data as array(x,y) pairs as described above.
+
 PieGraph and Pie3DGraph options:
  aspect_ratio          1.0              Ratio of height/width (or 'auto' to fill area)
  sort                  true             Sorts the pie slices, largest first
@@ -324,6 +340,10 @@ PieGraph and Pie3DGraph options:
 
 Pie3DGraph options:
  depth              40                  Depth of the 3D pie slice
+
+For examples and more information on how these options work, please visit
+the website: http://www.goat1000.com/
+
 
 Contact details
 ===============

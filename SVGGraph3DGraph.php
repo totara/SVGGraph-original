@@ -58,7 +58,7 @@ abstract class ThreeDGraph extends GridGraph {
 	protected function CalcAxes($h_by_count = false, $bar = false)
 	{
 		// calculate bar 
-		$count = $this->GetHorizontalCount();
+		$count = $this->GetHorizontalDivision();
 		$a = $this->AngleRadians();
 
 		if(!$this->label_adjust_done)
@@ -135,5 +135,16 @@ abstract class ThreeDGraph extends GridGraph {
 			min($this->width - $this->pad_right, $val));
 	}
 
+	/**
+	 * Figure out how many bars there are
+	 */
+	protected function GetHorizontalDivision()
+	{
+		if(is_null($this->axis_min_h) && is_null($this->axis_max_h))
+			return $this->GetHorizontalCount();
+		$start = is_null($this->axis_min_h) ? $this->GetMinKey() : $this->axis_min_h;
+		$end = is_null($this->axis_max_h) ? $this->GetMaxKey() : $this->axis_max_h;
+		return $end - $start + 1;
+	}
 }
 

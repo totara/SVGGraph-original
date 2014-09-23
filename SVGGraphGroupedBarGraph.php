@@ -48,22 +48,26 @@ class GroupedBarGraph extends BarGraph {
 		$bar = array('width' => $chunk_width);
 
 		$b_start = $this->pad_left + ($this->bar_space / 2);
+		$bspace = $this->bar_space / 2;
 		$bnum = 0;
 		$ccount = count($this->colours);
 
 		foreach($this->multi_graph->all_keys as $k) {
-			for($j = 0; $j < $chunk_count; ++$j) {
-				$bar['x'] = $b_start + ($this->bar_unit_width * $bnum) + ($j * $chunk_unit_width);
-				$value = $this->multi_graph->GetValue($k, $j);
-				$this->Bar($value, $bar);
+			$bar_pos = $this->GridPosition($k, $bnum);
+			if(!is_null($bar_pos)) {
+				for($j = 0; $j < $chunk_count; ++$j) {
+					$bar['x'] = $bspace + $bar_pos + ($j * $chunk_unit_width);
+					$value = $this->multi_graph->GetValue($k, $j);
+					$this->Bar($value, $bar);
 
-				if($bar['height'] > 0) {
-					$bar_style['fill'] = $this->GetColour($j % $ccount);
+					if($bar['height'] > 0) {
+						$bar_style['fill'] = $this->GetColour($j % $ccount);
 
-					if($this->show_tooltips)
-						$this->SetTooltip($bar, $value);
-					$rect = $this->Element('rect', $bar, $bar_style);
-					$body .= $this->GetLink($k, $rect);
+						if($this->show_tooltips)
+							$this->SetTooltip($bar, $value);
+						$rect = $this->Element('rect', $bar, $bar_style);
+						$body .= $this->GetLink($k, $rect);
+					}
 				}
 			}
 			++$bnum;

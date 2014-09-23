@@ -40,19 +40,22 @@ class HorizontalBarGraph extends GridGraph {
 		$bar = array('height' => $bar_height);
 
 		$bnum = 0;
-		$b_start = $this->height - $this->pad_bottom - ($this->bar_space / 2);
+		$bspace = $this->bar_space / 2;
 		$ccount = count($this->colours);
 		foreach($values as $key => $value) {
-			$bar['y'] = $b_start - $bar_height - ($this->bar_unit_height * $bnum);
-			$this->Bar($value, $bar);
+			$bar_pos = $this->GridPosition($key, $bnum);
+			if(!is_null($bar_pos)) {
+				$bar['y'] = $bar_pos - $bspace - $bar_height;
+				$this->Bar($value, $bar);
 
-			if($bar['width'] > 0) {
-				$bar_style['fill'] = $this->GetColour($bnum % $ccount);
+				if($bar['width'] > 0) {
+					$bar_style['fill'] = $this->GetColour($bnum % $ccount);
 
-				if($this->show_tooltips)
-					$this->SetTooltip($bar, $value);
-				$rect = $this->Element('rect', $bar, $bar_style);
-				$body .= $this->GetLink($key, $rect);
+					if($this->show_tooltips)
+						$this->SetTooltip($bar, $value);
+					$rect = $this->Element('rect', $bar, $bar_style);
+					$body .= $this->GetLink($key, $rect);
+				}
 			}
 			++$bnum;
 		}
