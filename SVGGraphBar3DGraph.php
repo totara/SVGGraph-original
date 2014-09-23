@@ -26,7 +26,11 @@ class Bar3DGraph extends ThreeDGraph {
   protected $bar_styles = array();
   protected $label_centre = true;
 
-  public function Draw()
+  protected $bx;
+  protected $by;
+  protected $block_width;
+
+  protected function Draw()
   {
     // make sure project_angle is in range
     if($this->project_angle < 0)
@@ -37,18 +41,11 @@ class Bar3DGraph extends ThreeDGraph {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $values = $this->GetValues();
-    $block_width = $this->bar_unit_width - $this->bar_space;
+    $this->block_width = $this->bar_unit_width - $this->bar_space;
 
     // make the top parallelogram, set it as a symbol for re-use
-    list($bx, $by) = $this->Project(0, 0, $block_width);
-    $top_id = $this->NewID();
-    $top = array(
-      'id' => $top_id,
-      'd' => "M0,0 l$block_width,0 l$bx,$by l-$block_width,0 z"
-    );
-    $this->defs[] = $this->Element('symbol', NULL, NULL,
-      $this->Element('path', $top));
-    $top = array('xlink:href' => '#' . $top_id);
+    list($this->bx, $this->by) = $this->Project(0, 0, $this->block_width);
+    $top = $this->BarTop();
 
     $bnum = 0;
     $bspace = $this->bar_space / 2;
@@ -57,9 +54,7 @@ class Bar3DGraph extends ThreeDGraph {
     // get the translation for the whole bar
     list($tx, $ty) = $this->Project(0, 0, $this->bar_space / 2);
     $group = array('transform' => "translate($tx,$ty)");
-
-    $baseline = $this->height - $this->pad_bottom - $this->y0;
-    $bar = array('width' => $block_width);
+    $bar = array('width' => $this->block_width);
 
     $bars = '';
     foreach($values as $key => $value) {
@@ -67,24 +62,12 @@ class Bar3DGraph extends ThreeDGraph {
 
       if(!is_null($value) && !is_null($bar_pos)) {
         $bar['x'] = $bspace + $bar_pos;
-        $bar['height'] = abs($value) * $this->bar_unit_height;
-        $bar['y'] = $baseline - ($value > 0 ? $bar['height'] : 0);
-        $this->Bar($value, $bar);
+        $colour = $bnum % $ccount;
 
-        $top['transform'] = "translate($bar[x],$bar[y])";
-        $side_x = $bar['x'] + $block_width;
-        $side = array(
-          'd' => "M0,0 l$bx,$by l0,$bar[height] l-$bx," . -$by . " z",
-          'transform' => "translate($side_x,$bar[y])"
-        );
-        $group['fill'] = $this->GetColour($bnum % $ccount);
-        $top['fill'] = $this->GetColour($bnum % $ccount, TRUE);
+        $bar_sections = $this->Bar3D($value, $bar, $top, $colour);
+        $link = $this->GetLink($key, $bar_sections);
 
-        $rect = $this->Element('rect', $bar);
-        $bar_top = $this->Element('use', $top);
-        $bar_side = $this->Element('path', $side);
-        $link = $this->GetLink($key, $rect . $bar_top . $bar_side);
-
+        $group['fill'] = $this->GetColour($colour);
         if($this->show_tooltips)
           $this->SetTooltip($group, $value);
         $bars .= $this->Element('g', $group, NULL, $link);
@@ -104,13 +87,55 @@ class Bar3DGraph extends ThreeDGraph {
   }
 
   /**
-   * Fills in the y-position and height of a bar
+   * Returns the bar top path details array
    */
-  protected function Bar($value, &$bar)
+  protected function BarTop()
+  {
+    $top_id = $this->NewID();
+    $top = array(
+      'id' => $top_id,
+      'd' => "M0,0 l{$this->block_width},0 l{$this->bx},{$this->by} l-{$this->block_width},0 z"
+    );
+    $this->defs[] = $this->Element('symbol', NULL, NULL,
+      $this->Element('path', $top));
+    return array('xlink:href' => '#' . $top_id);
+  }
+
+  /**
+   * Returns the SVG code for a 3D bar
+   */
+  protected function Bar3D($value, &$bar, &$top, $colour, $start = null)
+  {
+    $this->Bar($value, $bar, $start);
+
+    $side_x = $bar['x'] + $this->block_width;
+    $side = array(
+      'd' => "M0,0 l{$this->bx},{$this->by} l0,$bar[height] l-{$this->bx}," . -$this->by . " z",
+      'transform' => "translate($side_x,$bar[y])"
+    );
+    if(is_null($top)) {
+      $bar_top = '';
+    } else {
+      $top['transform'] = "translate($bar[x],$bar[y])";
+      $top['fill'] = $this->GetColour($colour, TRUE);
+      $bar_top = $this->Element('use', $top);
+    }
+
+    $rect = $this->Element('rect', $bar);
+    $bar_side = $this->Element('path', $side);
+    return $rect . $bar_top . $bar_side;
+  }
+
+  /**
+   * Fills in the y-position and height of a bar (copied from BarGraph)
+   */
+  protected function Bar($value, &$bar, $start = null)
   {
     $y = $this->height - $this->pad_bottom - $this->y0;
+    if(!is_null($start))
+      $y -= $start;
     $l1 = $this->ClampVertical($y);
-    $l2 = $this->ClampVertical($y - ($value * $this->bar_unit_height));
+    $l2 = $this->ClampVertical($y - $value * $this->bar_unit_height);
     $bar['y'] = min($l1, $l2);
     $bar['height'] = abs($l1-$l2);
   }

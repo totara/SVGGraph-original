@@ -23,7 +23,7 @@ require_once 'SVGGraphPieGraph.php';
 
 class Pie3DGraph extends PieGraph {
 
-  public function Draw()
+  protected function Draw()
   {
     // modify pad_bottom to make PieGraph do the hard work
     $pb = $this->pad_bottom;
@@ -52,6 +52,12 @@ class Pie3DGraph extends PieGraph {
     $path = '';
     $angle_start_lower = $this->LowerHalf($angle_start);
     $angle_end_lower = $this->LowerHalf($angle_end);
+
+    // cope with the lower half filled exactly
+    if(($this->reverse && $angle_start == M_PI && $angle_end == M_PI * 2) ||
+      (!$this->reverse && $angle_start == 0 && $angle_end == M_PI)) {
+      $angle_end_lower = $angle_start_lower = true;
+    }
     if($angle_start_lower || $angle_end_lower || $outer) {
       if($angle_start_lower && $angle_end_lower && $outer) {
         // if this is a big slice with both sides at bottom, need 2 edges
@@ -64,6 +70,7 @@ class Pie3DGraph extends PieGraph {
         $path .= $this->GetEdge($angle_start_trunc, $angle_end_trunc);
       }
     }
+
     if((string)$x_start == (string)$x_end &&
       (string)$y_start == (string)$y_end) {
       $attr_path = array('d' => $path);
@@ -87,7 +94,7 @@ class Pie3DGraph extends PieGraph {
   /**
    * Returns the path for an edge
    */
-  protected function GetEdge($angle_start, $angle_end)
+  protected function GetEdge($angle_start, $angle_end, $double_curve = false)
   {
     $x_start = $y_start = $x_end = $y_end = 0;
     $this->CalcSlice($angle_start, $angle_end, $x_start, $y_start,
@@ -97,9 +104,15 @@ class Pie3DGraph extends PieGraph {
     $outer = 0; // edge is never > PI
     $sweep = $this->reverse ? 0 : 1;
 
-    return "M$x_start,$y_start l0,{$this->depth} " .
+    $path = "M$x_start,$y_start v{$this->depth} " .
       "A{$this->radius_x} {$this->radius_y} 0 " .
-      "$outer,$sweep $x_end,$y_end_depth l0,-{$this->depth} ";
+      "$outer,$sweep $x_end,$y_end_depth v-{$this->depth} ";
+    if($double_curve) {
+      $sweep = $sweep ? 0 : 1;
+      $path .= "A{$this->radius_x} {$this->radius_y} 0 " .
+        "$outer,$sweep $x_start,$y_start ";
+    }
+    return $path;
   }
 
   /**
@@ -112,5 +125,24 @@ class Pie3DGraph extends PieGraph {
       (!$this->reverse && $angle < M_PI && $angle > 0);
   }
 
+  /**
+   * Overlays the gradient on the pie sides
+   */
+  protected function PieExtras()
+  {
+    $overlay = '';
+    if(is_array($this->depth_shade_gradient)) {
+      $gradient_id = $this->AddGradient($this->depth_shade_gradient);
+      $start = $this->reverse ? M_PI : M_PI * 2;
+      $end = $this->reverse ? M_PI * 2 : M_PI;
+      $bottom = array(
+        'd' => $this->GetEdge($start, $end, true),
+        'fill' => "url(#{$gradient_id})"
+      );
+      $overlay = $this->Element('path', $bottom);
+    }
+
+    return $overlay;
+  }
 }
 

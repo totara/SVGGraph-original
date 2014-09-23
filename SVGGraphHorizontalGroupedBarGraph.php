@@ -152,14 +152,6 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
   }
 
   /**
-   * Overload to measure keys
-   */
-  protected function LabelAdjustment($longest_v = 1000, $longest_h = 100)
-  {
-    GridGraph::LabelAdjustment($longest_h, $longest_v);
-  }
-
-  /**
    * Return the longest of all keys
    */
   protected function GetLongestKey()

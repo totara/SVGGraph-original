@@ -26,7 +26,7 @@ require_once 'SVGGraphPointGraph.php';
  */
 class ScatterGraph extends PointGraph {
 
-  public function Draw()
+  protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
     $values = $this->GetValues();
@@ -52,6 +52,17 @@ class ScatterGraph extends PointGraph {
       ++$bnum;
     }
 
+    if($this->best_fit) {
+      $best_fit = is_array($this->best_fit) ? $this->best_fit[0] :
+        $this->best_fit;
+      $colour = is_array($this->best_fit_colour) ? $this->best_fit_colour[0] :
+        $this->best_fit_colour;
+      $stroke_width = is_array($this->best_fit_width) ?
+        $this->best_fit_width[0] : $this->best_fit_width;
+      $dash = is_array($this->best_fit_dash) ?
+        $this->best_fit_dash[0] : $this->best_fit_dash;
+      $body .= $this->BestFit($best_fit, 0, $colour, $stroke_width, $dash);
+    }
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE);
     $body .= $this->Axes();
     $body .= $this->CrossHairs();
@@ -87,12 +98,10 @@ class ScatterGraph extends PointGraph {
   protected function CheckValues(&$values)
   {
     parent::CheckValues($values);
-    foreach($values[0] as $key => $v) {
-      if(is_numeric($key) && $key > 0)
-        return;
-    }
 
-    throw new Exception('No valid data keys for scatter graph');
+    // using force_assoc makes things work properly
+    if($this->AssociativeKeys())
+      $this->force_assoc = true;
   }
 
   /**

@@ -154,12 +154,16 @@ JAVASCRIPT;
       $this->AddFunction('showhide');
       $this->AddFunction('svgCoords');
       $this->InsertVariable('tooltipOn', '');
+      $max_x = $this->graph->width - $this->tooltip_stroke_width;
+      $max_y = $this->graph->height - $this->tooltip_stroke_width;
       if($this->tooltip_shadow_opacity) {
-        $ttoffs = (2 - $this->tooltip_stroke_width/2) . 'px';
+        $ttoffs = (2 - $this->tooltip_stroke_width/2);
+        $max_x -= $ttoffs;
+        $max_y -= $ttoffs;
         $shadow = <<<JAVASCRIPT
     shadow = newel('rect',{
       fill: 'rgba(0,0,0,{$this->tooltip_shadow_opacity})',
-      x:'{$ttoffs}',y:'{$ttoffs}',
+      x:'{$ttoffs}px',y:'{$ttoffs}px',
       width:'10px',height:'10px',
       id: 'ttshdw',
       rx:'{$this->tooltip_round}px',ry:'{$this->tooltip_round}px'
@@ -170,6 +174,11 @@ JAVASCRIPT;
         $shadow = '';
       }
       $dpad = 2 * $this->tooltip_padding;
+      $back_colour = $this->tooltip_back_colour;
+      if(is_array($back_colour)) {
+        $gradient_id = $this->graph->AddGradient($back_colour);
+        $back_colour = "url(#{$gradient_id})";
+      }
       $fn = <<<JAVASCRIPT
 function tooltip(e,callback,on,param) {
   var tt = getE('tooltip'), rect = getE('ttrect'), shadow = getE('ttshdw'),
@@ -184,7 +193,7 @@ function tooltip(e,callback,on,param) {
     rect = newel('rect',{
       stroke: '{$this->tooltip_colour}',
       'stroke-width': '{$this->tooltip_stroke_width}px',
-      fill: '{$this->tooltip_back_colour}',
+      fill: '{$back_colour}',
       width:'10px',height:'10px',
       id: 'ttrect',
       rx:'{$this->tooltip_round}px',ry:'{$this->tooltip_round}px'
@@ -213,17 +222,14 @@ function tooltip(e,callback,on,param) {
       setattr(shadow, 'width', (bw + {$this->tooltip_stroke_width}) + 'px');
       setattr(shadow, 'height', (bh + {$this->tooltip_stroke_width}) + 'px');
     }
-    if(de.width) {
-      sw = de.width.baseVal.value;
-      sh = de.height.baseVal.value;
-    } else {
-      sw = window.innerWidth;
-      sh = window.innerHeight;
+    if(bw + x > {$max_x}) {
+      x -= bw + offset * 2;
+      x = Math.max(x, 0);
     }
-    if(bw + x > sw)
-      x = Math.max(e.clientX - offset - bw,0);
-    if(bh + y > sh)
-      y = Math.max(e.clientY - offset - bh,0);
+    if(bh + y > {$max_y}) {
+      y -= bh + offset * 2;
+      y = Math.max(y, 0);
+    }
   }
   on && setattr(tt,'transform','translate('+x+' '+y+')');
   tooltipOn = on ? 1 : 0;
@@ -466,6 +472,8 @@ function initDrag() {
         d = t.draginfo;
         d[0] = m.e - d[2];
         d[1] = m.f - d[3];
+        e.cancelBubble = true;
+        e.preventDefault && e.preventDefault();
         return false;
       }
     });
@@ -477,6 +485,8 @@ function initDrag() {
         d[2] = e.clientX - d[0] - (bb ? bb.width / 2 : 10);
         d[3] = e.clientY - d[1] - (bb ? bb.height / 2 : 10);
         setattr(d[4], 'transform', 'translate(' + d[2] + ',' + d[3] + ')');
+        e.cancelBubble = true;
+        e.preventDefault && e.preventDefault();
         return false;
       }
     };

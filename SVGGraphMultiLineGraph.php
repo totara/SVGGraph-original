@@ -31,7 +31,7 @@ class MultiLineGraph extends PointGraph {
   private $line_styles = array();
   private $fill_styles = array();
 
-  public function Draw()
+  protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 

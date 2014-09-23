@@ -71,9 +71,11 @@ class HorizontalBarGraph extends GridGraph {
   /**
    * Fills in the x-position and width of a bar
    */
-  protected function Bar($value, &$bar)
+  protected function Bar($value, &$bar, $start = null)
   {
     $x0 = $this->pad_left + $this->x0;
+    if(!is_null($start))
+      $x0 += $start;
     $l1 = $this->ClampHorizontal($x0);
     $l2 = $this->ClampHorizontal($x0 + ($value * $this->bar_unit_width));
     $bar['x'] = min($l1, $l2);
@@ -142,14 +144,6 @@ class HorizontalBarGraph extends GridGraph {
     if($this->bar_label_font_weight != 'normal')
       $text['font-weight'] = $this->bar_label_font_weight;
     return $this->Element('text', $text, NULL, $value);
-  }
-
-  /**
-   * Overload to flip axes
-   */
-  protected function LabelAdjustment($longest_v = 1000, $longest_h = 100)
-  {
-    parent::LabelAdjustment($longest_h, $longest_v);
   }
 
   /**

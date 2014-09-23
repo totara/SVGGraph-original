@@ -29,7 +29,7 @@ class MultiScatterGraph extends PointGraph {
 
   protected $multi_graph;
 
-  public function Draw()
+  protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
     $values = $this->GetValues();
@@ -57,6 +57,15 @@ class MultiScatterGraph extends PointGraph {
           $this->AddMarker($x, $y, $key, $value, NULL, $i);
         }
         ++$bnum;
+      }
+
+      // draw the best-fit line for this data set
+      if($this->best_fit) {
+        $best_fit = $this->multi_graph->Option($this->best_fit, $i);
+        $colour = $this->multi_graph->Option($this->best_fit_colour, $i);
+        $stroke_width = $this->multi_graph->Option($this->best_fit_width, $i);
+        $dash = $this->multi_graph->Option($this->best_fit_dash, $i);
+        $body .= $this->BestFit($best_fit, $i, $colour, $stroke_width, $dash);
       }
     }
 
@@ -97,12 +106,26 @@ class MultiScatterGraph extends PointGraph {
   protected function CheckValues(&$values)
   {
     parent::CheckValues($values);
-    foreach($values[0] as $key => $v) {
-      if(is_numeric($key) && $key > 0)
-        return;
-    }
 
-    throw new Exception('No valid data keys for scatter graph');
+    // using force_assoc makes things work properly
+    if($this->AssociativeKeys())
+      $this->force_assoc = true;
+  }
+
+  /**
+   * Used when drawing associative data
+   */
+  protected function GetHorizontalCount()
+  {
+    return $this->multi_graph->KeyCount();
+  }
+
+  /**
+   * Returns the key from the MultiGraph
+   */
+  protected function GetKey($index)
+  {
+    return $this->multi_graph->GetKey($index);
   }
 
   /**

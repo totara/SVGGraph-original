@@ -1,3 +1,20 @@
+Version 2.10 (23/10/2012)
+------------
+- Added cylinder graph.
+- Added stacked and grouped 3D bar graphs.
+- Added support for gradients in graph element backgrounds.
+- Added gradient shaded side to 3D pie graphs.
+- Added best fit lines for scatter graphs.
+- Added support for drawing associative data on scatter graphs.
+- Added show_axis_h and show_axis_v options.
+- Added minimum_units_y option.
+- Improved axis text label spacing again.
+- Better text positioning for radar graphs.
+- New default colours.
+- Fixed tooltips positioning when embedded in HTML5/XHTML.
+- Fixed text being selected when dragging legend.
+- Fixed graphs with all values negative not being drawn.
+
 Version 2.9 (29/08/2012)
 -----------
 - Added bar label options.

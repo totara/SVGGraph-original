@@ -71,11 +71,13 @@ class BarGraph extends GridGraph {
   /**
    * Fills in the y-position and height of a bar
    */
-  protected function Bar($value, &$bar)
+  protected function Bar($value, &$bar, $start = null)
   {
     $y = $this->height - $this->pad_bottom - $this->y0;
+    if(!is_null($start))
+      $y -= $start;
     $l1 = $this->ClampVertical($y);
-    $l2 = $this->ClampVertical($y - ($value * $this->bar_unit_height));
+    $l2 = $this->ClampVertical(ceil($y - $value * $this->bar_unit_height));
     $bar['y'] = min($l1, $l2);
     $bar['height'] = abs($l1-$l2);
   }

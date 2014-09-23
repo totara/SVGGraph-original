@@ -29,7 +29,7 @@ class LineGraph extends PointGraph {
   private $line_style;
   private $fill_style;
 
-  public function Draw()
+  protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 

@@ -309,6 +309,85 @@ abstract class PointGraph extends GridGraph {
     }
   }
 
+  /**
+   * Find the best fit line for the data points
+   */
+  protected function BestFit($type, $dataset, $colour, $stroke_width, $dash)
+  {
+    // only straight lines supported for now
+    if($type != 'straight')
+      return '';
+
+    // use markers for data
+    if(!isset($this->markers[$dataset]))
+      return '';
+
+    $sum_x = $sum_y = $sum_x2 = $sum_xy = 0;
+    $count = 0;
+    foreach($this->markers[$dataset] as $k => $v) {
+      list($x, $y) = $this->GridToUnits($v->x, $v->y);
+
+      $sum_x += $x;
+      $sum_y += $y;
+      $sum_x2 += pow($x, 2);
+      $sum_xy += $x * $y;
+      ++$count;
+    }
+
+    // can't draw a line through less than 2 points
+    if($count < 2)
+      return '';
+    $mean_x = $sum_x / $count;
+    $mean_y = $sum_y / $count;
+
+    if($sum_x2 == $sum_x * $mean_x) {
+      // line is vertical!
+      list($x1) = $this->UnitsToGrid($mean_x, 0);
+      $x2 = $x1;
+      $y1 = $this->pad_top;
+      $y2 = $this->height - $this->pad_bottom;
+    } else {
+      $slope = ($sum_xy - $sum_x * $mean_y) / ($sum_x2 - $sum_x * $mean_x);
+      $y_int = $mean_y - $slope * $mean_x;
+
+      $bottom_left = $this->GridToUnits($this->pad_left,
+        $this->height - $this->pad_bottom);
+      $top_right = $this->GridToUnits($this->width - $this->pad_right,
+        $this->pad_top);
+
+      $x = $bottom_left[0];
+      $y = $slope * $x + $y_int;
+      list($x1, $y1) = $this->UnitsToGrid($x, $y);
+      if($y1 < $this->pad_top) {
+        $x = ($top_right[1] - $y_int) / $slope;
+        list($x1, $y1) = $this->UnitsToGrid($x, $top_right[1]);
+      } elseif($y1 > $this->height - $this->pad_bottom) {
+        $x = ($bottom_left[1] - $y_int) / $slope;
+        list($x1, $y1) = $this->UnitsToGrid($x, $bottom_left[1]);
+      }
+
+      $x = $top_right[0];
+      $y = $slope * $x + $y_int;
+      list($x2, $y2) = $this->UnitsToGrid($x, $y);
+      if($y2 < $this->pad_top) {
+        $x = ($top_right[1] - $y_int) / $slope;
+        list($x2, $y2) = $this->UnitsToGrid($x, $top_right[1]);
+      } elseif($y2 > $this->height - $this->pad_bottom) {
+        $x = ($bottom_left[1] - $y_int) / $slope;
+        list($x2, $y2) = $this->UnitsToGrid($x, $bottom_left[1]);
+      }
+    }
+    $path = array(
+      'd' => "M$x1 {$y1}L$x2 $y2",
+      'stroke' => empty($colour) ? '#000' : $colour,
+    );
+    if($stroke_width != 1 && $stroke_width > 0)
+      $path['stroke-width'] = $stroke_width;
+    if(!empty($dash))
+      $path['stroke-dasharray'] = $dash;
+
+    return $this->Element('path', $path);
+  }
 }
 
 /**

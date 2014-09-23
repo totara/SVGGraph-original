@@ -30,7 +30,7 @@ class StackedLineGraph extends MultiLineGraph {
 
   protected $legend_reverse = true;
 
-  public function Draw()
+  protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 

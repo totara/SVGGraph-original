@@ -49,21 +49,14 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
       if(!is_null($bar_pos)) {
         $bar['y'] = $bar_pos - $bspace - $bar_height;
 
-        $xpos = $xneg = $this->pad_left + $this->x0;
-        $xpos = $xneg = $xplus = $xminus = 0;
+        $xpos = $xneg = 0;
         for($j = 0; $j < $chunk_count; ++$j) {
           $value = $this->multi_graph->GetValue($k, $j);
-          $this->Bar($value >= 0 ? $value + $xplus : $value - $xminus, $bar);
-          if($value < 0) {
-            $bar['width'] -= $xneg;
-            $xneg += $bar['width'];
-            $xminus -= $value;
-          } else {
-            $bar['width'] -= $xpos;
-            $bar['x'] += $xpos;
+          $this->Bar($value, $bar, $value >= 0 ? $xpos : $xneg);
+          if($value < 0)
+            $xneg -= $bar['width'];
+          else
             $xpos += $bar['width'];
-            $xplus += $value;
-          }
 
           if($bar['width'] > 0) {
             $bar_style['fill'] = $this->GetColour($j % $ccount);
@@ -203,14 +196,6 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
   protected function GetMinKey()
   {
     return $this->multi_graph->GetMinKey();
-  }
-
-  /**
-   * Overload to measure keys
-   */
-  protected function LabelAdjustment($longest_v = 1000, $longest_h = 100)
-  {
-    GridGraph::LabelAdjustment($longest_h, $longest_v);
   }
 
   /**

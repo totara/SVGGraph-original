@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2012 Graham Breach
+ * Copyright (C) 2012 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -20,9 +20,9 @@
  */
 
 require_once 'SVGGraphMultiGraph.php';
-require_once 'SVGGraphBarGraph.php';
+require_once 'SVGGraphBar3DGraph.php';
 
-class StackedBarGraph extends BarGraph {
+class StackedBar3DGraph extends Bar3DGraph {
 
   protected $multi_graph;
   protected $legend_reverse = true;
@@ -37,56 +37,76 @@ class StackedBarGraph extends BarGraph {
     $this->SetStroke($bar_style);
     $bar = array('width' => $bar_width);
 
+    $this->block_width = $bar_width;
+
+    // make the top parallelogram, set it as a symbol for re-use
+    list($this->bx, $this->by) = $this->Project(0, 0, $this->block_width);
+    $top = $this->BarTop();
+
     $bspace = $this->bar_space / 2;
     $bnum = 0;
     $ccount = count($this->colours);
     $chunk_count = count($this->values);
     $groups = array_fill(0, $chunk_count, '');
 
+    // get the translation for the whole bar
+    list($tx, $ty) = $this->Project(0, 0, $this->bar_space / 2);
+    $group = array('transform' => "translate($tx,$ty)");
+    $bars = '';
     foreach($this->multi_graph->all_keys as $k) {
       $bar_pos = $this->GridPosition($k, $bnum);
 
       if(!is_null($bar_pos)) {
         $bar['x'] = $bspace + $bar_pos;
 
-        $ypos = $yneg = 0;
+        // sort the values from bottom to top, assigning position
+        $ypos = $yplus = $yminus = 0;
+        $chunk_values = array();
         for($j = 0; $j < $chunk_count; ++$j) {
           $value = $this->multi_graph->GetValue($k, $j);
-          $this->Bar($value, $bar, $value >= 0 ? $ypos : $yneg);
-          if($value < 0)
-            $yneg -= $bar['height'];
-          else
-            $ypos += $bar['height'];
-
-          if($bar['height'] > 0) {
-            $bar_style['fill'] = $this->GetColour($j % $ccount);
-
-            if($this->show_tooltips)
-              $this->SetTooltip($bar, $value, null,
-                !$this->compat_events && $this->show_bar_labels);
-            if($this->show_bar_labels) {
-              $rect = $this->Element('rect', $bar, $bar_style);
-              $rect .= $this->BarLabel($value, $bar, $j + 1 < $chunk_count);
-              $body .= $this->GetLink($k, $rect);
+          if(!is_null($value)) {
+            if($value < 0) {
+              array_unshift($chunk_values, array($j, $value, $yminus));
+              $yminus += $value;
             } else {
-              $rect = $this->Element('rect', $bar);
-              $groups[$j] .= $this->GetLink($k, $rect);
+              $chunk_values[] = array($j, $value, $yplus);
+              $yplus += $value;
             }
-            unset($bar['id']); // clear for next value
-
-            if(!array_key_exists($j, $this->bar_styles))
-              $this->bar_styles[$j] = $bar_style;
           }
+        }
+
+        $bar_count = count($chunk_values);
+        $b = 0;
+        foreach($chunk_values as $chunk) {
+          $j = $chunk[0];
+          $value = $chunk[1];
+          $colour = $j % $ccount;
+          $v = abs($value);
+          $t = ++$b == $bar_count ? $top : null;
+          $bar_sections = $this->Bar3D($value, $bar, $t, $colour,
+            $chunk[2] * $this->bar_unit_height);
+          $ypos = $ty;
+          $group['transform'] = "translate($tx," . $ypos . ")";
+          $group['fill'] = $this->GetColour($colour);
+
+          if($this->show_tooltips)
+            $this->SetTooltip($group, $value);
+          $link = $this->GetLink($k, $bar_sections);
+          $bars .= $this->Element('g', $group, NULL, $link);
+          unset($group['id']); // make sure a new one is generated
+          $style = $group;
+          $this->SetStroke($style);
+
+          if(!array_key_exists($j, $this->bar_styles))
+            $this->bar_styles[$j] = $style;
         }
       }
       ++$bnum;
     }
-    if(!$this->show_bar_labels) {
-      foreach($groups as $j => $g)
-        if(array_key_exists($j, $this->bar_styles))
-          $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
-    }
 
+    $bgroup = array('fill' => 'none');
+    $this->SetStroke($bgroup, 'round');
+    $body .= $this->Element('g', $bgroup, NULL, $bars);
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }

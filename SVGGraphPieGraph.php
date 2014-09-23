@@ -68,7 +68,7 @@ class PieGraph extends Graph {
   /**
    * Draws the pie graph
    */
-  public function Draw()
+  protected function Draw()
   {
     if(!$this->calc_done)
       $this->Calc();
@@ -95,8 +95,7 @@ class PieGraph extends Graph {
     if($this->sort) {
       uasort($values, 'PieGraph::svggpsort');
     }
-    $body = '';
-    $labels = '';
+    $body = $labels = '';
 
     $slice = 0;
     foreach($values as $key => $value) {
@@ -177,7 +176,8 @@ class PieGraph extends Graph {
       );
       $labels = $this->Element('g', $label_group, NULL, $labels);
     }
-    return $body . $labels;
+    $extras = $this->PieExtras();
+    return $body . $extras . $labels;
   }
 
   /**
@@ -232,6 +232,14 @@ class PieGraph extends Graph {
       throw new Exception('Negative value for pie chart');
     if(array_sum($values[0]) <= 0)
       throw new Exception('Empty pie chart');
+  }
+
+  /**
+   * Returns extra drawing code that goes between pie and labels
+   */
+  protected function PieExtras()
+  {
+    return '';
   }
 
   /**

@@ -39,7 +39,7 @@ class RadarGraph extends PointGraph {
   // ends at N points + 1
   protected $label_centre = true;
 
-  public function Draw()
+  protected function Draw()
   {
     $body = $this->Grid();
 
@@ -149,46 +149,29 @@ class RadarGraph extends PointGraph {
   }
 
   /**
-   * Adjusts the spacing for labels on all sides
+   * Find the bounding box of the axis text for given axis lengths
    */
-  protected function LabelAdjustment($longest_v = 1000, $longest_h = 100)
+  protected function FindAxisTextBBox($length_x, $length_y)
   {
-    // prevent parent from adjusting for Y-axis label and axis text
-    $y_label = !empty($this->label_v) ? $this->label_v : $this->label_y;
-    $show_axes = $this->show_axes;
-    $this->label_v = $this->label_y = $this->show_axes = NULL;
+    $this->xc = $length_x / 2;
+    $this->yc = $length_y / 2;
+    $diameter = min($length_x, $length_y);
+    $length_y = $diameter / 2;
+    $length_x = 2 * M_PI * $length_y;
+    $this->radius = $length_y;
 
-    parent::LabelAdjustment($longest_v, $longest_h);
-    $this->label_v = $y_label;
-    $this->show_axes = $show_axes;
+    $bbox = parent::FindAxisTextBBox($length_x, $length_y);
 
-    if($this->show_axes) {
-      // y-axis labels don't affect graph padding, but it is needed by label
-      if($this->show_axis_text_v) {
-        $len_v = strlen(is_string($longest_v) ? $longest_v :
-          $this->NumString($longest_v)) + 1;
-        $this->pad_v_axis_label = ($this->axis_font_size * ($len_v - 1) *
-          $this->axis_font_adjust * cos(deg2rad($this->axis_text_angle_v))) +
-          $this->axis_font_size + 2 * $this->axis_text_space;
-      }
-      $space = 0;
-      if($this->show_axis_text_h) {
-        $space += $this->axis_font_size + 2 * $this->axis_text_space;
-      }
-
-      // pad for the axis divisions
-      $div_size = 0;
-      if($this->show_divisions)
-        $div_size = $this->division_size;
-      if($this->show_subdivisions && $this->subdivision_size > $div_size)
-        $div_size = $this->subdivision_size;
-      $space += $div_size;
-
-      $this->pad_top += $space;
-      $this->pad_left += $space;
-      $this->pad_right += $space;
-      $this->pad_bottom += $space;
-    }
+    // normalise the bounding box
+    $w_half = ($bbox['max_x'] - $bbox['min_x']) / 2;
+    $h_half = ($bbox['max_y'] - $bbox['min_y']) / 2;
+    $bbox = array(
+      'min_x' => $this->xc - $w_half,
+      'max_x' => $this->xc + $w_half,
+      'min_y' => $this->yc - $h_half,
+      'max_y' => $this->yc + $h_half
+    );
+    return $bbox;
   }
 
   /**
@@ -228,7 +211,7 @@ class RadarGraph extends PointGraph {
   {
     $path = '';
     foreach($x_points as $x) {
-      $angle = $this->arad + $x / $this->g_height;
+      $angle = $this->arad + $x / $this->radius;
       $p1 = $this->radius * sin($angle);
       $p2 = $this->radius * cos($angle);
       $path .= "M{$this->xc} {$this->yc}l$p1 $p2";
@@ -253,6 +236,10 @@ class RadarGraph extends PointGraph {
     $back = $subpath = '';
     $back_colour = $this->grid_back_colour;
     if(!empty($back_colour) && $back_colour != 'none') {
+      if(is_array($back_colour)) {
+        $gradient_id = $this->AddGradient($back_colour);
+        $back_colour = "url(#{$gradient_id})";
+      }
       // use the YGrid function to get the path
       $points = array($r);
       $bpath = array(
@@ -309,9 +296,15 @@ class RadarGraph extends PointGraph {
    */
   protected function SetGridDimensions()
   {
-    $this->g_height = min($this->height - $this->pad_top - $this->pad_bottom,
-      $this->width - $this->pad_left - $this->pad_right) / 2;
-    $this->g_width = 2 * M_PI * $this->g_height;
+    if(!isset($this->radius)) {
+      $w = $this->width - $this->pad_left - $this->pad_right;
+      $h = $this->height - $this->pad_top - $this->pad_bottom;
+      $this->xc = $this->pad_left + $w / 2;
+      $this->yc = $this->pad_top + $h / 2;
+      $this->radius = min($w, $h) / 2;
+    }
+    $this->g_height = $this->radius;
+    $this->g_width = 2 * M_PI * $this->radius;
   }
 
   /**
@@ -320,12 +313,10 @@ class RadarGraph extends PointGraph {
   protected function CalcAxes($h_by_count = false, $bar = false)
   {
     parent::CalcAxes($h_by_count, $bar);
-
     $w = $this->width - $this->pad_left - $this->pad_right;
     $h = $this->height - $this->pad_top - $this->pad_bottom;
     $this->xc = $this->pad_left + $w / 2;
     $this->yc = $this->pad_top + $h / 2;
-    $this->radius = min($w, $h) / 2;
   }
 
   /**
@@ -353,13 +344,13 @@ class RadarGraph extends PointGraph {
     foreach($this->x_points as $point => $xgrid) {
       $new_x = $xgrid - $grid_left;
       $this->x_points[$point] = $new_x;
-      $this->grid_angles[] = $this->arad + $new_x / $this->g_height;
+      $this->grid_angles[] = $this->arad + $new_x / $this->radius;
     }
     if($this->sub_x) {
       foreach($this->x_subdivs as $point => $xgrid) {
         $new_x = $xgrid - $grid_left;
         $this->x_subdivs[$point] = $new_x;
-        $this->grid_angles[] = $this->arad + $new_x / $this->g_height;
+        $this->grid_angles[] = $this->arad + $new_x / $this->radius;
       }
     }
     // put the grid angles in order
@@ -395,18 +386,16 @@ class RadarGraph extends PointGraph {
   /**
    * Division marks around the graph
    */
-  protected function XAxisDivisions(&$points, $style, $style_default,
-    $size, $size_default, $yoff)
+  protected function XAxisDivisions(&$points, $style, $size, $yoff)
   {
     $r1 = $this->radius;
     $path = '';
-    $pos = $this->DivisionsPositions($style, $style_default, $size,
-      $size_default, $this->radius, 0, $yoff);
+    $pos = $this->DivisionsPositions($style, $size, $this->radius, 0, $yoff);
     if(is_null($pos))
       return '';
     $r1 = $this->radius - $pos['pos'];
     foreach($points as $p) {
-      $a = $this->arad + $p / $this->g_height;
+      $a = $this->arad + $p / $this->radius;
       $x1 = $this->xc + $r1 * sin($a);
       $y1 = $this->yc + $r1 * cos($a);
       $x2 = -$pos['sz'] * sin($a);
@@ -419,12 +408,10 @@ class RadarGraph extends PointGraph {
   /**
    * Draws Y-axis divisions at whatever angle the Y-axis is
    */
-  protected function YAxisDivisions(&$points, $style, $style_default,
-    $size, $size_default, $xoff)
+  protected function YAxisDivisions(&$points, $style, $size, $xoff)
   {
     $path = '';
-    $pos = $this->DivisionsPositions($style, $style_default, $size,
-      $size_default, $size_default, 0, $xoff);
+    $pos = $this->DivisionsPositions($style, $size, $size, 0, $xoff);
     if(is_null($pos))
       return '';
 
@@ -444,43 +431,93 @@ class RadarGraph extends PointGraph {
   }
 
   /**
+   * Returns the positions of the X-axis text
+   */
+  protected function XAxisTextPositions(&$points, $xoff, $yoff, $angle, $inside)
+  {
+    $positions = array();
+    $r = $this->radius + $yoff + $this->axis_text_space;
+    $text_centre = $this->axis_font_size * 0.3;
+    $count = count($points);
+    $p = 0;
+    $font_size = $this->axis_font_size;
+    $font_adjust = $this->axis_font_adjust;
+    foreach($points as $label => $x) {
+      $key = $this->GetKey($label);
+      if(strlen($key) > 0 && ++$p < $count) {
+        $a = $this->arad + $x / $this->radius;
+        $s = sin($a);
+        $c = cos($a);
+        $x1 = $r * $s;
+        $y1 = $r * $c - $text_centre;
+        $position = array(
+          'x' => $this->xc + $x1,
+          'y' => $this->yc + $y1,
+          // $c == +1 or -1 is a particular case: anchor on middle of text
+          'text-anchor' => (pow($c, 2) == 1 ? 'middle' :
+            ($x1 >= 0 ? 'start' : 'end')),
+          'angle' => $a,
+          'sin' => $s,
+          'cos' => $c
+        );
+        $size = $this->TextSize((string)$key, $font_size, $font_adjust, $angle,
+          $font_size);
+        // $s == +1 or -1 is a particular case: vertically centre
+        $lines = $this->CountLines($key);
+        if(pow($s, 2) == 1)
+          $position['y'] -= ($lines / 2 - 1) * $font_size;
+        elseif($c < 0)
+          $position['y'] -= ($lines - 1) * $font_size;
+        else
+          $position['y'] += $font_size;
+        if($angle != 0) {
+          $rcx = $position['x'];
+          $rcy = $position['y'];
+          if($c < 0)
+            $rcy += $font_size;
+          elseif(pow($s, 2) != 1)
+            $rcy -= $font_size;
+          $position['transform'] = "rotate($angle,$rcx,$rcy)";
+        }
+        // $c == -1 is particular too : XAxis text can bump YAxis texts
+        if($c == -1 && $this->start_angle % 360 == 90)
+          $position['y'] -= $font_size / 2;
+        elseif($c == 1 && $this->start_angle % 360 == 270)
+          $position['y'] += $font_size / 2;
+        $position['text'] = $key;
+        $position['w'] = $size[0];
+        $position['h'] = $size[1];
+        $positions[] = $position;
+      }
+    }
+    return $positions;
+  }
+
+  /**
    * Text labels for the wrapped X-axis
    */
   protected function XAxisText(&$points, $xoff, $yoff, $angle)
   { 
+    $inside = ('inside' == $this->GetFirst($this->axis_text_position_h,
+      $this->axis_text_position));
+    $positions = $this->XAxisTextPositions($points, $xoff, $yoff, $angle,
+      $inside);
     $labels = '';
-    $r = $this->radius + $yoff + $this->axis_text_space;
-    $count = count($points);
-    $p = 0;
-    foreach($points as $label => $x) {
-      $key = $this->GetKey($label);
-      if(strlen($key) > 0 && ++$p < $count) {
-        $a = $this->arad + $x / $this->g_height;
-        $s = sin($a);
-        $c = cos($a);
-        $x1 = $r * $s;
-        $y1 = ($r * $c) + ($c > 0 ? $this->axis_font_size : 0);
-        $text = array(
-          'x' => $this->xc + $x1,
-          'y' => $this->yc + $y1,
-          'text-anchor' => ($x1 >= 0 ? 'start' : 'end'),
-        );
-        if($angle != 0) {
-          $rcx = $text['x'];
-          $rcy = $text['y'] - ($this->axis_font_size / 2);
-          $text['transform'] = "rotate($angle,$rcx,$rcy)";
-        }
-        $labels .= $this->Element('text', $text, NULL, $key);
-      }
+    foreach($positions as $pos) {
+      $text = $pos['text'];
+      unset($pos['w'], $pos['h'], $pos['text'], $pos['angle'], $pos['sin'],
+        $pos['cos']);
+      $labels .= $this->Text($text, $this->axis_font_size, $pos);
     }
     return $labels;
   }
 
   /**
-   * Text labels for the Y-axis
+   * Returns the positions of the Y-axis text
    */
-  protected function YAxisText(&$points, $xoff, $yoff, $angle)
-  { 
+  protected function YAxisTextPositions(&$points, $xoff, $yoff, $angle, $inside)
+  {
+    $positions = array();
     $labels = '';
     $c = cos($this->arad);
     $s = sin($this->arad);
@@ -489,25 +526,45 @@ class RadarGraph extends PointGraph {
     $y2 = ($xoff + $this->axis_text_space) * cos($a);
     $x3 = 0;
     $y3 = $c > 0 ? $this->axis_font_size : 0;
-    foreach($points as $label => $y) {
-      $key = $label;
+    $position = array('text-anchor' => $s < 0 ? 'start' : 'end');
+    $font_size = $this->axis_font_size;
+    $font_adjust = $this->axis_font_adjust;
+    foreach($points as $key => $y) {
       if(strlen($key) > 0) {
         $x1 = $y * $s;
         $y1 = $y * $c;
-        $text = array(
-          'x' => $this->xc + $x1 + $x2 + $x3,
-          'y' => $this->yc + $y1 + $y2 + $y3,
-        );
+        $position['x'] = $this->xc + $x1 + $x2 + $x3;
+        $position['y'] = $this->yc + $y1 + $y2 + $y3;
         if($angle != 0) {
-          $rcx = $text['x'];
-          $rcy = $text['y'];
-          $text['transform'] = "rotate($angle,$rcx,$rcy)";
+          $rcx = $position['x'];
+          $rcy = $position['y'];
+          $position['transform'] = "rotate($angle,$rcx,$rcy)";
         }
-        $labels .= $this->Element('text', $text, NULL, $key);
+        $size = $this->TextSize((string)$key, $font_size, $font_adjust, $angle,
+          $font_size);
+        $position['text'] = $key;
+        $position['w'] = $size[0];
+        $position['h'] = $size[1];
+        $positions[] = $position;
       }
     }
-    $group = array('text-anchor' => $s < 0 ? 'start' : 'end');
-    return $this->Element('g', $group, NULL, $labels);
+    return $positions;
+  }
+
+  /**
+   * Text labels for the Y-axis
+   */
+  protected function YAxisText(&$points, $xoff, $yoff, $angle)
+  { 
+    $positions = $this->YAxisTextPositions($points, $xoff, $yoff, $angle, false);
+    $labels = '';
+    $anchor = $positions[0]['text-anchor'];
+    foreach($positions as $pos) {
+      $text = $pos['text'];
+      unset($pos['w'], $pos['h'], $pos['text'], $pos['text-anchor']);
+      $labels .= $this->Text($text, $this->axis_font_size, $pos);
+    }
+    return $this->Element('g', array('text-anchor' => $anchor), NULL, $labels);
   }
 
 

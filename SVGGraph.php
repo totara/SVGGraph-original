@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.9');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.10');
 
 class SVGGraph {
 
@@ -143,9 +143,8 @@ abstract class Graph {
       $this->Settings($settings);
 
     // set default colours
-    $this->colours = explode(' ', $this->svg_colours);
-    shuffle($this->colours);
-    unset($this->svg_colours);
+    $this->colours = array('#11c','#c11','#cc1','#1c1','#c81',
+      '#116','#611','#661','#161','#631');
   }
 
 
@@ -419,8 +418,13 @@ abstract class Graph {
     }
 
     // create box and title
+    $back_colour = $this->legend_back_colour;
+    if(is_array($back_colour)) {
+      $gradient_id = $this->AddGradient($back_colour);
+      $back_colour = "url(#{$gradient_id})";
+    }
     $box = array(
-      'fill' => $this->legend_back_colour,
+      'fill' => $back_colour,
       'width' => $width,
       'height' => $height,
     );
@@ -680,6 +684,10 @@ abstract class Graph {
   protected function Canvas($id)
   {
     $bg = $this->BackgroundImage();
+    if(is_array($this->back_colour)) {
+      $gradient_id = $this->AddGradient($this->back_colour);
+      $this->back_colour = "url(#{$gradient_id})";
+    }
     $canvas = array(
       'width' => '100%', 'height' => '100%',
       'fill' => $this->back_colour,
@@ -944,9 +952,8 @@ abstract class Graph {
           // grab the first colour in the array, discarding opacity
           list($colour) = explode(':', $colour[0]);
         } else {
-          if(!isset($this->gradients[$key]))
-            $this->gradients[$key] = $this->NewID();
-          $colour = 'url(#' . $this->gradients[$key] . ')';
+          $gradient_id = $this->AddGradient($colour, $key);
+          $colour = "url(#{$gradient_id})";
         }
       }
     }
@@ -960,7 +967,7 @@ abstract class Graph {
   {
     $opts = func_get_args();
     foreach($opts as $opt)
-      if(!empty($opt))
+      if(!empty($opt) || $opt === 0)
         return $opt;
   }
 
@@ -1053,12 +1060,41 @@ abstract class Graph {
   }
 
   /**
+   * Adds a gradient to the list, returning the element ID for use in url
+   */
+  public function AddGradient($colours, $key = null)
+  {
+    if(is_null($key) || !array_key_exists($key, $this->gradients)) {
+
+      // find out if this gradient already stored
+      $hash = crc32(serialize($colours));
+      foreach($this->gradients as $k => $g) {
+        if($g['hash'] == $hash)
+          return $g['id'];
+      }
+
+      $id = $this->NewID();
+      if(is_null($key))
+        $key = $id;
+      $this->gradients[$key] = array(
+        'id' => $id,
+        'colours' => $colours,
+        'hash' => $hash,
+      );
+    }
+    return $this->gradients[$key]['id'];
+  }
+
+  /**
    * Creates a linear gradient element
    */
-  private function MakeLinearGradient($id, $colours)
+  private function MakeLinearGradient($key)
   {
     $stops = '';
     $direction = 'v';
+    $colours = $this->gradients[$key]['colours'];
+    $id = $this->gradients[$key]['id'];
+
     if(in_array($colours[count($colours)-1], array('h','v')))
       $direction = array_pop($colours);
     $x2 = $direction == 'v' ? 0 : '100%';
@@ -1116,7 +1152,7 @@ abstract class Graph {
   protected function SetTooltip(&$element, $key, $value = NULL,
     $duplicate = FALSE)
   {
-    $text = $this->TooltipText($key, $value);
+    $text = $this->TooltipText(str_replace("\n", ' ', $key), $value);
     $this->LoadJavascript();
     Graph::$javascript->SetTooltip($element, $text, $duplicate);
   }
@@ -1203,9 +1239,8 @@ abstract class Graph {
     }
 
     // insert any gradients that are used
-    foreach($this->gradients as $key => $gradient_id)
-      $this->defs[] = $this->MakeLinearGradient($gradient_id,
-        $this->colours[$key]);
+    foreach($this->gradients as $key => $gradient)
+      $this->defs[] = $this->MakeLinearGradient($key);
 
     // show defs and body content
     $heading .= $this->Element('defs', NULL, NULL, implode('', $this->defs));
@@ -1286,9 +1321,6 @@ abstract class Graph {
     }
     return $js;
   }
-
-
-  private $svg_colours = "aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray grey green greenyellow honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen";
 
 }
 

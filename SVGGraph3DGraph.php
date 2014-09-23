@@ -24,76 +24,42 @@ require_once 'SVGGraphGridGraph.php';
 abstract class ThreeDGraph extends GridGraph {
 
   // Number of data ranges
-  private $depth = 1;
-  private $depth_unit = 1;
-
-  /**
-   * Returns the projection angle in radians
-   */
-  protected function AngleRadians()
-  {
-    return deg2rad($this->project_angle);
-  }
+  protected $depth = 1;
+  protected $depth_unit = 1;
 
   /**
    * Converts x,y,z coordinates into flat x,y
    */
   protected function Project($x, $y, $z)
   {
-    $a = $this->AngleRadians();
+    $a = deg2rad($this->project_angle);
     $xp = $z * cos($a);
     $yp = $z * sin($a);
     return array($x + $xp, $y - $yp);
   }
 
   /**
-   * Adjust axes for block spacing, returning the depth unit
+   * Adjust axes for block spacing, setting the depth unit
    */
-  private function Adjust3DAxes($count, &$x_len, &$y_len)
+  protected function AdjustAxes(&$x_len, &$y_len)
   {
-    $a = $this->AngleRadians();
+    if($this->AssociativeKeys()) {
+      $bars = $this->GetHorizontalCount();
+    } else {
+      $ends = $this->GetAxisEnds();
+      $bars = max(0, $ends['k_max']) - min(0, $ends['k_min']) + 1;
+    }
+    $a = deg2rad($this->project_angle);
 
-    $d = $this->depth;
-    $u = $x_len / ($count + $d * cos($a));
-    $c = $u * $d * cos($a);
-    $d = $u * $d * sin($a);
+    $depth = $this->depth;
+    $u = $x_len / ($bars + $depth * cos($a));
+    $c = $u * $depth * cos($a);
+    $d = $u * $depth * sin($a);
     $x_len -= $c;
     $y_len -= $d;
-    return $u;
+    $this->depth_unit = $u;
+    return array($c, $d);
   }
-
-  /**
-   * Adjust the axis sizes to account for the block depth
-   */
-  protected function GetAxes($ends, &$x_len, &$y_len)
-  {
-    if(!isset($this->g_width)) {
-      $count = $ends['k_max'] - $ends['k_min'] + 1;
-      $this->Adjust3DAxes($count, $x_len, $y_len);
-    }
-    return parent::GetAxes($ends, $x_len, $y_len);
-  }
-
-  /**
-   * Calculates the sizes of the 3D axes and grid
-   */
-  protected function CalcAxes()
-  {
-    // calculate bar 
-    $ends = $this->GetAxisEnds();
-    $count = $ends['k_max'] - $ends['k_min'] + 1;
-    $a = $this->AngleRadians();
-
-    if(!$this->label_adjust_done)
-      $this->LabelAdjustment($this->GetMaxValue(), $this->GetLongestKey());
-
-    $this->g_width = $this->width - $this->pad_left - $this->pad_right;
-    $this->g_height = $this->height - $this->pad_top - $this->pad_bottom;
-    $this->depth_unit = $this->Adjust3DAxes($count, $this->g_width,
-      $this->g_height);
-    parent::CalcAxes();
-  }
-
 
   /**
    * Draws the grid behind the bar / line graph
@@ -119,6 +85,10 @@ abstract class ThreeDGraph extends GridGraph {
     $back = $subpath = $path_h = $path_v = '';
     $back_colour = $this->grid_back_colour;
     if(!empty($back_colour) && $back_colour != 'none') {
+      if(is_array($back_colour)) {
+        $gradient_id = $this->AddGradient($back_colour);
+        $back_colour = "url(#{$gradient_id})";
+      }
       $bpath = array(
         'd' => "M$xleft {$ybottom}v-{$y_h}l{$xd} {$yd}h{$x_w}v{$y_h}l" .
           -$xd . " " . -$yd . "z",
@@ -189,20 +159,6 @@ abstract class ThreeDGraph extends GridGraph {
   {
     return max($this->width - $this->pad_right - $this->g_width,
       min($this->width - $this->pad_right, $val));
-  }
-
-  /**
-   * Figure out how many bars there are
-   */
-  protected function GetHorizontalDivision()
-  {
-    if(!is_numeric($this->axis_min_h) && !is_numeric($this->axis_max_h))
-      return $this->GetHorizontalCount();
-    $start = !is_numeric($this->axis_min_h) ? $this->GetMinKey() :
-      $this->axis_min_h;
-    $end = !is_numeric($this->axis_max_h) ? $this->GetMaxKey() :
-      $this->axis_max_h;
-    return $end - $start + 1;
   }
 
   /**

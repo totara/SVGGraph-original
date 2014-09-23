@@ -1,5 +1,5 @@
-SVGGraph Library version 2.9
-============================
+SVGGraph Library version 2.10
+=============================
 
 This library provides PHP classes and functions for easily creating SVG
 graphs from data. As of version 2.0, SVGGraph works with PHP 5 only,
@@ -51,8 +51,15 @@ At the moment these types of graph are supported by SVGGraph:
 
  RadarGraph - a radar or star graph with values drawn as lines;
 
- MultiRadarGraph - a radar graph supporting multiple data sets.
+ MultiRadarGraph - a radar graph supporting multiple data sets;
 
+ CylinderGraph - a 3D bar graph with the bars cylinder shaped;
+
+ StackedBar3DGraph - a 3D bar graph version of the stacked bar graph;
+
+ GroupedBar3DGraph - a 3D bar graph version of the grouped bar graph.
+
+ 
 Using SVGGraph
 ==============
 The library consists of several class files which must be present. To use

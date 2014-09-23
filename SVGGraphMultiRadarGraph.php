@@ -31,7 +31,7 @@ class MultiRadarGraph extends RadarGraph {
   private $line_styles = array();
   private $fill_styles = array();
 
-  public function Draw()
+  protected function Draw()
   {
     $body = $this->Grid();
 
