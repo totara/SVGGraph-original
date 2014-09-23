@@ -133,12 +133,15 @@ class PieGraph extends Graph {
         // display however many lines of label
         $label = $item->Data('label');
         if(is_null($label)) {
-          $parts = explode("\n", $this->GetKey($this->values->AssociativeKeys() ? 
-            $original_position : $key));
+          $parts = array();
+          if($this->show_label_key)
+            $parts = explode("\n", $this->GetKey($this->values->AssociativeKeys() ? 
+              $original_position : $key));
           if($this->show_label_amount)
-            $parts[] = $value;
+            $parts[] = Graph::NumString($value);
           if($this->show_label_percent)
-            $parts[] = ($value / $this->total) * 100.0 . '%';
+            $parts[] = Graph::NumString($value / $this->total * 100.0,
+              $this->label_percent_decimals) . '%';
         } else {
           $parts = array($label);
         }

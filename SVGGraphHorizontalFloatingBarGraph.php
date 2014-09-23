@@ -49,8 +49,8 @@ class HorizontalFloatingBarGraph extends HorizontalBarGraph {
 
         $end = $item->Data('end');
         $start = $item->value;
-        $value = $end - $item->value;
-        $this->Bar($value, $bar, $start * $this->bar_unit_width);
+        $value = $end - $start;
+        $this->Bar($value, $bar, $start);
 
         if($bar['width'] > 0) {
           $bar_style['fill'] = $this->GetColour($item, $bnum % $ccount);

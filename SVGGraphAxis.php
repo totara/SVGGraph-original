@@ -31,10 +31,12 @@ class Axis {
   protected $min_unit;
   protected $fit;
   protected $zero;
-  protected $uneven;
+  protected $units;
+  protected $uneven = false;
+  protected $rounded_up = false;
+  protected $direction = 1;
 
-  public function __construct($length, $max_val, $min_val = 0,
-    $min_unit = 0, $fit = false)
+  public function __construct($length, $max_val, $min_val, $min_unit, $fit, $units)
   {
     if($max_val <= $min_val && $min_unit == 0)
       throw new Exception('Zero length axis');
@@ -43,7 +45,7 @@ class Axis {
     $this->min_value = $min_val;
     $this->min_unit = $min_unit;
     $this->fit = $fit;
-    $this->uneven = false;
+    $this->units = $units;
   }
 
   /**
@@ -124,15 +126,34 @@ class Axis {
   }
 
   /**
+   * Sets the bar style (which means an extra unit)
+   */
+  public function Bar()
+  {
+    if(!$this->rounded_up) {
+      $this->max_value += $this->min_unit;
+      $this->rounded_up = true;
+    }
+  }
+
+  /**
+   * Sets the direction of axis points
+   */
+  public function Reverse()
+  {
+    $this->direction = -1;
+  }
+
+  /**
    * Returns the grid spacing
    */
-  public function Grid($min, $round_up = false)
+  protected function Grid($min)
   {
     $this->uneven = false;
     $negative = $this->min_value < 0;
     $min_sub = max($min, $this->length / 200);
 
-    if($round_up || $this->min_value == $this->max_value)
+    if($this->min_value == $this->max_value)
       $this->max_value += $this->min_unit;
     $scale = $this->max_value - $this->min_value;
 
@@ -218,5 +239,122 @@ class Axis {
   {
     return $this->uneven;
   }
+
+  /**
+   * Returns the position of a value on the axis
+   */
+  public function Position($value)
+  {
+    return $this->Zero() + ($value * $this->Unit());
+  }
+
+  /**
+   * Returns the position of the origin
+   */
+  public function Origin()
+  {
+    // for a linear axis, it should be the zero point
+    return $this->Zero();
+  }
+
+  /**
+   * Returns the value at a position on the axis
+   */
+  public function Value($position)
+  {
+    return ($position - $this->Zero()) / $this->Unit();
+  }
+
+  /**
+   * Returns the grid points as an associative array:
+   * array($value => $position)
+   */
+  public function GetGridPoints($min_space, $start)
+  {
+    $spacing = $this->Grid($min_space);
+    $c = $pos = 0;
+    $dlength = $this->length + $spacing * 0.5;
+    $points = array();
+    while($pos < $dlength) {
+      // convert to string to use as array key
+      $point = Graph::NumString(($pos - $this->zero) / $this->unit_size) .
+        $this->units;
+      $points[$point] = $start + ($this->direction * $pos);
+      $pos = ++$c * $spacing;
+    }
+    // uneven means the divisions don't fit exactly, so add the last one in
+    if($this->uneven) {
+      $pos = $this->length - $this->zero;
+      $point = Graph::NumString($pos / $this->unit_size) . $this->units;
+      $points[$point] = $start + ($this->direction * $this->length);
+    }
+
+    if($this->direction < 0)
+      arsort($points);
+    else
+      asort($points);
+
+    $this->grid_spacing = $spacing;
+    return $points;
+  }
+
+  /**
+   * Returns the grid subdivision points as an array
+   */
+  public function GetGridSubdivisions($min_space, $min_unit, $start, $fixed)
+  {
+    if(!$this->grid_spacing)
+      throw new Exception('grid_spacing not set');
+
+    $subdivs = array();
+    $spacing = $this->FindSubdiv($this->grid_spacing, $min_space, $min_unit,
+      $fixed);
+    if(!$spacing)
+      return $subdivs;
+
+    $c = $pos1 = $pos2 = 0;
+    $this;
+    $pos1 = $c * $this->grid_spacing;
+    while($pos1 + $spacing < $this->length) {
+      $d = 1;
+      $pos2 = $d * $spacing;
+      while($pos2 < $this->grid_spacing) {
+        $subdivs[] = $start + (($pos1 + $pos2) * $this->direction);
+        ++$d;
+        $pos2 = $d * $spacing;
+      }
+      ++$c;
+      $pos1 = $c * $this->grid_spacing;
+    }
+    return $subdivs;
+  }
+
+  /**
+   * Find the subdivision size
+   */
+  private function FindSubdiv($grid_div, $min, $min_unit, $fixed)
+  {
+    if(is_numeric($fixed))
+      return $this->unit_size * $fixed;
+
+    $D = $grid_div / $this->unit_size;  // D = actual division size
+    $min = max($min, $min_unit * $this->unit_size); // use the larger minimum value
+    $max_divisions = (int)floor($grid_div / $min);
+
+    // can we subdivide at all?
+    if($max_divisions <= 1)
+      return null;
+
+    // convert $D to an integer in the 100's range
+    $D1 = (int)round(100 * (pow(10,-floor(log10($D)))) * $D);
+    for($divisions = $max_divisions; $divisions > 1; --$divisions) {
+      // if $D1 / $divisions is not an integer, $divisions is no good
+      $dq = $D1 / $divisions;
+      if($dq - floor($dq) == 0)
+        return $grid_div / $divisions;
+    }
+    return null;
+  }
+
 }
 

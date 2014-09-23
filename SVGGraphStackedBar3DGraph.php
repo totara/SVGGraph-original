@@ -29,6 +29,9 @@ class StackedBar3DGraph extends Bar3DGraph {
 
   protected function Draw()
   {
+    if($this->log_axis_y)
+      throw new Exception('log_axis_y not supported by StackedBar3DGraph');
+
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
@@ -85,8 +88,7 @@ class StackedBar3DGraph extends Bar3DGraph {
           $colour = $j % $ccount;
           $v = abs($value);
           $t = ++$b == $bar_count ? $top : null;
-          $bar_sections = $this->Bar3D($item, $bar, $t, $colour,
-            $chunk[2] * $this->bar_unit_height);
+          $bar_sections = $this->Bar3D($item, $bar, $t, $colour, $chunk[2]);
           $ypos = $ty;
           $group['transform'] = "translate($tx," . $ypos . ")";
           $group['fill'] = $this->GetColour($item, $colour);

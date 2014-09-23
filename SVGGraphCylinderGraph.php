@@ -122,7 +122,9 @@ class CylinderGraph extends Bar3DGraph {
   {
     if(is_null($this->arc_path))
       $this->SetupCylinder();
-    $this->Bar($item->value, $bar, $start);
+    $pos = $this->Bar($item->value, $bar, $start);
+    if(is_null($pos) || $pos > $this->height - $this->pad_bottom)
+      return '';
 
     $side_x = $bar['x'] + $this->block_width;
     if(is_null($top)) {
@@ -130,7 +132,7 @@ class CylinderGraph extends Bar3DGraph {
     } else {
       $top['transform'] = "translate({$bar['x']},{$bar['y']})";
       $top['fill'] = $this->GetColour($item, $colour, TRUE);
-      $cyl_top = $this->Element('use', $top);
+      $cyl_top = $this->Element('use', $top, null, $this->empty_use ? '' : null);
     }
 
     $group = array('transform' => $this->transform);

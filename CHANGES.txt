@@ -1,3 +1,16 @@
+Version 2.12 (18/05/2013)
+------------
+- Added log_axis_y and log_axis_y_base options.
+- Added decimal and thousands options for number formatting.
+- Added grid_back_stripe and grid_back_stripe_colour options.
+- Added per-axis font options.
+- Added units_x and units_y options for axis text.
+- Added show_label_key option for pie graphs.
+- 3D pie graphs now calculate a depth when the setting is too great.
+- Fixed structure option to take precedence over scatter_2d option.
+- Fixed display of small numbers on axes.
+- Added workaround for Safari 6 <use/> bug.
+
 Version 2.11 (12/03/2013)
 ------------
 - Added stacked and grouped cylinder graphs.

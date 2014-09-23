@@ -29,6 +29,9 @@ class StackedBarGraph extends BarGraph {
 
   protected function Draw()
   {
+    if($this->log_axis_y)
+      throw new Exception('log_axis_y not supported by StackedBarGraph');
+
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
@@ -55,9 +58,9 @@ class StackedBarGraph extends BarGraph {
           if(!is_null($item->value)) {
             $this->Bar($item->value, $bar, $item->value >= 0 ? $ypos : $yneg);
             if($item->value < 0)
-              $yneg -= $bar['height'];
+              $yneg += $item->value;
             else
-              $ypos += $bar['height'];
+              $ypos += $item->value;
 
             if($bar['height'] > 0) {
               $bar_style['fill'] = $this->GetColour($item, $j % $ccount);

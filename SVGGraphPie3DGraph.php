@@ -27,6 +27,9 @@ class Pie3DGraph extends PieGraph {
   {
     // modify pad_bottom to make PieGraph do the hard work
     $pb = $this->pad_bottom;
+    $space = $this->height - $this->pad_top - $this->pad_bottom;
+   if($space < $this->depth)
+      $this->depth = $space / 2;
     $this->pad_bottom += $this->depth;
     $this->Calc();
     $this->pad_bottom = $pb;

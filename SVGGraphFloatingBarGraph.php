@@ -49,8 +49,8 @@ class FloatingBarGraph extends BarGraph {
 
         $end = $item->Data('end');
         $start = $item->value;
-        $value = $end - $item->value;
-        $this->Bar($value, $bar, $start * $this->bar_unit_height);
+        $value = $end - $start;
+        $this->Bar($value, $bar, $start);
 
         if($bar['height'] > 0) {
           $bar_style['fill'] = $this->GetColour($item, $bnum % $ccount);

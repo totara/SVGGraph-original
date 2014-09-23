@@ -35,7 +35,7 @@ class MultiLineGraph extends LineGraph {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $plots = '';
-    $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
+    $y_axis_pos = $this->height - $this->pad_bottom - $this->y_axis->Zero();
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
     $ccount = count($this->colours);
@@ -56,17 +56,19 @@ class MultiLineGraph extends LineGraph {
       foreach($this->multi_graph[$i] as $item) {
         $x = $this->GridPosition($item->key, $bnum);
         if(!is_null($x) && !is_null($item->value)) {
-          $y = $y_axis_pos - ($item->value * $this->bar_unit_height);
+          $y = $this->GridY($item->value);
+          if(!is_null($y)) {
 
-          if($fill && empty($fillpath))
-            $fillpath = "M$x {$y_bottom}L";
-          $path .= "$cmd$x $y ";
-          $fillpath .= "$x $y ";
+            if($fill && empty($fillpath))
+              $fillpath = "M$x {$y_bottom}L";
+            $path .= "$cmd$x $y ";
+            $fillpath .= "$x $y ";
 
-          // no need to repeat same L command
-          $cmd = $cmd == 'M' ? 'L' : '';
-          $this->AddMarker($x, $y, $item, NULL, $i);
-          $last_x = $x;
+            // no need to repeat same L command
+            $cmd = $cmd == 'M' ? 'L' : '';
+            $this->AddMarker($x, $y, $item, NULL, $i);
+            $last_x = $x;
+          }
         }
         ++$bnum;
       }

@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.10');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.12');
 
 class SVGGraph {
 
@@ -119,6 +119,9 @@ abstract class Graph {
   protected $namespaces = array();
   protected static $javascript = NULL;
   private static $last_id = 0;
+  private static $precision = 5;
+  private static $decimal = '.';
+  private static $thousands = ',';
   protected $legend_reverse = false;
   protected $force_assoc = false;
   protected $repeated_keys = 'error';
@@ -165,6 +168,13 @@ abstract class Graph {
     return $this->{$name};
   }
 
+  /**
+   * Make empty($this->option) more robust
+   */
+  public function __isset($name)
+  {
+    return isset($this->settings[$name]);
+  }
 
   /**
    * Sets the options
@@ -203,7 +213,8 @@ abstract class Graph {
 
     if($this->scatter_2d) {
       $this->scatter_2d = false;
-      $this->structure = array('key' => 0, 'value' => 1, 'datasets' => true);
+      if(empty($this->structure))
+        $this->structure = array('key' => 0, 'value' => 1, 'datasets' => true);
     }
 
     if($this->structured_data || is_array($this->structure)) {
@@ -1125,7 +1136,9 @@ abstract class Graph {
       if(is_null($text))
         return;
     } else {
-      $text = is_null($value) ? $key : $key . ', ' . $value;
+      $k = is_numeric($key) ? Graph::NumString($key) : $key;
+      $v = is_numeric($value) ? Graph::NumString($value) : $value;
+      $text = is_null($value) ? $k : $k . ', ' . $v;
     }
     $text = addslashes(str_replace("\n", '\n', $text));
     Graph::$javascript->SetTooltip($element, $text, $duplicate);
@@ -1170,7 +1183,11 @@ abstract class Graph {
     }
 
     // set the precision - PHP default is 14 digits!
-    $old_precision = ini_set('precision', $this->precision);
+    Graph::$precision = $this->settings['precision'];
+    $old_precision = ini_set('precision', Graph::$precision);
+    // set decimal and thousands for NumString
+    Graph::$decimal = $this->settings['decimal'];
+    Graph::$thousands = $this->settings['thousands'];
 
     // display title and description if available
     $heading = '';
@@ -1290,5 +1307,53 @@ abstract class Graph {
     return $js;
   }
 
+  /**
+   * Converts number to string
+   */
+  public static function NumString($n, $decimals = null, $precision = null)
+  {
+    if(is_int($n)) {
+      $d = 0;
+    } else {
+
+      if(is_null($precision))
+        $precision = Graph::$precision;
+
+      // if there are too many zeroes before other digits, round to 0
+      $e = floor(log(abs($n), 10));
+      if(-$e > $precision)
+        return "0";
+
+      if(is_null($decimals))
+        // subtract number of digits before decimal point from precision
+        $d = $precision - ($e > 0 ? $e : 0);
+      else
+        $d = $decimals;
+    }
+    $s = number_format($n, $d, Graph::$decimal, Graph::$thousands);
+
+    if($d && strpos($s, Graph::$decimal) !== false) {
+      list($a, $b) = explode(Graph::$decimal, $s);
+      $b1 = rtrim($b, '0');
+      if($b1 != '')
+        return $a . Graph::$decimal . $b1;
+      return $a;
+    }
+    return $s;
+  }
+
+  /**
+   * Returns the minimum value in the array, ignoring NULLs
+   */
+  public static function min(&$a)
+  {
+    $min = null;
+    reset($a);
+    while(list(,$v) = each($a)) {
+      if(!is_null($v) && (is_null($min) || $v < $min))
+        $min = $v;
+    }
+    return $min;
+  }
 }
 

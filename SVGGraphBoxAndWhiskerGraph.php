@@ -41,7 +41,6 @@ class BoxAndWhiskerGraph extends PointGraph {
     $bspace = $this->bar_space / 2;
     $bnum = 0;
     $ccount = count($this->colours);
-    $y0 = $this->height - $this->pad_bottom - $this->y0;
 
     foreach($this->values[0] as $item) {
       $bar_pos = $this->GridPosition($item->key, $bnum);
@@ -67,7 +66,7 @@ class BoxAndWhiskerGraph extends PointGraph {
         // add outliers as markers
         $x = $bar_pos + $this->bar_unit_width / 2;
         foreach($this->GetOutliers($item) as $ovalue) {
-          $y = $y0 - ($ovalue * $this->bar_unit_height);
+          $y = $this->GridY($ovalue);
           $this->AddMarker($x, $y, $item);
         }
       }
@@ -85,12 +84,12 @@ class BoxAndWhiskerGraph extends PointGraph {
   protected function WhiskerBox($x, $w, $median, $top, $bottom,
     $wtop, $wbottom)
   {
-    $y0 = $this->height - $this->pad_bottom - $this->y0;
+    $t = $this->GridY($top);
+    $b = $this->GridY($bottom);
+    $wt = $this->GridY($wtop);
+    $wb = $this->GridY($wbottom);
 
-    $t = $top * $this->bar_unit_height;
-    $b = $bottom * $this->bar_unit_height;
-
-    $box = array('x' => $x, 'y' => $y0 - $t, 'width' => $w, 'height' => $t - $b);
+    $box = array('x' => $x, 'y' => $t, 'width' => $w, 'height' => $b - $t);
     $rect = $this->Element('rect', $box);
 
     // whisker lines
@@ -98,8 +97,6 @@ class BoxAndWhiskerGraph extends PointGraph {
     $ll = $x + $lg;
     $lr = $x + $w - $lg;
     $l = array('x1' => $ll, 'x2' => $lr);
-    $wt = $y0 - $wtop * $this->bar_unit_height;
-    $wb = $y0 - $wbottom * $this->bar_unit_height;
     $l['y1'] = $l['y2'] = $wt;
     $l1 = $this->Element('line', $l);
     $l['y1'] = $l['y2'] = $wb;
@@ -108,7 +105,7 @@ class BoxAndWhiskerGraph extends PointGraph {
     // median line
     $l['x1'] = $x;
     $l['x2'] = $x + $w;
-    $l['y1'] = $l['y2'] = $y0 - $median * $this->bar_unit_height;
+    $l['y1'] = $l['y2'] = $this->GridY($median);
     $style = array('stroke-width' => $this->median_stroke_width);
     $l3 = $this->Element('line', array_merge($l, $style));
 
@@ -116,17 +113,17 @@ class BoxAndWhiskerGraph extends PointGraph {
     $style = array('stroke-dasharray' => $this->whisker_dash);
     $l['x1'] = $l['x2'] = $x + $w / 2;
     $l['y1'] = $wt;
-    $l['y2'] = $y0 - $t;
+    $l['y2'] = $t;
     $w1 = $this->Element('line', array_merge($l, $style));
     $l['y1'] = $wb;
-    $l['y2'] = $y0 - $b;
+    $l['y2'] = $b;
     $w2 = $this->Element('line', array_merge($l, $style));
 
     return $rect . $w1 . $w2 . $l1 . $l2 . $l3;
   }
 
   /**
-   * Checks that the data contains sensible data
+   * Checks that the data contains sensible values
    */
   protected function CheckValues()
   {

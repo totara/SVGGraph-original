@@ -41,14 +41,14 @@ class MultiScatterGraph extends PointGraph {
 
     $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
-    $y0 = $this->height - $this->pad_bottom - $this->y0;
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
       foreach($this->multi_graph[$i] as $item) {
         $x = $this->GridPosition($item->key, $bnum);
         if(!is_null($item->value) && !is_null($x)) {
-          $y = $y0 - ($item->value * $this->bar_unit_height);
-          $this->AddMarker($x, $y, $item, NULL, $i);
+          $y = $this->GridY($item->value);
+          if(!is_null($y))
+            $this->AddMarker($x, $y, $item, NULL, $i);
         }
         ++$bnum;
       }

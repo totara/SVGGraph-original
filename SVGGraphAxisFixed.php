@@ -28,9 +28,9 @@ class AxisFixed extends Axis {
 
   protected $step;
 
-  public function __construct($length, $max_val, $min_val, $step)
+  public function __construct($length, $max_val, $min_val, $step, $units)
   {
-    parent::__construct($length, $max_val, $min_val, 1);
+    parent::__construct($length, $max_val, $min_val, 1, false, $units);
     $this->step = $step;
   }
 
@@ -38,7 +38,7 @@ class AxisFixed extends Axis {
    * Calculates a grid based on min, max and step
    * min and max will be adjusted to fit step
    */
-  public function Grid($min, $round_up = false)
+  protected function Grid($min, $round_up = false)
   {
     // if min and max are the same side of 0, only adjust one of them
     if($this->max_value * $this->min_value >= 0) {
@@ -65,7 +65,6 @@ class AxisFixed extends Axis {
     $this->unit_size = $this->length / $ulen;
     $grid = $this->length / $count;
     $this->zero = (-$this->min_value / $this->step) * $grid;
-
     return $grid;
   }
 }

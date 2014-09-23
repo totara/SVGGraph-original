@@ -70,16 +70,18 @@ class RadarGraph extends LineGraph {
     foreach($this->values[0] as $item) {
       $point_pos = $this->GridPosition($item->key, $bnum);
       if(!is_null($item->value) && !is_null($point_pos)) {
-        $val = $this->y0 + $item->value * $this->bar_unit_height;
-        $angle = $this->arad + $point_pos / $this->g_height;
-        $x = $this->xc + ($val * sin($angle));
-        $y = $this->yc + ($val * cos($angle));
+        $val = $this->y_axis->Position($item->value);
+        if(!is_null($val)) {
+          $angle = $this->arad + $point_pos / $this->g_height;
+          $x = $this->xc + ($val * sin($angle));
+          $y = $this->yc + ($val * cos($angle));
 
-        $path .= "$cmd$x $y ";
+          $path .= "$cmd$x $y ";
 
-        // no need to repeat same L command
-        $cmd = $cmd == 'M' ? 'L' : '';
-        $this->AddMarker($x, $y, $item);
+          // no need to repeat same L command
+          $cmd = $cmd == 'M' ? 'L' : '';
+          $this->AddMarker($x, $y, $item);
+        }
       }
       ++$bnum;
     }
@@ -103,7 +105,7 @@ class RadarGraph extends LineGraph {
   protected function GridPosition($key, $ikey)
   {
     $gkey = $this->values->AssociativeKeys() ? $ikey : $key;
-    $offset = $this->x0 + ($this->bar_unit_width * $gkey);
+    $offset = $this->x_axis->Zero() + ($this->bar_unit_width * $gkey);
     if($offset >= 0 && $offset < $this->g_width)
       return $this->reverse ? -$offset : $offset;
     return NULL;
@@ -132,6 +134,7 @@ class RadarGraph extends LineGraph {
       'min_y' => $this->yc - $h_half,
       'max_y' => $this->yc + $h_half
     );
+    $this->radius = null;
     return $bbox;
   }
 
@@ -209,6 +212,14 @@ class RadarGraph extends LineGraph {
       );
       $back = $this->Element('path', $bpath);
     }
+    if($this->grid_back_stripe) {
+      $bpath = array(
+        'fill' => $this->grid_back_stripe_colour,
+        'd' => $this->YGrid($this->y_points),
+        'fill-rule' => 'evenodd' // fill alternating 
+      );
+      $back .= $this->Element('path', $bpath);
+    }
     if($this->show_grid_subdivisions) {
       $subpath_h = $this->show_grid_h ? $this->YGrid($this->y_subdivs) : '';
       $subpath_v = $this->show_grid_v ? $this->XGrid($this->x_subdivs) : '';
@@ -257,7 +268,7 @@ class RadarGraph extends LineGraph {
    */
   protected function SetGridDimensions()
   {
-    if(!isset($this->radius)) {
+    if(is_null($this->radius)) {
       $w = $this->width - $this->pad_left - $this->pad_right;
       $h = $this->height - $this->pad_top - $this->pad_bottom;
       $this->xc = $this->pad_left + $w / 2;
@@ -273,11 +284,8 @@ class RadarGraph extends LineGraph {
    */
   protected function CalcAxes($h_by_count = false, $bar = false)
   {
+    $this->arad = (90 + $this->start_angle) * M_PI / 180;
     parent::CalcAxes($h_by_count, $bar);
-    $w = $this->width - $this->pad_left - $this->pad_right;
-    $h = $this->height - $this->pad_top - $this->pad_bottom;
-    $this->xc = $this->pad_left + $w / 2;
-    $this->yc = $this->pad_top + $h / 2;
   }
 
   /**
@@ -287,7 +295,6 @@ class RadarGraph extends LineGraph {
   {
     if(isset($this->y_points))
       return;
-    $this->arad = (90 + $this->start_angle) * M_PI / 180;
 
     parent::CalcGrid();
     $grid_bottom = $this->height - $this->pad_bottom;
@@ -296,10 +303,8 @@ class RadarGraph extends LineGraph {
     // want only Y size, not actual position
     foreach($this->y_points as $point => $ygrid)
       $this->y_points[$point] = $grid_bottom - $ygrid;
-    if($this->sub_y) {
-      foreach($this->y_subdivs as $point => $ygrid)
-        $this->y_subdivs[$point] = $grid_bottom - $ygrid;
-    }
+    foreach($this->y_subdivs as $point => $ygrid)
+      $this->y_subdivs[$point] = $grid_bottom - $ygrid;
 
     // same with X, only want distance
     foreach($this->x_points as $point => $xgrid) {
@@ -307,12 +312,10 @@ class RadarGraph extends LineGraph {
       $this->x_points[$point] = $new_x;
       $this->grid_angles[] = $this->arad + $new_x / $this->radius;
     }
-    if($this->sub_x) {
-      foreach($this->x_subdivs as $point => $xgrid) {
-        $new_x = $xgrid - $grid_left;
-        $this->x_subdivs[$point] = $new_x;
-        $this->grid_angles[] = $this->arad + $new_x / $this->radius;
-      }
+    foreach($this->x_subdivs as $point => $xgrid) {
+      $new_x = $xgrid - $grid_left;
+      $this->x_subdivs[$point] = $new_x;
+      $this->grid_angles[] = $this->arad + $new_x / $this->radius;
     }
     // put the grid angles in order
     sort($this->grid_angles);
@@ -397,12 +400,13 @@ class RadarGraph extends LineGraph {
   protected function XAxisTextPositions(&$points, $xoff, $yoff, $angle, $inside)
   {
     $positions = array();
-    $r = $this->radius + $yoff + $this->axis_text_space;
-    $text_centre = $this->axis_font_size * 0.3;
+    $font_size = $this->GetFirst($this->axis_font_size_h, $this->axis_font_size);
+    $font_adjust = $this->GetFirst($this->axis_font_adjust_h, $this->axis_font_adjust);
+    $text_space = $this->GetFirst($this->axis_text_space_h, $this->axis_text_space);
+    $r = $this->radius + $yoff + $text_space;
+    $text_centre = $font_size * 0.3;
     $count = count($points);
     $p = 0;
-    $font_size = $this->axis_font_size;
-    $font_adjust = $this->axis_font_adjust;
     $direction = $this->reverse ? -1 : 1;
     foreach($points as $label => $x) {
       $key = $this->GetKey($label);
@@ -442,10 +446,13 @@ class RadarGraph extends LineGraph {
           $position['transform'] = "rotate($angle,$rcx,$rcy)";
         }
         // $c == -1 is particular too : XAxis text can bump YAxis texts
-        if($c == -1 && $this->start_angle % 360 == 90)
-          $position['y'] -= $font_size / 2;
-        elseif($c == 1 && $this->start_angle % 360 == 270)
-          $position['y'] += $font_size / 2;
+        $y_nudge = $this->GetFirst($this->axis_font_size_v,
+          $this->axis_font_size) / 2;
+        if($c == -1 && $this->start_angle % 360 == 90) {
+          $position['y'] -= $y_nudge;
+        } elseif($c == 1 && $this->start_angle % 360 == 270) {
+          $position['y'] += $y_nudge;
+        }
         $position['text'] = $key;
         $position['w'] = $size[0];
         $position['h'] = $size[1];
@@ -462,6 +469,7 @@ class RadarGraph extends LineGraph {
   { 
     $inside = ('inside' == $this->GetFirst($this->axis_text_position_h,
       $this->axis_text_position));
+    $font_size = $this->GetFirst($this->axis_font_size_h, $this->axis_font_size);
     $positions = $this->XAxisTextPositions($points, $xoff, $yoff, $angle,
       $inside);
     $labels = '';
@@ -469,9 +477,19 @@ class RadarGraph extends LineGraph {
       $text = $pos['text'];
       unset($pos['w'], $pos['h'], $pos['text'], $pos['angle'], $pos['sin'],
         $pos['cos']);
-      $labels .= $this->Text($text, $this->axis_font_size, $pos);
+      $labels .= $this->Text($text, $font_size, $pos);
     }
-    return $labels;
+    $group = array();
+    if(!empty($this->axis_font_h))
+      $group['font-family'] = $this->axis_font_h;
+    if(!empty($this->axis_font_size_h))
+      $group['font-size'] = $font_size;
+    if(!empty($this->axis_text_colour_h))
+      $group['fill'] = $this->axis_text_colour_h;
+
+    if(empty($group))
+      return $labels;
+    return $this->Element('g', $group, NULL, $labels);
   }
 
   /**
@@ -481,16 +499,17 @@ class RadarGraph extends LineGraph {
   {
     $positions = array();
     $labels = '';
+    $font_size = $this->GetFirst($this->axis_font_size_v, $this->axis_font_size);
+    $font_adjust = $this->GetFirst($this->axis_font_adjust_v, $this->axis_font_adjust);
+    $text_space = $this->GetFirst($this->axis_text_space_v, $this->axis_text_space);
     $c = cos($this->arad);
     $s = sin($this->arad);
     $a = $this->arad + ($s * $c > 0 ? - M_PI_2 : M_PI_2);
-    $x2 = ($xoff + $this->axis_text_space) * sin($a);
-    $y2 = ($xoff + $this->axis_text_space) * cos($a);
+    $x2 = ($xoff + $text_space) * sin($a);
+    $y2 = ($xoff + $text_space) * cos($a);
     $x3 = 0;
-    $y3 = $c > 0 ? $this->axis_font_size : 0;
+    $y3 = $c > 0 ? $font_size : 0;
     $position = array('text-anchor' => $s < 0 ? 'start' : 'end');
-    $font_size = $this->axis_font_size;
-    $font_adjust = $this->axis_font_adjust;
     foreach($points as $key => $y) {
       if(strlen($key) > 0) {
         $x1 = $y * $s;
@@ -520,13 +539,21 @@ class RadarGraph extends LineGraph {
   { 
     $positions = $this->YAxisTextPositions($points, $xoff, $yoff, $angle, false);
     $labels = '';
+    $font_size = $this->GetFirst($this->axis_font_size_v, $this->axis_font_size);
     $anchor = $positions[0]['text-anchor'];
     foreach($positions as $pos) {
       $text = $pos['text'];
       unset($pos['w'], $pos['h'], $pos['text'], $pos['text-anchor']);
-      $labels .= $this->Text($text, $this->axis_font_size, $pos);
+      $labels .= $this->Text($text, $font_size, $pos);
     }
-    return $this->Element('g', array('text-anchor' => $anchor), NULL, $labels);
+    $group = array('text-anchor' => $anchor);
+    if(!empty($this->axis_font_v))
+      $group['font-family'] = $this->axis_font_v;
+    if(!empty($this->axis_font_size_v))
+      $group['font-size'] = $font_size;
+    if(!empty($this->axis_text_colour_v))
+      $group['fill'] = $this->axis_text_colour_v;
+    return $this->Element('g', $group, NULL, $labels);
   }
 
 

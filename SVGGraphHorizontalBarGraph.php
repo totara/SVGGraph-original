@@ -69,16 +69,29 @@ class HorizontalBarGraph extends GridGraph {
 
   /**
    * Fills in the x-position and width of a bar
+   * @param number $value bar value
+   * @param array  &$bar  bar element array [out]
+   * @param number $start bar start value
+   * @return number unclamped bar position
    */
   protected function Bar($value, &$bar, $start = null)
   {
-    $x0 = $this->pad_left + $this->x0;
-    if(!is_null($start))
-      $x0 += $start;
-    $l1 = $this->ClampHorizontal($x0);
-    $l2 = $this->ClampHorizontal($x0 + ($value * $this->bar_unit_width));
-    $bar['x'] = min($l1, $l2);
-    $bar['width'] = abs($l1-$l2);
+    if($start)
+      $value += $start;
+
+    $startpos = is_null($start) ? $this->OriginX() : $this->GridX($start);
+    if(is_null($startpos))
+      $startpos = $this->OriginX();
+    $pos = $this->GridX($value);
+    if(is_null($pos)) {
+      $bar['width'] = 0;
+    } else {
+      $l1 = $this->ClampHorizontal($startpos);
+      $l2 = $this->ClampHorizontal($pos);
+      $bar['x'] = min($l1, $l2);
+      $bar['width'] = abs($l1-$l2);
+    }
+    return $pos;
   }
 
   /**
@@ -111,7 +124,7 @@ class HorizontalBarGraph extends GridGraph {
       if($top - $text_size < $bottom)
         $pos = 'above';
 
-      $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + $this->x0);
+      $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + $this->x_axis->Zero());
       switch($pos) {
       case 'above' :
         $x = $swap ? $bottom - $space * 2 : $top + $space * 2;

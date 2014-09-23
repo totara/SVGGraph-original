@@ -112,9 +112,9 @@ abstract class PointGraph extends GridGraph {
       $id = $this->marker_link_ids[$id];
       $use['xlink:href'] = '#' . $id;
       $element = $this->GetLink($marker->item, $marker->key,
-        $this->Element('use', $use));
+        $this->Element('use', $use, null, $this->empty_use ? '' : null));
     } else {
-      $element = $this->Element('use', $use);
+      $element = $this->Element('use', $use, null, $this->empty_use ? '' : null);
     }
     if(!isset($this->marker_used[$id]))
       $this->marker_used[$id] = 1;
@@ -134,7 +134,7 @@ abstract class PointGraph extends GridGraph {
       'y' => $y + $h/2,
       'xlink:href' => '#' . $this->marker_ids[$set]
     );
-    return $this->Element('use', $use);
+    return $this->Element('use', $use, null, $this->empty_use ? '' : null);
   }
 
   /**
@@ -334,7 +334,8 @@ abstract class PointGraph extends GridGraph {
     $sum_x = $sum_y = $sum_x2 = $sum_xy = 0;
     $count = 0;
     foreach($this->markers[$dataset] as $k => $v) {
-      list($x, $y) = $this->GridToUnits($v->x, $v->y);
+      $x = $v->x - $this->pad_left;
+      $y = $this->height - $this->pad_bottom - $v->y;
 
       $sum_x += $x;
       $sum_y += $y;
@@ -348,44 +349,44 @@ abstract class PointGraph extends GridGraph {
       return '';
     $mean_x = $sum_x / $count;
     $mean_y = $sum_y / $count;
+    $x_max = $this->width - $this->pad_left - $this->pad_right;
+    $y_max = $this->height - $this->pad_bottom - $this->pad_top;
 
     if($sum_x2 == $sum_x * $mean_x) {
       // line is vertical!
-      list($x1) = $this->UnitsToGrid($mean_x, 0);
-      $x2 = $x1;
-      $y1 = $this->pad_top;
-      $y2 = $this->height - $this->pad_bottom;
+      $x1 = $this->GridX($mean_x);
+      $x2 = $x1 = $mean_x;
+      $y1 = 0;
+      $y2 = $y_max;
     } else {
       $slope = ($sum_xy - $sum_x * $mean_y) / ($sum_x2 - $sum_x * $mean_x);
       $y_int = $mean_y - $slope * $mean_x;
 
-      $bottom_left = $this->GridToUnits($this->pad_left,
-        $this->height - $this->pad_bottom);
-      $top_right = $this->GridToUnits($this->width - $this->pad_right,
-        $this->pad_top);
-
-      $x = $bottom_left[0];
-      $y = $slope * $x + $y_int;
-      list($x1, $y1) = $this->UnitsToGrid($x, $y);
-      if($y1 < $this->pad_top) {
-        $x = ($top_right[1] - $y_int) / $slope;
-        list($x1, $y1) = $this->UnitsToGrid($x, $top_right[1]);
-      } elseif($y1 > $this->height - $this->pad_bottom) {
-        $x = ($bottom_left[1] - $y_int) / $slope;
-        list($x1, $y1) = $this->UnitsToGrid($x, $bottom_left[1]);
+      $x1 = 0;
+      $y1 = $slope * $x1 + $y_int;
+      $x2 = $x_max;
+      $y2 = $slope * $x2 + $y_int;
+      
+      if($y1 < 0) {
+        $x1 = -$y_int / $slope;
+        $y1 = 0;
+      } elseif($y1 > $y_max) {
+        $x1 = ($y_max - $y_int) / $slope;
+        $y1 = $y_max;
       }
 
-      $x = $top_right[0];
-      $y = $slope * $x + $y_int;
-      list($x2, $y2) = $this->UnitsToGrid($x, $y);
-      if($y2 < $this->pad_top) {
-        $x = ($top_right[1] - $y_int) / $slope;
-        list($x2, $y2) = $this->UnitsToGrid($x, $top_right[1]);
-      } elseif($y2 > $this->height - $this->pad_bottom) {
-        $x = ($bottom_left[1] - $y_int) / $slope;
-        list($x2, $y2) = $this->UnitsToGrid($x, $bottom_left[1]);
+      if($y2 < 0) {
+        $x2 = - $y_int / $slope;
+        $y2 = 0;
+      } elseif($y2 > $y_max) {
+        $x2 = ($y_max - $y_int) / $slope;
+        $y2 = $y_max;
       }
     }
+    $x1 += $this->pad_left;
+    $x2 += $this->pad_left;
+    $y1 = $this->height - $this->pad_bottom - $y1;
+    $y2 = $this->height - $this->pad_bottom - $y2;
     $path = array(
       'd' => "M$x1 {$y1}L$x2 $y2",
       'stroke' => empty($colour) ? '#000' : $colour,

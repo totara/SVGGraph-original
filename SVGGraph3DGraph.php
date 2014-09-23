@@ -103,6 +103,27 @@ abstract class ThreeDGraph extends GridGraph {
       );
       $back = $this->Element('path', $bpath);
     }
+    if($this->grid_back_stripe) {
+      $pathdata = '';
+      $c = 0;
+      $p1 = null;
+      $rect = array('x' => $this->pad_left, 'width' => $this->g_width);
+      foreach($this->y_points as $y) {
+        if($c % 2 == 0 && !is_null($p1)) {
+          $y1 = $p1 - $y;
+          $pathdata .= "M$xleft {$y}l{$xd} {$yd}h{$x_w}v{$y1}h" . -$x_w .
+            "l" . -$xd . " " . -$yd . "z";
+        } else {
+          $p1 = $y;
+        }
+        ++$c;
+      }
+      $bpath = array(
+        'fill' => $this->grid_back_stripe_colour,
+        'd' => $pathdata
+      );
+      $back .= $this->Element('path', $bpath);
+    }
     if($this->show_grid_subdivisions) {
       $subpath_h = $subpath_v = '';
       if($this->show_grid_h)
@@ -180,8 +201,8 @@ abstract class ThreeDGraph extends GridGraph {
     if($depth == SVGG_GUIDELINE_ABOVE)
       return parent::GuidelinePath($axis, $value, $depth, $x, $y, $w, $h);
 
-    $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
-    $x_axis_pos = $this->pad_left + $this->x0;
+    $y_axis_pos = $this->height - $this->pad_bottom - $this->y_axis->Zero();
+    $x_axis_pos = $this->pad_left + $this->x_axis->Zero();
     $z = $this->depth * $this->depth_unit;
     list($xd,$yd) = $this->Project(0, 0, $z);
 

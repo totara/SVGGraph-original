@@ -96,7 +96,7 @@ class SVGGraphData implements Countable, ArrayAccess, Iterator {
   {
     if(!isset($this->min_value[$dataset])) {
       if(count($this->data[$dataset]))
-        $this->min_value[$dataset] = min($this->data[$dataset]);
+        $this->min_value[$dataset] = Graph::min($this->data[$dataset]);
       else
         $this->min_value[$dataset] = null;
     }

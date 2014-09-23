@@ -42,44 +42,44 @@ class BubbleGraph extends PointGraph {
       $point_pos = $this->GridPosition($item->key, $bnum);
       if(!is_null($item->value) && !is_null($point_pos)) {
         $x = $point_pos;
-        $y = $this->height - $this->pad_bottom - $this->y0 
-          - ($item->value * $this->bar_unit_height);
+        $y = $this->GridY($item->value);
+        if(!is_null($y)) {
+          $r = $this->bubble_scale * $this->bar_unit_height * sqrt(abs($area) / M_PI);
+          $circle = array('cx' => $x, 'cy' => $y, 'r' => $r);
+          if($area < 0) {
+            // draw negative bubbles with a checked pattern
+            $pid = $this->NewID();
+            $check_size = 4;
+            $pat = array(
+              'id' => $pid, 'x' => 0, 'y' => 0, 
+              'width' => $check_size * 2,
+              'height' => $check_size * 2,
+              'patternUnits' => 'userSpaceOnUse'
+            );
+            $prect = array(
+              'x' => 0, 'y' => 0,
+              'width' => $check_size, 'height' => $check_size,
+              'fill' => $this->GetColour($item, $bnum % $ccount),
+            );
+            $pcontent = $this->Element('rect', $prect);
+            $prect['x'] = $prect['y'] = $check_size;
+            $pcontent .= $this->Element('rect', $prect);
+            $pattern = $this->Element('pattern', $pat, null, $pcontent);
+            $this->defs[] = $pattern;
+            $circle_style = array('fill' => "url(#{$pid})");
+          } else {
+            $circle_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
+          }
+          $this->SetStroke($circle_style);
 
-        $r = $this->bubble_scale * $this->bar_unit_height * sqrt(abs($area) / M_PI);
-        $circle = array(
-          'cx' => $x, 'cy' => $y, 'r' => $r
-        );
-        if($area < 0) {
-          // draw negative bubbles with a checked pattern
-          $pid = $this->NewID();
-          $check_size = 4;
-          $pat = array(
-            'id' => $pid, 'x' => 0, 'y' => 0, 
-            'width' => $check_size * 2, 'height' => $check_size * 2, 'patternUnits' => 'userSpaceOnUse'
-          );
-          $prect = array(
-            'x' => 0, 'y' => 0,
-            'width' => $check_size, 'height' => $check_size,
-            'fill' => $this->GetColour($item, $bnum % $ccount),
-          );
-          $pcontent = $this->Element('rect', $prect);
-          $prect['x'] = $prect['y'] = $check_size;
-          $pcontent .= $this->Element('rect', $prect);
-          $pattern = $this->Element('pattern', $pat, null, $pcontent);
-          $this->defs[] = $pattern;
-          $circle_style = array('fill' => "url(#{$pid})");
-        } else {
-          $circle_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
+          if($this->show_tooltips)
+            $this->SetTooltip($circle, $item, $area, null,
+              !$this->compat_events);
+          $bubble = $this->Element('circle', array_merge($circle, $circle_style));
+          $body .= $this->GetLink($item, $item->key, $bubble);
+
+          $this->bubble_styles[] = $circle_style;
         }
-        $this->SetStroke($circle_style);
-
-        if($this->show_tooltips)
-          $this->SetTooltip($circle, $item, $area, null,
-            !$this->compat_events);
-        $bubble = $this->Element('circle', array_merge($circle, $circle_style));
-        $body .= $this->GetLink($item, $item->key, $bubble);
-
-        $this->bubble_styles[] = $circle_style;
       }
       ++$bnum;
     }

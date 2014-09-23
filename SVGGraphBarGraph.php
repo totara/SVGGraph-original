@@ -70,16 +70,29 @@ class BarGraph extends GridGraph {
 
   /**
    * Fills in the y-position and height of a bar
+   * @param number $value bar value
+   * @param array  &$bar  bar element array [out]
+   * @param number $start bar start value
+   * @return number unclamped bar position
    */
   protected function Bar($value, &$bar, $start = null)
   {
-    $y = $this->height - $this->pad_bottom - $this->y0;
-    if(!is_null($start))
-      $y -= $start;
-    $l1 = $this->ClampVertical($y);
-    $l2 = $this->ClampVertical(ceil($y - $value * $this->bar_unit_height));
-    $bar['y'] = min($l1, $l2);
-    $bar['height'] = abs($l1-$l2);
+    if($start)
+      $value += $start;
+
+    $startpos = is_null($start) ? $this->OriginY() : $this->GridY($start);
+    if(is_null($startpos))
+      $startpos = $this->OriginY();
+    $pos = $this->GridY($value);
+    if(is_null($pos)) {
+      $bar['height'] = 0;
+    } else {
+      $l1 = $this->ClampVertical($startpos);
+      $l2 = $this->ClampVertical($pos);
+      $bar['y'] = min($l1, $l2);
+      $bar['height'] = abs($l1-$l2);
+    }
+    return $pos;
   }
 
   /**
@@ -89,7 +102,7 @@ class BarGraph extends GridGraph {
   {
     $content = $item->Data('label');
     if(is_null($content))
-      $content = $item->value;
+      $content = Graph::NumString($item->value);
     $font_size = $this->bar_label_font_size;
     $space = $this->bar_label_space;
     $x = $bar['x'] + ($bar['width'] / 2);
@@ -108,7 +121,7 @@ class BarGraph extends GridGraph {
       if($top > $bottom)
         $pos = 'above';
 
-      $swap = ($bar['y'] >= $this->height - $this->pad_bottom - $this->y0);
+      $swap = ($bar['y'] >= $this->height - $this->pad_bottom - $this->y_axis->Zero());
       switch($pos) {
       case 'above' :
         $y = $swap ? $bar['y'] + $bar['height'] + $font_size + $space :

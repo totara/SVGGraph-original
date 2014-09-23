@@ -32,12 +32,12 @@ class StackedLineGraph extends MultiLineGraph {
 
   protected function Draw()
   {
+    if($this->log_axis_y)
+      throw new Exception('log_axis_y not supported by StackedLineGraph');
+
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $plots = array();
-    $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
-    $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
-
     $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
     $stack = array();
@@ -64,9 +64,7 @@ class StackedLineGraph extends MultiLineGraph {
           $stack[$strkey] = 0;
         if(!is_null($x)) {
           $bottom["$x"] = $stack[$strkey];
-          $y_size = ($stack[$strkey] + $item->value) * $this->bar_unit_height;
-
-          $y = $y_axis_pos - $y_size;
+          $y = $this->GridY($stack[$strkey] + $item->value);
           $stack[$strkey] += $item->value;
 
           $path .= "$cmd$x $y ";
@@ -97,7 +95,7 @@ class StackedLineGraph extends MultiLineGraph {
           $opacity = $this->multi_graph->Option($this->fill_opacity, $i);
           $bpoints = array_reverse($bottom, TRUE);
           foreach($bpoints as $x => $pos) {
-            $y = $y_axis_pos - ($pos * $this->bar_unit_height);
+            $y = $this->GridY($pos);
             $fillpath .= "$x $y ";
           }
           $fillpath .= 'z';

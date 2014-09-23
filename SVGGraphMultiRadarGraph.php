@@ -63,16 +63,18 @@ class MultiRadarGraph extends RadarGraph {
       foreach($this->multi_graph[$i] as $item) {
         $point_pos = $this->GridPosition($item->key, $bnum);
         if(!is_null($item->value) && !is_null($point_pos)) {
-          $val = $this->y0 + $item->value * $this->bar_unit_height;
-          $angle = $this->arad + $point_pos / $this->g_height;
-          $x = $this->xc + ($val * sin($angle));
-          $y = $this->yc + ($val * cos($angle));
+          $val = $this->y_axis->Position($item->value);
+          if(!is_null($val)) {
+            $angle = $this->arad + $point_pos / $this->g_height;
+            $x = $this->xc + ($val * sin($angle));
+            $y = $this->yc + ($val * cos($angle));
 
-          $path .= "$cmd$x $y ";
+            $path .= "$cmd$x $y ";
 
-          // no need to repeat same L command
-          $cmd = $cmd == 'M' ? 'L' : '';
-          $this->AddMarker($x, $y, $item, NULL, $i);
+            // no need to repeat same L command
+            $cmd = $cmd == 'M' ? 'L' : '';
+            $this->AddMarker($x, $y, $item, NULL, $i);
+          }
         }
         ++$bnum;
       }

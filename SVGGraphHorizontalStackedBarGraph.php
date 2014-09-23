@@ -29,6 +29,9 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 
   protected function Draw()
   {
+    if($this->log_axis_y)
+      throw new Exception('log_axis_y not supported by HorizontalStackedBarGraph');
+
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
@@ -54,9 +57,9 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
           $item = $itemlist[$j];
           $this->Bar($item->value, $bar, $item->value >= 0 ? $xpos : $xneg);
           if($item->value < 0)
-            $xneg -= $bar['width'];
+            $xneg += $item->value;
           else
-            $xpos += $bar['width'];
+            $xpos += $item->value;
 
           if($bar['width'] > 0) {
             $bar_style['fill'] = $this->GetColour($item, $j % $ccount);

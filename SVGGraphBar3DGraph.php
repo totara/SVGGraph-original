@@ -56,16 +56,18 @@ class Bar3DGraph extends ThreeDGraph {
         $colour = $bnum % $ccount;
 
         $bar_sections = $this->Bar3D($item, $bar, $top, $colour);
-        $link = $this->GetLink($item, $item->key, $bar_sections);
+        if($bar_sections != '') {
+          $link = $this->GetLink($item, $item->key, $bar_sections);
 
-        $group['fill'] = $this->GetColour($item, $colour);
-        if($this->show_tooltips)
-          $this->SetTooltip($group, $item, $item->value);
-        $bars .= $this->Element('g', $group, NULL, $link);
-        unset($group['id']); // make sure a new one is generated
-        $style = $group;
-        $this->SetStroke($style);
-        $this->bar_styles[] = $style;
+          $group['fill'] = $this->GetColour($item, $colour);
+          if($this->show_tooltips)
+            $this->SetTooltip($group, $item, $item->value);
+          $bars .= $this->Element('g', $group, NULL, $link);
+          unset($group['id']); // make sure a new one is generated
+          $style = $group;
+          $this->SetStroke($style);
+          $this->bar_styles[] = $style;
+        }
       }
       ++$bnum;
     }
@@ -97,7 +99,9 @@ class Bar3DGraph extends ThreeDGraph {
    */
   protected function Bar3D($item, &$bar, &$top, $colour, $start = null)
   {
-    $this->Bar($item->value, $bar, $start);
+    $pos = $this->Bar($item->value, $bar, $start);
+    if(is_null($pos) || $pos > $this->height - $this->pad_bottom)
+      return '';
 
     $side_x = $bar['x'] + $this->block_width;
     $side = array(
@@ -109,7 +113,7 @@ class Bar3DGraph extends ThreeDGraph {
     } else {
       $top['transform'] = "translate($bar[x],$bar[y])";
       $top['fill'] = $this->GetColour($item, $colour, TRUE);
-      $bar_top = $this->Element('use', $top);
+      $bar_top = $this->Element('use', $top, null, $this->empty_use ? '' : null);
     }
 
     $rect = $this->Element('rect', $bar);
@@ -119,16 +123,27 @@ class Bar3DGraph extends ThreeDGraph {
 
   /**
    * Fills in the y-position and height of a bar (copied from BarGraph)
+   * @param number $value bar value
+   * @param array  &$bar  bar element array [out]
+   * @param number $start bar start value
+   * @return number unclamped bar position
    */
   protected function Bar($value, &$bar, $start = null)
   {
-    $y = $this->height - $this->pad_bottom - $this->y0;
-    if(!is_null($start))
-      $y -= $start;
-    $l1 = $this->ClampVertical($y);
-    $l2 = $this->ClampVertical($y - $value * $this->bar_unit_height);
-    $bar['y'] = min($l1, $l2);
-    $bar['height'] = abs($l1-$l2);
+    if($start)
+      $value += $start;
+
+    $startpos = is_null($start) ? $this->OriginY() : $this->GridY($start);
+    $pos = $this->GridY($value);
+    if(is_null($pos)) {
+      $bar['height'] = 0;
+    } else {
+      $l1 = $this->ClampVertical($startpos);
+      $l2 = $this->ClampVertical($pos);
+      $bar['y'] = min($l1, $l2);
+      $bar['height'] = abs($l1-$l2);
+    }
+    return $pos;
   }
 
   /**
