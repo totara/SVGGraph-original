@@ -41,7 +41,6 @@ class GroupedBarGraph extends BarGraph {
       / $chunk_count;
     $chunk_unit_width = $chunk_width + $chunk_gap;
     $bar_style = array();
-    $this->SetStroke($bar_style);
     $bar = array('width' => $chunk_width);
 
     $b_start = $this->pad_left + ($this->bar_space / 2);
@@ -57,6 +56,7 @@ class GroupedBarGraph extends BarGraph {
           $bar['x'] = $bspace + $bar_pos + ($j * $chunk_unit_width);
           $item = $itemlist[$j];
           if(!is_null($item->value)) {
+            $this->SetStroke($bar_style, $item, $j);
             $this->Bar($item->value, $bar);
 
             if($bar['height'] > 0) {

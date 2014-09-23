@@ -34,7 +34,6 @@ class FloatingBarGraph extends BarGraph {
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
       $this->bar_unit_width - $this->bar_space);
     $bar_style = array();
-    $this->SetStroke($bar_style);
     $bar = array('width' => $bar_width);
 
     $bspace = $this->bar_space / 2;
@@ -54,6 +53,7 @@ class FloatingBarGraph extends BarGraph {
 
         if($bar['height'] > 0) {
           $bar_style['fill'] = $this->GetColour($item, $bnum % $ccount);
+          $this->SetStroke($bar_style, $item);
 
           if($this->show_tooltips)
             $this->SetTooltip($bar, $item, $value, null,

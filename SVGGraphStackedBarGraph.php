@@ -37,7 +37,6 @@ class StackedBarGraph extends BarGraph {
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
       $this->bar_unit_width - $this->bar_space);
     $bar_style = array();
-    $this->SetStroke($bar_style);
     $bar = array('width' => $bar_width);
 
     $bspace = $this->bar_space / 2;
@@ -56,6 +55,7 @@ class StackedBarGraph extends BarGraph {
         for($j = 0; $j < $chunk_count; ++$j) {
           $item = $itemlist[$j];
           if(!is_null($item->value)) {
+            $this->SetStroke($bar_style, $item, $j);
             $this->Bar($item->value, $bar, $item->value >= 0 ? $ypos : $yneg);
             if($item->value < 0)
               $yneg += $item->value;

@@ -36,8 +36,6 @@ class StackedCylinderGraph extends CylinderGraph {
 
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
       $this->bar_unit_width - $this->bar_space);
-    $bar_style = array();
-    $this->SetStroke($bar_style);
     $bar = array('width' => $bar_width);
 
     $this->block_width = $bar_width;
@@ -96,21 +94,17 @@ class StackedCylinderGraph extends CylinderGraph {
           if($this->show_tooltips)
             $this->SetTooltip($group, $item, $value);
           $link = $this->GetLink($item, $k, $bar_sections);
+          $this->SetStroke($group, $item, $j, 'round');
           $bars .= $this->Element('g', $group, NULL, $link);
           unset($group['id']); // make sure a new one is generated
-          $style = $group;
-          $this->SetStroke($style);
-
           if(!array_key_exists($j, $this->bar_styles))
-            $this->bar_styles[$j] = $style;
+            $this->bar_styles[$j] = $group;
         }
       }
       ++$bnum;
     }
 
-    $bgroup = array('fill' => 'none');
-    $this->SetStroke($bgroup, 'round');
-    $body .= $this->Element('g', $bgroup, NULL, $bars);
+    $body .= $bars;
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }

@@ -70,7 +70,7 @@ class BubbleGraph extends PointGraph {
           } else {
             $circle_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
           }
-          $this->SetStroke($circle_style);
+          $this->SetStroke($circle_style, $item);
 
           if($this->show_tooltips)
             $this->SetTooltip($circle, $item, $area, null,

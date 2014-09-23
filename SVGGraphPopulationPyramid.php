@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,8 +21,10 @@
 
 require_once 'SVGGraphMultiGraph.php';
 require_once 'SVGGraphHorizontalBarGraph.php';
+require_once 'SVGGraphAxisDoubleEnded.php';
+require_once 'SVGGraphAxisFixedDoubleEnded.php';
 
-class HorizontalStackedBarGraph extends HorizontalBarGraph {
+class PopulationPyramid extends HorizontalBarGraph {
 
   protected $multi_graph;
   protected $legend_reverse = false;
@@ -30,7 +32,7 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
   protected function Draw()
   {
     if($this->log_axis_y)
-      throw new Exception('log_axis_y not supported by HorizontalStackedBarGraph');
+      throw new Exception('log_axis_y not supported by PopulationPyramid');
 
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
@@ -54,15 +56,16 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
         $xpos = $xneg = 0;
         for($j = 0; $j < $chunk_count; ++$j) {
           $item = $itemlist[$j];
-          $this->SetStroke($bar_style, $item, $j);
-          $this->Bar($item->value, $bar, $item->value >= 0 ? $xpos : $xneg);
-          if($item->value < 0)
-            $xneg += $item->value;
+          $value = $j % 2 ? $item->value : -$item->value;
+          $this->Bar($value, $bar, $value >= 0 ? $xpos : $xneg);
+          if($value < 0)
+            $xneg += $value;
           else
-            $xpos += $item->value;
+            $xpos += $value;
 
           if($bar['width'] > 0) {
             $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
+            $this->SetStroke($bar_style, $item, $j);
 
             if($this->show_tooltips)
               $this->SetTooltip($bar, $item, $item->value, null,
@@ -87,16 +90,15 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 
   /**
    * Overridden to prevent drawing behind higher bars
-   * $offset_x should be true for inner bars
+   * $offset_y should be true for inner bars
    */
   protected function BarLabel($item, &$bar, $offset_x = null)
   {
     $content = $item->Data('label');
     if(is_null($content))
-      $content = $this->units_before_label . Graph::NumString($item->value) .
-        $this->units_label;
-    list($text_size) = $this->TextSize($content, $this->bar_label_font_size,
-      $this->bar_label_font_adjust);
+      $content = $item->value;
+    list($text_size) = $this->TextSize(strlen($content),
+      $this->bar_label_font_size, $this->bar_label_font_adjust);
     $space = $this->bar_label_space;
     if($offset_x) {
 
@@ -139,7 +141,17 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
    */
   protected function GetMaxValue()
   {
-    return $this->multi_graph->GetMaxSumValue();
+    $sums = array(array(), array());
+    $sets = count($this->values);
+    if($sets < 2)
+      return $this->multi_graph->GetMaxValue();
+    for($i = 0; $i < $sets; ++$i) {
+      $dir = $i % 2;
+      foreach($this->values[$i] as $item) {
+        @$sums[$dir][$item->key] += $item->value;
+      }
+    }
+    return max(max($sums[0]), max($sums[1]));
   }
 
   /**
@@ -147,7 +159,17 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
    */
   protected function GetMinValue()
   {
-    return $this->multi_graph->GetMinSumValue();
+    $sums = array(array(), array());
+    $sets = count($this->values);
+    if($sets < 2)
+      return $this->multi_graph->GetMinValue();
+    for($i = 0; $i < $sets; ++$i) {
+      $dir = $i % 2;
+      foreach($this->values[$i] as $item) {
+        @$sums[$dir][$item->key] += $item->value;
+      }
+    }
+    return min(min($sums[0]), min($sums[1]));
   }
 
   /**
@@ -174,5 +196,59 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
     return $this->multi_graph->GetMinKey();
   }
 
+  /**
+   * Returns the X and Y axis class instances as a list
+   */
+  protected function GetAxes($ends, &$x_len, &$y_len)
+  {
+    // always assoc, no units
+    $this->units_x = $this->units_before_x = null;
+
+    $max_h = $ends['v_max'];
+    $min_h = $ends['v_min'];
+    $max_v = $ends['k_max'];
+    $min_v = $ends['k_min'];
+    $x_min_unit = $this->minimum_units_y;
+    $x_fit = false;
+    $y_min_unit = 1;
+    $y_fit = true;
+    $x_units_after = (string)$this->units_y;
+    $y_units_after = (string)$this->units_x;
+    $x_units_before = (string)$this->units_before_y;
+    $y_units_before = (string)$this->units_before_x;
+
+    // sanitise grid divisions
+    if(is_numeric($this->grid_division_v) && $this->grid_division_v <= 0)
+      $this->grid_division_v = null;
+    if(is_numeric($this->grid_division_h) && $this->grid_division_h <= 0)
+      $this->grid_division_h = null;
+
+    // if fixed grid spacing is specified, make the min spacing 1 pixel
+    if(is_numeric($this->grid_division_v))
+      $this->minimum_grid_spacing_v = 1;
+    if(is_numeric($this->grid_division_h))
+      $this->minimum_grid_spacing_h = 1;
+
+    if(!is_numeric($max_h) || !is_numeric($min_h) ||
+      !is_numeric($max_v) || !is_numeric($min_v))
+      throw new Exception('Non-numeric min/max');
+
+    if(!is_numeric($this->grid_division_h))
+      $x_axis = new AxisDoubleEnded($x_len, $max_h, $min_h, $x_min_unit, $x_fit,
+        $x_units_before, $x_units_after);
+    else
+      $x_axis = new AxisFixedDoubleEnded($x_len, $max_h, $min_h, 
+        $this->grid_division_h, $x_units_before, $x_units_after);
+
+    if(!is_numeric($this->grid_division_v))
+      $y_axis = new Axis($y_len, $max_v, $min_v, $y_min_unit, $y_fit,
+        $y_units_before, $y_units_after);
+    else
+      $y_axis = new AxisFixed($y_len, $max_v, $min_v, $this->grid_division_v,
+        $y_units_before, $y_units_after);
+
+    $y_axis->Reverse(); // because axis starts at bottom
+    return array($x_axis, $y_axis);
+  }
 }
 

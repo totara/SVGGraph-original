@@ -462,7 +462,7 @@ function initDrag() {
     for(d in draggable) {
       e = draggable[d] = getE(d);
       e.draginfo = [0,0,0,0,newel('g',{cursor:'move'})];
-      e.parentNode.appendChild(e.draginfo[4]);
+      document.documentElement.appendChild(e.draginfo[4]);
       e.parentNode.removeChild(e);
       e.draginfo[4].appendChild(e);
     }
@@ -533,6 +533,32 @@ JAVASCRIPT;
   }
 
   /**
+   * Convert hex from regex matched entity to javascript escape sequence
+   */
+  public static function hex2js($m)
+  {
+    return sprintf('\u%04x', base_convert($m[1], 16, 10));
+  }
+
+  /**
+   * Convert decimal from regex matched entity to javascript escape sequence
+   */
+  public static function dec2js($m)
+  {
+    return sprintf('\u%04x', $m[1]);
+  }
+
+  public static function ReEscape($string)
+  {
+    // convert XML char entities to JS unicode
+    $string = preg_replace_callback('/&#x([a-f0-9]+);/',
+      'SVGGraphJavascript::hex2js', $string);
+    $string = preg_replace_callback('/&#([0-9]+);/',
+      'SVGGraphJavascript::dec2js', $string);
+    return $string;
+  }
+
+  /**
    * Adds a Javascript variable
    * - use $value:$more for assoc
    * - use NULL:$more for array
@@ -541,11 +567,11 @@ JAVASCRIPT;
   {
     $q = $quote ? "'" : '';
     if(is_null($more))
-      $this->variables[$var] = $q . $value . $q;
+      $this->variables[$var] = $q . $this->ReEscape($value) . $q;
     elseif(is_null($value))
-      $this->variables[$var][] = $q . $more . $q;
+      $this->variables[$var][] = $q . $this->ReEscape($more) . $q;
     else
-      $this->variables[$var][$value] = $q . $more . $q;
+      $this->variables[$var][$value] = $q . $this->ReEscape($more) . $q;
   }
 
   /**

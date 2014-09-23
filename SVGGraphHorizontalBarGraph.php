@@ -35,7 +35,6 @@ class HorizontalBarGraph extends GridGraph {
     $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
       $this->bar_unit_height - $this->bar_space);
     $bar_style = array();
-    $this->SetStroke($bar_style);
 
     $bnum = 0;
     $bspace = $this->bar_space / 2;
@@ -48,6 +47,7 @@ class HorizontalBarGraph extends GridGraph {
         $this->Bar($item->value, $bar);
 
         if($bar['width'] > 0) {
+          $this->SetStroke($bar_style, $item);
           $bar_style['fill'] = $this->GetColour($item, $bnum % $ccount);
 
           if($this->show_tooltips)
@@ -101,10 +101,11 @@ class HorizontalBarGraph extends GridGraph {
   {
     $content = $item->Data('label');
     if(is_null($content))
-      $content = $item->value;
+      $content = $this->units_before_label . Graph::NumString($item->value) .
+        $this->units_label;
     $font_size = $this->bar_label_font_size;
-    list($text_size) = $this->TextSize(strlen($content), 
-      $this->bar_label_font_size, $this->bar_label_font_adjust);
+    list($text_size) = $this->TextSize($content, $this->bar_label_font_size,
+      $this->bar_label_font_adjust);
     $space = $this->bar_label_space;
     $y = $bar['y'] + ($bar['height'] + $font_size) / 2 - $font_size / 8;
     $colour = $this->bar_label_colour;

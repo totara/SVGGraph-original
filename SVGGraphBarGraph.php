@@ -33,7 +33,6 @@ class BarGraph extends GridGraph {
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
       $this->bar_unit_width - $this->bar_space);
     $bar_style = array();
-    $this->SetStroke($bar_style);
 
     $bnum = 0;
     $bspace = $this->bar_space / 2;
@@ -44,6 +43,7 @@ class BarGraph extends GridGraph {
       $bar = array('width' => $bar_width);
       $bar_pos = $this->GridPosition($item->key, $bnum);
       if(!is_null($item->value) && !is_null($bar_pos)) {
+        $this->SetStroke($bar_style, $item);
         $bar['x'] = $bspace + $bar_pos;
         $this->Bar($item->value, $bar);
 
@@ -102,7 +102,8 @@ class BarGraph extends GridGraph {
   {
     $content = $item->Data('label');
     if(is_null($content))
-      $content = Graph::NumString($item->value);
+      $content = $this->units_before_label . Graph::NumString($item->value) .
+        $this->units_label;
     $font_size = $this->bar_label_font_size;
     $space = $this->bar_label_space;
     $x = $bar['x'] + ($bar['width'] / 2);

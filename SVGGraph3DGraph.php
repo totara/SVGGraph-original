@@ -109,6 +109,7 @@ abstract class ThreeDGraph extends GridGraph {
       $p1 = null;
       $rect = array('x' => $this->pad_left, 'width' => $this->g_width);
       foreach($this->y_points as $y) {
+        $y = $y->position;
         if($c % 2 == 0 && !is_null($p1)) {
           $y1 = $p1 - $y;
           $pathdata .= "M$xleft {$y}l{$xd} {$yd}h{$x_w}v{$y1}h" . -$x_w .
@@ -128,10 +129,10 @@ abstract class ThreeDGraph extends GridGraph {
       $subpath_h = $subpath_v = '';
       if($this->show_grid_h)
         foreach($this->y_subdivs as $y) 
-          $subpath_v .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
+          $subpath_v .= "M$xleft {$y->position}l$xd {$yd}l$x_w 0";
       if($this->show_grid_v)
         foreach($this->x_subdivs as $x) 
-          $subpath_h .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
+          $subpath_h .= "M{$x->position} {$ybottom}l$xd {$yd}l0 " . -$y_h;
       if($subpath_h != '' || $subpath_v != '') {
         $colour_h = $this->GetFirst($this->grid_subdivision_colour_h,
           $this->grid_subdivision_colour, $this->grid_colour_h,
@@ -158,10 +159,10 @@ abstract class ThreeDGraph extends GridGraph {
     $path = "M$xleft {$ybottom}l$x_w 0M$xleft {$ybottom}l0 " . -$y_h;
     if($this->show_grid_h)
       foreach($this->y_points as $y)
-        $path_v .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
+        $path_v .= "M$xleft {$y->position}l$xd {$yd}l$x_w 0";
     if($this->show_grid_v)
       foreach($this->x_points as $x)
-        $path_h .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
+        $path_h .= "M{$x->position} {$ybottom}l$xd {$yd}l0 " . -$y_h;
 
     $colour_h = $this->GetFirst($this->grid_colour_h, $this->grid_colour);
     $colour_v = $this->GetFirst($this->grid_colour_v, $this->grid_colour);

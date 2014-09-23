@@ -375,7 +375,7 @@ abstract class GridGraph extends Graph {
   {
     // disable units for associative keys
     if($this->values->AssociativeKeys())
-      $this->units_x = null;
+      $this->units_x = $this->units_before_x = null;
 
     if($this->flip_axes) {
       $max_h = $ends['v_max'];
@@ -386,8 +386,10 @@ abstract class GridGraph extends Graph {
       $x_fit = false;
       $y_min_unit = 1;
       $y_fit = true;
-      $x_units = (string)$this->units_y;
-      $y_units = (string)$this->units_x;
+      $x_units_after = (string)$this->units_y;
+      $y_units_after = (string)$this->units_x;
+      $x_units_before = (string)$this->units_before_y;
+      $y_units_before = (string)$this->units_before_x;
 
     } else {
       $max_h = $ends['k_max'];
@@ -398,8 +400,10 @@ abstract class GridGraph extends Graph {
       $x_fit = true;
       $y_min_unit = $this->minimum_units_y;
       $y_fit = false;
-      $x_units = (string)$this->units_x;
-      $y_units = (string)$this->units_y;
+      $x_units_after = (string)$this->units_x;
+      $y_units_after = (string)$this->units_y;
+      $x_units_before = (string)$this->units_before_x;
+      $y_units_before = (string)$this->units_before_y;
     }
 
     // sanitise grid divisions
@@ -420,19 +424,25 @@ abstract class GridGraph extends Graph {
 
     if($this->log_axis_y && $this->flip_axes)
       $x_axis = new AxisLog($x_len, $max_h, $min_h, $x_min_unit, $x_fit,
-        $x_units, $this->log_axis_y_base, $this->grid_division_h);
+        $x_units_before, $x_units_after, $this->log_axis_y_base,
+        $this->grid_division_h);
     elseif(!is_numeric($this->grid_division_h))
-      $x_axis = new Axis($x_len, $max_h, $min_h, $x_min_unit, $x_fit, $x_units);
+      $x_axis = new Axis($x_len, $max_h, $min_h, $x_min_unit, $x_fit,
+        $x_units_before, $x_units_after);
     else
-      $x_axis = new AxisFixed($x_len, $max_h, $min_h, $this->grid_division_h, $x_units);
+      $x_axis = new AxisFixed($x_len, $max_h, $min_h, $this->grid_division_h,
+        $x_units_before, $x_units_after);
 
     if($this->log_axis_y && !$this->flip_axes)
       $y_axis = new AxisLog($y_len, $max_v, $min_v, $y_min_unit, $y_fit,
-        $y_units, $this->log_axis_y_base, $this->grid_division_v);
+        $y_units_before, $y_units_after, $this->log_axis_y_base,
+        $this->grid_division_v);
     elseif(!is_numeric($this->grid_division_v))
-      $y_axis = new Axis($y_len, $max_v, $min_v, $y_min_unit, $y_fit, $y_units);
+      $y_axis = new Axis($y_len, $max_v, $min_v, $y_min_unit, $y_fit,
+        $y_units_before, $y_units_after);
     else
-      $y_axis = new AxisFixed($y_len, $max_v, $min_v, $this->grid_division_v, $y_units);
+      $y_axis = new AxisFixed($y_len, $max_v, $min_v, $this->grid_division_v,
+        $y_units_before, $y_units_after);
 
     $y_axis->Reverse(); // because axis starts at bottom
     return array($x_axis, $y_axis);
@@ -599,7 +609,7 @@ abstract class GridGraph extends Graph {
     $y = $this->height - $pos['pos'];
     $height = -$pos['sz'];
     foreach($points as $x)
-      $path .= "M$x {$y}v{$height}";
+      $path .= "M{$x->position} {$y}v{$height}";
     return $path;
   }
 
@@ -616,8 +626,9 @@ abstract class GridGraph extends Graph {
 
     $x = $pos['pos'];
     $size = $pos['sz'];
-    foreach($points as $y)
-      $path .= "M$x {$y}h{$size}";
+    foreach($points as $y) {
+      $path .= "M$x {$y->position}h{$size}";
+    }
     return $path;
   }
 
@@ -658,7 +669,9 @@ abstract class GridGraph extends Graph {
       $position['text-anchor'] = $this->axis_text_angle_h < 0 ? 'end' : 'start';
     }
     $p = 0;
-    foreach($points as $label => $x) {
+    foreach($points as $grid_point) {
+      $label = $grid_point->text;
+      $x = $grid_point->position;
       $key = $this->flip_axes ? $label : $this->GetKey($label);
 
       // don't draw 0 over the axis line
@@ -709,7 +722,9 @@ abstract class GridGraph extends Graph {
     $positions = array();
     $count = count($points);
     $p = 0;
-    foreach($points as $label => $y) {
+    foreach($points as $grid_point) {
+      $label = $grid_point->text;
+      $y = $grid_point->position;
       $key = $this->flip_axes ? $this->GetKey($label) : $label;
 
       // don't draw 0 over the axis line
@@ -1045,25 +1060,25 @@ abstract class GridGraph extends Graph {
       $c = 0;
       if($this->flip_axes) {
         $rect = array('y' => $this->pad_top, 'height' => $this->g_height);
-        foreach($this->x_points as $x) {
+        foreach($this->x_points as $grid_point) {
           if($c % 2 == 0 && isset($rect['width'])) {
             $rect['x'] = $rect['width'];
-            $rect['width'] = $x - $rect['width'];
+            $rect['width'] = $grid_point->position - $rect['width'];
             $bars .= $this->Element('rect', $rect);
           } else {
-            $rect['width'] = $x;
+            $rect['width'] = $grid_point->position;
           }
           ++$c;
         }
       } else {
         $rect = array('x' => $this->pad_left, 'width' => $this->g_width);
-        foreach($this->y_points as $y) {
+        foreach($this->y_points as $grid_point) {
           if($c % 2 == 0 && isset($rect['height'])) {
-            $rect['y'] = $y;
-            $rect['height'] -= $y;
+            $rect['y'] = $grid_point->position;
+            $rect['height'] -= $grid_point->position;
             $bars .= $this->Element('rect', $rect);
           } else {
-            $rect['height'] = $y;
+            $rect['height'] = $grid_point->position;
           }
           ++$c;
         }
@@ -1074,10 +1089,10 @@ abstract class GridGraph extends Graph {
       $subpath_h = $subpath_v = '';
       if($this->show_grid_h)
         foreach($this->y_subdivs as $y) 
-          $subpath_v .= "M{$this->pad_left} {$y}h{$this->g_width}";
+          $subpath_v .= "M{$this->pad_left} {$y->position}h{$this->g_width}";
       if($this->show_grid_v)
         foreach($this->x_subdivs as $x) 
-          $subpath_h .= "M$x {$this->pad_top}v{$this->g_height}";
+          $subpath_h .= "M{$x->position} {$this->pad_top}v{$this->g_height}";
 
       if($subpath_h != '' || $subpath_v != '') {
         $colour_h = $this->GetFirst($this->grid_subdivision_colour_h,
@@ -1103,10 +1118,10 @@ abstract class GridGraph extends Graph {
 
     if($this->show_grid_h)
       foreach($this->y_points as $y) 
-        $path_v .= "M{$this->pad_left} {$y}h{$this->g_width}";
+        $path_v .= "M{$this->pad_left} {$y->position}h{$this->g_width}";
     if($this->show_grid_v)
       foreach($this->x_points as $x) 
-        $path_h .= "M$x {$this->pad_top}v{$this->g_height}";
+        $path_h .= "M{$x->position} {$this->pad_top}v{$this->g_height}";
 
     $colour_h = $this->GetFirst($this->grid_colour_h, $this->grid_colour);
     $colour_v = $this->GetFirst($this->grid_colour_v, $this->grid_colour);

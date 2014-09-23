@@ -147,6 +147,7 @@ class RadarGraph extends LineGraph {
 
     if($this->grid_straight) {
       foreach($y_points as $y) {
+        $y = $y->position;
         $x1 = $this->xc + $y * sin($this->arad);
         $y1 = $this->yc + $y * cos($this->arad);
         $path .= "M$x1 {$y1}L";
@@ -159,6 +160,7 @@ class RadarGraph extends LineGraph {
       }
     } else {
       foreach($y_points as $y) {
+        $y = $y->position;
         $p1 = $this->xc - $y;
         $p2 = $this->xc + $y;
         $path .= "M$p1 {$this->yc}A $y $y 0 1 1 $p2 {$this->yc}";
@@ -175,6 +177,7 @@ class RadarGraph extends LineGraph {
   {
     $path = '';
     foreach($x_points as $x) {
+      $x = $x->position;
       $angle = $this->arad + $x / $this->radius;
       $p1 = $this->radius * sin($angle);
       $p2 = $this->radius * cos($angle);
@@ -205,7 +208,7 @@ class RadarGraph extends LineGraph {
         $back_colour = "url(#{$gradient_id})";
       }
       // use the YGrid function to get the path
-      $points = array($r);
+      $points = array(new GridPoint($r, '', 0));
       $bpath = array(
         'd' => $this->YGrid($points),
         'fill' => $back_colour
@@ -301,22 +304,34 @@ class RadarGraph extends LineGraph {
     $grid_left = $this->pad_left;
 
     // want only Y size, not actual position
-    foreach($this->y_points as $point => $ygrid)
-      $this->y_points[$point] = $grid_bottom - $ygrid;
-    foreach($this->y_subdivs as $point => $ygrid)
-      $this->y_subdivs[$point] = $grid_bottom - $ygrid;
+    $new_points = array();
+    foreach($this->y_points as $point)
+      $new_points[] = new GridPoint($grid_bottom - $point->position,
+        $point->text, $point->value);
+    $this->y_points = $new_points;
+
+    $new_points = array();
+    foreach($this->y_subdivs as $point)
+      $new_points[] = new GridPoint($grid_bottom - $point->position,
+        $point->text, $point->value);
+    $this->y_subdivs = $new_points;
 
     // same with X, only want distance
-    foreach($this->x_points as $point => $xgrid) {
-      $new_x = $xgrid - $grid_left;
-      $this->x_points[$point] = $new_x;
+    $new_points = array();
+    foreach($this->x_points as $point) {
+      $new_x = $point->position - $grid_left;
+      $new_points[] = new GridPoint($new_x, $point->text, $point->value);
       $this->grid_angles[] = $this->arad + $new_x / $this->radius;
     }
-    foreach($this->x_subdivs as $point => $xgrid) {
-      $new_x = $xgrid - $grid_left;
-      $this->x_subdivs[$point] = $new_x;
+    $this->x_points = $new_points;
+
+    $new_points = array();
+    foreach($this->x_subdivs as $point) {
+      $new_x = $point->position - $grid_left;
+      $new_points[] = new GridPoint($new_x, $point->text, $point->value);
       $this->grid_angles[] = $this->arad + $new_x / $this->radius;
     }
+    $this->x_subdivs = $new_points;
     // put the grid angles in order
     sort($this->grid_angles);
   }
@@ -330,7 +345,7 @@ class RadarGraph extends LineGraph {
       return '';
 
     // use the YGrid function to get the path
-    $points = array($this->radius);
+    $points = array(new GridPoint($this->radius, '', 0));
     $path = $this->YGrid($points);
     return $this->Element('path', array('d' => $path, 'fill' => 'none'));
   }
@@ -359,6 +374,7 @@ class RadarGraph extends LineGraph {
       return '';
     $r1 = $this->radius - $pos['pos'];
     foreach($points as $p) {
+      $p = $p->position;
       $a = $this->arad + $p / $this->radius;
       $x1 = $this->xc + $r1 * sin($a);
       $y1 = $this->yc + $r1 * cos($a);
@@ -387,6 +403,7 @@ class RadarGraph extends LineGraph {
     $c = cos($this->arad);
     $s = sin($this->arad);
     foreach($points as $y) {
+      $y = $y->position;
       $x1 = ($this->xc + $y * $s) + $px;
       $y1 = ($this->yc + $y * $c) + $py;
       $path .= "M$x1 {$y1}l$x2 $y2";
@@ -408,7 +425,9 @@ class RadarGraph extends LineGraph {
     $count = count($points);
     $p = 0;
     $direction = $this->reverse ? -1 : 1;
-    foreach($points as $label => $x) {
+    foreach($points as $grid_point) {
+      $label = $grid_point->text;
+      $x = $grid_point->position;
       $key = $this->GetKey($label);
       if(strlen($key) > 0 && ++$p < $count) {
         $a = $this->arad + $direction * $x / $this->radius;
@@ -510,7 +529,9 @@ class RadarGraph extends LineGraph {
     $x3 = 0;
     $y3 = $c > 0 ? $font_size : 0;
     $position = array('text-anchor' => $s < 0 ? 'start' : 'end');
-    foreach($points as $key => $y) {
+    foreach($points as $grid_point) {
+      $key = $grid_point->text;
+      $y = $grid_point->position;
       if(strlen($key) > 0) {
         $x1 = $y * $s;
         $y1 = $y * $c;

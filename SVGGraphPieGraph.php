@@ -109,11 +109,10 @@ class PieGraph extends Graph {
 
       // get the path (or whatever) for a pie slice
       $attr = array('fill' => $this->GetColour($item, ($slice-1) % $ccount, true));
-      $style = $attr;
-      $this->SetStroke($style);
+      $this->SetStroke($attr, $item, 0, 'round');
 
       // store the current style referenced by the original position
-      $this->slice_styles[$original_position] = $style;
+      $this->slice_styles[$original_position] = $attr;
       if($this->show_tooltips)
         $this->SetTooltip($attr, $item, $key, $value, !$this->compat_events);
   
@@ -138,7 +137,8 @@ class PieGraph extends Graph {
             $parts = explode("\n", $this->GetKey($this->values->AssociativeKeys() ? 
               $original_position : $key));
           if($this->show_label_amount)
-            $parts[] = Graph::NumString($value);
+            $parts[] = $this->units_before_label . Graph::NumString($value) .
+              $this->units_label;
           if($this->show_label_percent)
             $parts[] = Graph::NumString($value / $this->total * 100.0,
               $this->label_percent_decimals) . '%';
@@ -167,11 +167,6 @@ class PieGraph extends Graph {
 
       $sub_total += $value;
     }
-
-    // group the slices
-    $attr = array();
-    $this->SetStroke($attr, 'round');
-    $body = $this->Element('g', $attr, NULL, $body);
 
     if($this->show_labels) {
       $label_group = array(

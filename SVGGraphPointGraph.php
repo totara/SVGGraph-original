@@ -52,9 +52,8 @@ abstract class PointGraph extends GridGraph {
   protected function AddMarker($x, $y, $item, $extra = NULL, $set = 0)
   {
     $m = new Marker($x, $y, $item, $extra);
-    if(!is_null($item->Data('colour')))
-      $m->id = $this->CreateSingleMarker($set,
-        $this->GetColour($item, null, true));
+    if($this->SpecialMarker($set, $item))
+      $m->id = $this->CreateSingleMarker($set, $item);
     $this->markers[$set][] = $m;
   }
 
@@ -274,32 +273,42 @@ abstract class PointGraph extends GridGraph {
   }
 
   /**
+   * Returns true if a marker is different to others in its set
+   */
+  private function SpecialMarker($set, &$item)
+  {
+    $null_item = null;
+    if($this->GetFromItemOrMember('marker_colour', $set, $item, 'colour') !=
+      $this->GetFromItemOrMember('marker_colour', $set, $null_item))
+      return true;
+
+    $vlist = array('marker_type', 'marker_size', 'marker_stroke_width',
+      'marker_stroke_colour');
+    foreach($vlist as $value)
+      if($this->GetFromItemOrMember($value, $set, $item) !=
+        $this->GetFromItemOrMember($value, $set, $null_item))
+        return true;
+    return false;
+  }
+
+  /**
    * Creates a single marker for the data set
    */
-  private function CreateSingleMarker($set, $colour = null)
+  private function CreateSingleMarker($set, &$item = null)
   {
-    $type = is_array($this->marker_type) ?
-      $this->marker_type[$set % count($this->marker_type)] :
-      $this->marker_type;
-    $size = is_array($this->marker_size) ?
-      $this->marker_size[$set % count($this->marker_size)] :
-      $this->marker_size;
-
+    $type = $this->GetFromItemOrMember('marker_type', $set, $item);
+    $size = $this->GetFromItemOrMember('marker_size', $set, $item);
+    $stroke_colour = $this->GetFromItemOrMember('marker_stroke_colour', $set,
+      $item);
     $stroke_width = '';
-    $stroke_colour = $this->marker_stroke_colour;
-    if(is_array($stroke_colour))
-      $stroke_colour = $stroke_colour[$set % count($stroke_colour)];
     if(!empty($stroke_colour) && $stroke_colour != 'none') {
-      $stroke_width = $this->marker_stroke_width;
-      if(is_array($stroke_width))
-        $stroke_width = $stroke_width[$set % count($stroke_width)];
+      $stroke_width = $this->GetFromItemOrMember('marker_stroke_width', $set,
+        $item);
     }
 
-    $mcolour = $this->marker_colour;
-    if(!is_null($colour)) {
-      $fill = $colour;
-    } elseif(!empty($mcolour)) {
-      $fill = is_array($mcolour) ?  $mcolour[$set % count($mcolour)] : $mcolour;
+    $mcolour = $this->GetFromItemOrMember('marker_colour', $set, $item, 'colour');
+    if(!empty($mcolour)) {
+      $fill = $this->SolidColour($mcolour);
     } else {
       $fill = $this->GetColour(null, $set % count($this->colours), true);
     }

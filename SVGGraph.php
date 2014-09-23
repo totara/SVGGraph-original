@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.12');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.13');
 
 class SVGGraph {
 
@@ -749,15 +749,19 @@ abstract class Graph {
     $height = $font_size;
     if(is_int($text)) {
       $len = $text;
-    } elseif($line_spacing > 0) {
-      $len = 0;
-      $lines = explode("\n", $text);
-      foreach($lines as $l)
-        if(strlen($l) > $len)
-          $len = strlen($l);
-      $height += $line_spacing * (count($lines) - 1);
     } else {
-      $len = strlen($text);
+      // replace all entities with an underscore
+      $text = preg_replace('/&[^;]+;/', '_', $text);
+      if($line_spacing > 0) {
+        $len = 0;
+        $lines = explode("\n", $text);
+        foreach($lines as $l)
+          if(strlen($l) > $len)
+            $len = strlen($l);
+        $height += $line_spacing * (count($lines) - 1);
+      } else {
+        $len = strlen($text);
+      }
     }
     $width = $len * $font_size * $font_adjust;
     if($angle % 180 != 0) {
@@ -941,17 +945,28 @@ abstract class Graph {
     }
     if(is_array($colour)) {
       if($no_gradient) {
-        // grab the first colour in the array, discarding opacity
-        $colour = $colour[0];
-        $colon = strpos($colour, ':');
-        if($colon)
-          $colour = substr($colour, 0, $colon);
+        $colour = $this->SolidColour($colour);
       } else {
         $gradient_id = $this->AddGradient($colour, $key);
         $colour = "url(#{$gradient_id})";
       }
     }
     return $colour;
+  }
+
+  /**
+   * Returns the solid colour from a gradient
+   */
+  protected static function SolidColour($c)
+  {
+    if(is_array($c)) {
+      // grab the first colour in the array, discarding opacity
+      $c = $c[0];
+      $colon = strpos($c, ':');
+      if($colon)
+        $c = substr($c, 0, $colon);
+    }
+    return $c;
   }
 
   /**
@@ -977,13 +992,22 @@ abstract class Graph {
   /**
    * Sets the stroke options for an element
    */
-  protected function SetStroke(&$attr, $line_join = null)
+  protected function SetStroke(&$attr, &$item, $set = 0, $line_join = null)
   {
-    if($this->stroke_width > 0) {
-      $attr['stroke'] = $this->stroke_colour;
-      $attr['stroke-width'] = $this->stroke_width;
+    $stroke_width = $this->GetFromItemOrMember('stroke_width', $set, $item);
+    if($stroke_width > 0) {
+      $attr['stroke'] = $this->GetFromItemOrMember('stroke_colour', $set, $item);
+      $attr['stroke-width'] = $stroke_width;
       if(!is_null($line_join))
         $attr['stroke-linejoin'] = $line_join;
+      else
+        unset($attr['stroke-linejoin']);
+
+      $dash = $this->GetFromItemOrMember('stroke_dash', $set, $item);
+      if(!empty($dash))
+        $attr['stroke-dasharray'] = $dash;
+      else
+        unset($attr['stroke-dasharray']);
     }
   }
 
@@ -1136,9 +1160,17 @@ abstract class Graph {
       if(is_null($text))
         return;
     } else {
-      $k = is_numeric($key) ? Graph::NumString($key) : $key;
-      $v = is_numeric($value) ? Graph::NumString($value) : $value;
-      $text = is_null($value) ? $k : $k . ', ' . $v;
+      // use a sprintf format for the tooltip
+      $format = '%s, %s';
+      if(is_null($value)) {
+        $value = $key;
+        $format = '%2$s'; // value only
+      }
+      $k = is_numeric($key) ? $this->units_before_tooltip_key . 
+        Graph::NumString($key) . $this->units_tooltip_key : $key;
+      $v = is_numeric($value) ? $this->units_before_tooltip . 
+        Graph::NumString($value) . $this->units_tooltip : $value;
+      $text = sprintf($format, $k, $v);
     }
     $text = addslashes(str_replace("\n", '\n', $text));
     Graph::$javascript->SetTooltip($element, $text, $duplicate);
@@ -1228,7 +1260,8 @@ abstract class Graph {
       $this->defs[] = $this->MakeLinearGradient($key);
 
     // show defs and body content
-    $heading .= $this->Element('defs', NULL, NULL, implode('', $this->defs));
+    if(count($this->defs))
+      $heading .= $this->Element('defs', NULL, NULL, implode('', $this->defs));
     if($this->namespace)
       $svg['xmlns:svg'] = "http://www.w3.org/2000/svg";
     else
@@ -1253,6 +1286,8 @@ abstract class Graph {
     // replace PHP's precision
     ini_set('precision', $old_precision);
 
+    if($this->minify)
+      $content = preg_replace('/\>\s+\</', '><', $content);
     return $content;
   }
 
@@ -1292,10 +1327,11 @@ abstract class Graph {
         if($onload_immediate)
           $functions .= "\n" . "setTimeout(function(){{$onload}},20);";
         $script_attr = array('type' => 'application/ecmascript');
+          $script = "$variables\n$functions\n";
+        if(!empty($this->minify_js) && function_exists($this->minify_js))
+          $script = call_user_func($this->minify_js, $script);
         if($cdata_wrap)
-          $script = "// <![CDATA[\n$variables\n$functions\n// ]]>";
-        else
-          $script = "\n$variables\n$functions\n";
+          $script = "// <![CDATA[\n$script\n// ]]>";
         $namespace = $this->namespace;
         if($no_namespace)
           $this->namespace = false;
@@ -1305,6 +1341,19 @@ abstract class Graph {
       }
     }
     return $js;
+  }
+
+  /**
+   * Returns a value from the $item, or the member % set
+   */
+  protected function GetFromItemOrMember($member, $set, &$item, $ikey = null)
+  {
+    $value = is_null($item) ? null : $item->Data(is_null($ikey) ? $member : $ikey);
+    if(is_null($value))
+      $value = is_array($this->{$member}) ?
+        $this->{$member}[$set % count($this->{$member})] :
+        $this->{$member};
+    return $value;
   }
 
   /**

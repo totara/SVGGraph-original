@@ -42,7 +42,6 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
       / $chunk_count;
     $chunk_unit_height = $chunk_height + $chunk_gap;
     $bar_style = array();
-    $this->SetStroke($bar_style);
     $bar = array('height' => $chunk_height);
 
     $bnum = 0;
@@ -61,6 +60,7 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
           $this->Bar($item->value, $bar);
 
           if($bar['width'] > 0) {
+            $this->SetStroke($bar_style, $item, $j);
             $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
 
             if($this->show_tooltips)

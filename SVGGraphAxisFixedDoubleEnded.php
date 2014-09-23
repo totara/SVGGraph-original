@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2012 Graham Breach
+ * Copyright (C) 2013 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,12 +19,12 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-require_once 'SVGGraphAxis.php';
+require_once 'SVGGraphAxisDoubleEnded.php';
 
 /**
  * Axis with fixed measurements
  */
-class AxisFixed extends Axis { 
+class AxisFixedDoubleEnded extends AxisDoubleEnded { 
 
   protected $step;
 

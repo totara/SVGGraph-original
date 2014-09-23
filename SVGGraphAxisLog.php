@@ -37,7 +37,7 @@ class AxisLog extends Axis {
   protected $int_base = true;
 
   public function __construct($length, $max_val, $min_val,
-    $min_unit, $fit, $units, $base, $divisions)
+    $min_unit, $fit, $units_before, $units_after, $base, $divisions)
   {
     if($min_val == 0 || $max_val == 0)
       throw new Exception('0 value on log axis');
@@ -47,7 +47,8 @@ class AxisLog extends Axis {
       throw new Exception('Zero length axis');
     $this->length = $length;
     $this->min_unit = $min_unit;
-    $this->units = $units;
+    $this->units_before = $units_before;
+    $this->units_after = $units_after;
     if(is_numeric($base) && $base > 1) {
       $this->base = $base * 1.0;
       $this->int_base = $this->base == floor($this->base);
@@ -97,26 +98,25 @@ class AxisLog extends Axis {
     while($l <= $this->lgmax) {
       $val = pow($this->base, $l) * ($this->negative ? -1 : 1);
       // convert to string to use as array key
-      $point = Graph::NumString($val) . $this->units;
+      $point = $this->units_before . Graph::NumString($val) . $this->units_after;
       $pos = $this->Position($val);
-      $points[$point] = $start + ($this->direction * $pos);
+      $position = $start + ($this->direction * $pos);
+      $points[] = new GridPoint($position, $point, $val);
 
       // add in divisions between powers
       if($l < $this->lgmax) {
         foreach($spoints as $l1) {
           $val = pow($this->base, $l + $l1) * ($this->negative ? -1 : 1);
-          $point = Graph::NumString($val) . $this->units;
+          $point = $this->units_before . Graph::NumString($val) . $this->units_after;
           $pos = $this->Position($val);
-          $points[$point] = $start + ($this->direction * $pos);
+          $position = $start + ($this->direction * $pos);
+          $points[] = new GridPoint($position, $point, $val);
         }
       }
       ++$l;
     }
 
-    if($this->direction < 0)
-      arsort($points);
-    else
-      asort($points);
+    usort($points, ($this->direction < 0 ? 'GridPoint::rsort' : 'GridPoint::sort'));
     return $points;
   }
 
@@ -135,7 +135,8 @@ class AxisLog extends Axis {
             if($this->grid_split == 0 || $l1 % $this->grid_split) {
               $p = log($l1, $this->base);
               $val = pow($this->base, $l + $p);
-              $points[] = $start + $this->Position($val) * $this->direction;
+              $position = $start + $this->Position($val) * $this->direction;
+              $points[] = new GridPoint($position, '', $val);
             }
           }
         }

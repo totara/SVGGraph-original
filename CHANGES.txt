@@ -1,3 +1,17 @@
+Version 2.13 (31/07/2013)
+------------
+- Added PopulationPyramid graph.
+- Added units_before_x and units_before_y options for axis text.
+- Added units_label and units_before_label options for pie/bar labels.
+- Added units_tooltip, units_before_tooltip, units_tooltip_key and
+  units_before_tooltip_key options for tooltip values.
+- Added stroke_dash, minify and minify_js options.
+- Added structured data options: marker_type, marker_size, marker_stroke_width,
+  marker_stroke_colour, stroke_colour, stroke_width and stroke_dash.
+- Fixed display of character entities in tooltips.
+- Fixed measurement of text containing character entities.
+- Fixed dragging of legend over pie graphs.
+
 Version 2.12 (18/05/2013)
 ------------
 - Added log_axis_y and log_axis_y_base options.

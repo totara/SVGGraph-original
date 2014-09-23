@@ -31,12 +31,14 @@ class Axis {
   protected $min_unit;
   protected $fit;
   protected $zero;
-  protected $units;
+  protected $units_before;
+  protected $units_after;
   protected $uneven = false;
   protected $rounded_up = false;
   protected $direction = 1;
 
-  public function __construct($length, $max_val, $min_val, $min_unit, $fit, $units)
+  public function __construct($length, $max_val, $min_val, $min_unit, $fit,
+    $units_before, $units_after)
   {
     if($max_val <= $min_val && $min_unit == 0)
       throw new Exception('Zero length axis');
@@ -45,7 +47,8 @@ class Axis {
     $this->min_value = $min_val;
     $this->min_unit = $min_unit;
     $this->fit = $fit;
-    $this->units = $units;
+    $this->units_before = $units_before;
+    $this->units_after = $units_after;
   }
 
   /**
@@ -266,8 +269,7 @@ class Axis {
   }
 
   /**
-   * Returns the grid points as an associative array:
-   * array($value => $position)
+   * Returns the grid points as an array of GridPoints
    */
   public function GetGridPoints($min_space, $start)
   {
@@ -277,23 +279,22 @@ class Axis {
     $points = array();
     while($pos < $dlength) {
       // convert to string to use as array key
-      $point = Graph::NumString(($pos - $this->zero) / $this->unit_size) .
-        $this->units;
-      $points[$point] = $start + ($this->direction * $pos);
+      $value = ($pos - $this->zero) / $this->unit_size;
+      $text = $this->units_before . Graph::NumString($value) . $this->units_after;
+      $position = $start + ($this->direction * $pos);
+      $points[] = new GridPoint($position, $text, $value);
       $pos = ++$c * $spacing;
     }
     // uneven means the divisions don't fit exactly, so add the last one in
     if($this->uneven) {
       $pos = $this->length - $this->zero;
-      $point = Graph::NumString($pos / $this->unit_size) . $this->units;
-      $points[$point] = $start + ($this->direction * $this->length);
+      $value = $pos / $this->unit_size;
+      $text = $this->units_before . Graph::NumString($value) . $this->units_after;
+      $position = $start + ($this->direction * $this->length);
+      $points[] = new GridPoint($position, $text, $value);
     }
 
-    if($this->direction < 0)
-      arsort($points);
-    else
-      asort($points);
-
+    usort($points, ($this->direction < 0 ? 'GridPoint::rsort' : 'GridPoint::sort'));
     $this->grid_spacing = $spacing;
     return $points;
   }
@@ -319,7 +320,7 @@ class Axis {
       $d = 1;
       $pos2 = $d * $spacing;
       while($pos2 < $this->grid_spacing) {
-        $subdivs[] = $start + (($pos1 + $pos2) * $this->direction);
+        $subdivs[] = new GridPoint($start + (($pos1 + $pos2) * $this->direction), '', 0);
         ++$d;
         $pos2 = $d * $spacing;
       }
@@ -354,6 +355,34 @@ class Axis {
         return $grid_div / $divisions;
     }
     return null;
+  }
+
+}
+
+/**
+ * Class for axis grid points
+ */
+class GridPoint {
+
+  public $position;
+  public $text;
+  public $value;
+
+  public function __construct($position, $text, $value)
+  {
+    $this->position = $position;
+    $this->text = $text;
+    $this->value = $value;
+  }
+
+  public static function sort($a, $b)
+  {
+    return $a->position - $b->position;
+  }
+
+  public static function rsort($a, $b)
+  {
+    return $b->position - $a->position;
   }
 
 }

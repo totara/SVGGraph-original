@@ -62,19 +62,16 @@ class Bar3DGraph extends ThreeDGraph {
           $group['fill'] = $this->GetColour($item, $colour);
           if($this->show_tooltips)
             $this->SetTooltip($group, $item, $item->value);
+          $this->SetStroke($group, $item, 0, 'round');
           $bars .= $this->Element('g', $group, NULL, $link);
           unset($group['id']); // make sure a new one is generated
-          $style = $group;
-          $this->SetStroke($style);
-          $this->bar_styles[] = $style;
+          $this->bar_styles[] = $group;
         }
       }
       ++$bnum;
     }
 
-    $bgroup = array('fill' => 'none');
-    $this->SetStroke($bgroup, 'round');
-    $body .= $this->Element('g', $bgroup, NULL, $bars);
+    $body .= $bars;
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
   }
