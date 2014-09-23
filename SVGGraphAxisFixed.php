@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2011 Graham Breach
+ * Copyright (C) 2009-2012 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,47 +19,49 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-require_once('SVGGraphAxis.php');
+require_once 'SVGGraphAxis.php';
 
 /**
  * Axis with fixed measurements
  */
 class AxisFixed extends Axis { 
 
-	protected $step;
+  protected $step;
 
-	public function __construct($length, $max_val, $min_val, $step)
-	{
-		parent::__construct($length, $max_val, $min_val, 1);
-		$this->step = $step;
-	}
+  public function __construct($length, $max_val, $min_val, $step)
+  {
+    parent::__construct($length, $max_val, $min_val, 1);
+    $this->step = $step;
+  }
 
-	/**
-	 * Calculates a grid based on min, max and step
-	 * min and max will be adjusted to fit step
-	 */
-	public function Grid($min, $round_up = false)
-	{
-		// if min and max are the same side of 0, only adjust one of them
-		if($this->max_value * $this->min_value >= 0) {
-			$count = $this->max_value == $this->min_value ? 1 : $this->max_value - $this->min_value;
-			if(abs($this->max_value) >= abs($this->min_value)) {
-				$this->max_value = $this->min_value + $this->step * ceil($count / $this->step);
-			} else {
-				$this->min_value = $this->max_value - $this->step * ceil($count / $this->step);
-			}
-		} else {
-			$this->max_value = $this->step * ceil($this->max_value / $this->step);
-			$this->min_value = $this->step * floor($this->min_value / $this->step);
-		}
+  /**
+   * Calculates a grid based on min, max and step
+   * min and max will be adjusted to fit step
+   */
+  public function Grid($min, $round_up = false)
+  {
+    // if min and max are the same side of 0, only adjust one of them
+    if($this->max_value * $this->min_value >= 0) {
+      $count = $this->max_value == $this->min_value ? 1 :
+        $this->max_value - $this->min_value;
+      if(abs($this->max_value) >= abs($this->min_value)) {
+        $this->max_value = $this->min_value +
+          $this->step * ceil($count / $this->step);
+      } else {
+        $this->min_value = $this->max_value -
+          $this->step * ceil($count / $this->step);
+      }
+    } else {
+      $this->max_value = $this->step * ceil($this->max_value / $this->step);
+      $this->min_value = $this->step * floor($this->min_value / $this->step);
+    }
 
-		$count = ($this->max_value - $this->min_value) / $this->step;
-		$ulen = $this->max_value - $this->min_value;
-		$this->unit_size = $this->length / $ulen;
-		$grid = $this->length / $count;
-		$this->zero = (-$this->min_value / $this->step) * $grid;
-		return $grid;
-	}
+    $count = ($this->max_value - $this->min_value) / $this->step;
+    $ulen = $this->max_value - $this->min_value;
+    $this->unit_size = $this->length / $ulen;
+    $grid = $this->length / $count;
+    $this->zero = (-$this->min_value / $this->step) * $grid;
+    return $grid;
+  }
 }
-
 

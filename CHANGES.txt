@@ -1,3 +1,10 @@
+Version 2.6 (30/03/2012)
+-----------
+- Moved all configuration defaults to svggraph.ini.
+- Added legend_* options.
+- Added label_* options.
+- Added graph_title_* options.
+
 Version 2.5.1 (20/02/2012)
 -------------
 - Fixed bug with 0 values in stacked graphs.

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2010-2011 Graham Breach
+ * Copyright (C) 2010-2012 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,94 +19,98 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-require_once('SVGGraphPieGraph.php');
+require_once 'SVGGraphPieGraph.php';
 
 class Pie3DGraph extends PieGraph {
 
-	protected $depth = '40'; // pixels
+  public function Draw()
+  {
+    // modify pad_bottom to make PieGraph do the hard work
+    $pb = $this->pad_bottom;
+    $this->pad_bottom += $this->depth;
+    $this->Calc();
+    $this->pad_bottom = $pb;
+    return PieGraph::Draw();
+  }
 
-	public function Draw()
-	{
-		// modify pad_bottom to make PieGraph do the hard work
-		$pb = $this->pad_bottom;
-		$this->pad_bottom += $this->depth;
-		$this->Calc();
-		$this->pad_bottom = $pb;
-		return PieGraph::Draw();
-	}
+  /**
+   * Override the parent to draw 3D slice
+   */
+  protected function GetSlice($angle_start, $angle_end, &$attr)
+  {
+    $x_start = $y_start = $x_end = $y_end = 0;
+    $angle_start += $this->s_angle;
+    $angle_end += $this->s_angle;
+    $this->CalcSlice($angle_start, $angle_end, $x_start, $y_start,
+      $x_end, $y_end);
 
-	/**
-	 * Override the parent to draw 3D slice
-	 */
-	protected function GetSlice($angle1, $angle2, &$attr)
-	{
-		$x1 = $y1 = $x2 = $y2 = 0;
-		$angle1 += $this->s_angle;
-		$angle2 += $this->s_angle;
-		$this->CalcSlice($angle1, $angle2, $x1, $y1, $x2, $y2);
+    $outer = $angle_end - $angle_start > M_PI ? 1 : 0;
+    $sweep = $this->reverse ? 0 : 1;
+    $side_start = $this->reverse ? M_PI : M_PI * 2;
+    $side_end = $this->reverse ? M_PI * 2 : M_PI;
 
-		$outer = $angle2 - $angle1 > M_PI ? 1 : 0;
-		$sweep = $this->reverse ? 0 : 1;
-		$side1 = $this->reverse ? M_PI : M_PI * 2;
-		$side2 = $this->reverse ? M_PI * 2 : M_PI;
+    $path = '';
+    $angle_start_lower = $this->LowerHalf($angle_start);
+    $angle_end_lower = $this->LowerHalf($angle_end);
+    if($angle_start_lower || $angle_end_lower || $outer) {
+      if($angle_start_lower && $angle_end_lower && $outer) {
+        // if this is a big slice with both sides at bottom, need 2 edges
+        $path .= $this->GetEdge($angle_start, $side_end);
+        $path .= $this->GetEdge($side_start, $angle_end);
+      } else {
+        // if an edge is in the top half, need to truncate to x-radius
+        $angle_start_trunc = $angle_start_lower ? $angle_start : $side_start;
+        $angle_end_trunc = $angle_end_lower ? $angle_end : $side_end;
+        $path .= $this->GetEdge($angle_start_trunc, $angle_end_trunc);
+      }
+    }
+    if((string)$x_start == (string)$x_end &&
+      (string)$y_start == (string)$y_end) {
+      $attr_path = array('d' => $path);
+      $attr_ellipse = array(
+        'cx' => $this->x_centre, 'cy' => $this->y_centre,
+        'rx' => $this->radius_x, 'ry' => $this->radius_y
+      );
+      return $this->Element('g', $attr, NULL, 
+        $this->Element('path', $attr_path) .
+        $this->Element('ellipse', $attr_ellipse));
+    } else {
+      $outer = ($angle_end - $angle_start > M_PI ? 1 : 0);
+      $sweep = ($this->reverse ? 0 : 1);
+      $attr['d'] = $path . "M{$this->x_centre},{$this->y_centre} " .
+        "L$x_start,$y_start A{$this->radius_x} {$this->radius_y} 0 " .
+        "$outer,$sweep $x_end,$y_end z";
+      return $this->Element('path', $attr);
+    }
+  }
 
-		$path = '';
-		$a1_l = $this->LowerHalf($angle1);
-		$a2_l = $this->LowerHalf($angle2);
-		if($a1_l || $a2_l || $outer) {
-			if($a1_l && $a2_l && $outer) {
-				// if this is a big slice with both sides at bottom, need 2 edges
-				$path .= $this->GetEdge($angle1, $side2);
-				$path .= $this->GetEdge($side1, $angle2);
-			} else {
-				// if an edge is in the top half, need to truncate to x-radius
-				$a1 = $a1_l ? $angle1 : $side1;
-				$a2 = $a2_l ? $angle2 : $side2;
-				$path .= $this->GetEdge($a1, $a2);
-			}
-		}
-		if((string)$x1 == (string)$x2 && (string)$y1 == (string)$y2) {
-			$attr1 = array('d' => $path);
-			$attr2 = array(
-				'cx' => $this->x_centre, 'cy' => $this->y_centre,
-				'rx' => $this->radius_x, 'ry' => $this->radius_y
-			);
-			return $this->Element('g', $attr, NULL, 
-				$this->Element('path', $attr1) . $this->Element('ellipse', $attr2));
-		} else {
-			$outer = ($angle2 - $angle1 > M_PI ? 1 : 0);
-			$sweep = ($this->reverse ? 0 : 1);
-			$attr['d'] = $path . "M{$this->x_centre},{$this->y_centre} L$x1,$y1 A{$this->radius_x} {$this->radius_y} 0 $outer,$sweep $x2,$y2 z";
-			return $this->Element('path', $attr);
-		}
-		$path .= "M{$this->x_centre},{$this->y_centre} L$x1,$y1 A{$this->radius_x} {$this->radius_y} 0 $outer,$sweep $x2,$y2 z";
-		return $path;
-	}
+  /**
+   * Returns the path for an edge
+   */
+  protected function GetEdge($angle_start, $angle_end)
+  {
+    $x_start = $y_start = $x_end = $y_end = 0;
+    $this->CalcSlice($angle_start, $angle_end, $x_start, $y_start,
+      $x_end, $y_end);
+    $y_end_depth = $y_end + $this->depth;
 
-	/**
-	 * Returns the path for an edge
-	 */
-	protected function GetEdge($angle1, $angle2)
-	{
-		$x1 = $y1 = $x2 = $y2 = 0;
-		$this->CalcSlice($angle1, $angle2, $x1, $y1, $x2, $y2);
-		$y2a = $y2 + $this->depth;
+    $outer = 0; // edge is never > PI
+    $sweep = $this->reverse ? 0 : 1;
 
-		$outer = 0; // edge is never > PI
-		$sweep = $this->reverse ? 0 : 1;
+    return "M$x_start,$y_start l0,{$this->depth} " .
+      "A{$this->radius_x} {$this->radius_y} 0 " .
+      "$outer,$sweep $x_end,$y_end_depth l0,-{$this->depth} ";
+  }
 
-		return "M$x1,$y1 l0,{$this->depth} A{$this->radius_x} {$this->radius_y} 0 $outer,$sweep $x2,$y2a l0,-{$this->depth} ";
-	}
-
-	/**
-	 * Returns TRUE if the angle is in the lower half of the pie
-	 */
-	protected function LowerHalf($angle)
-	{
-		$angle = fmod($angle, M_PI * 2);
-		return ($this->reverse && $angle > M_PI && $angle < M_PI * 2) ||
-			(!$this->reverse && $angle < M_PI && $angle > 0);
-	}
+  /**
+   * Returns TRUE if the angle is in the lower half of the pie
+   */
+  protected function LowerHalf($angle)
+  {
+    $angle = fmod($angle, M_PI * 2);
+    return ($this->reverse && $angle > M_PI && $angle < M_PI * 2) ||
+      (!$this->reverse && $angle < M_PI && $angle > 0);
+  }
 
 }
 

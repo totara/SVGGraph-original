@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2011 Graham Breach
+ * Copyright (C) 2009-2012 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,63 +19,77 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-require_once('SVGGraphGridGraph.php');
+require_once 'SVGGraphGridGraph.php';
 
 class BarGraph extends GridGraph {
 
-	protected $bar_space = 10;
-	protected $label_centre = true;
+  protected $bar_styles = array();
+  protected $label_centre = TRUE;
 
-	protected function Draw()
-	{
-		$values = $this->GetValues();
-		$assoc = $this->AssociativeKeys();
-		$this->CalcAxes($assoc, true);
-		$body = $this->Grid();
+  protected function Draw()
+  {
+    $values = $this->GetValues();
+    $assoc = $this->AssociativeKeys();
+    $this->CalcAxes($assoc, true);
+    $body = $this->Grid();
 
-		$bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
-			$this->bar_unit_width - $this->bar_space);
-		$bar_style = array();
-		$this->SetStroke($bar_style);
+    $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
+      $this->bar_unit_width - $this->bar_space);
+    $bar_style = array();
+    $this->SetStroke($bar_style);
 
-		$bnum = 0;
-		$bspace = $this->bar_space / 2;
-		$ccount = count($this->colours);
-		foreach($values as $key => $value) {
-			// assign bar in the loop so it doesn't keep ID
-			$bar = array('width' => $bar_width);
-			$bar_pos = $this->GridPosition($key, $bnum);
-			if(!is_null($bar_pos)) {
-				$bar['x'] = $bspace + $bar_pos;
-				$this->Bar($value, $bar);
+    $bnum = 0;
+    $bspace = $this->bar_space / 2;
+    $ccount = count($this->colours);
+    foreach($values as $key => $value) {
+      // assign bar in the loop so it doesn't keep ID
+      $bar = array('width' => $bar_width);
+      $bar_pos = $this->GridPosition($key, $bnum);
+      if(!is_null($bar_pos)) {
+        $bar['x'] = $bspace + $bar_pos;
+        $this->Bar($value, $bar);
 
-				if($bar['height'] > 0) {
-					$bar_style['fill'] = $this->GetColour($bnum % $ccount);
+        if($bar['height'] > 0) {
+          $bar_style['fill'] = $this->GetColour($bnum % $ccount);
 
-					if($this->show_tooltips)
-						$this->SetTooltip($bar, $value);
-					$rect = $this->Element('rect', $bar, $bar_style);
-					$body .= $this->GetLink($key, $rect);
-				}
-			}
-			++$bnum;
-		}
+          if($this->show_tooltips)
+            $this->SetTooltip($bar, $value);
+          $rect = $this->Element('rect', $bar, $bar_style);
+          $body .= $this->GetLink($key, $rect);
 
-		$body .= $this->Axes();
-		return $body;
-	}
+          $this->bar_styles[] = $bar_style;
+        }
+      }
+      ++$bnum;
+    }
 
-	/**
-	 * Fills in the y-position and height of a bar
-	 */
-	protected function Bar($value, &$bar)
-	{
-		$y0 = $this->height - $this->pad_bottom - $this->y0;
-		$l1 = $this->ClampVertical($y0);
-		$l2 = $this->ClampVertical($y0 - ($value * $this->bar_unit_height));
-		$bar['y'] = min($l1,$l2);
-		$bar['height'] = abs($l1-$l2);
-	}
+    $body .= $this->Axes();
+    return $body;
+  }
+
+  /**
+   * Fills in the y-position and height of a bar
+   */
+  protected function Bar($value, &$bar)
+  {
+    $y = $this->height - $this->pad_bottom - $this->y0;
+    $l1 = $this->ClampVertical($y);
+    $l2 = $this->ClampVertical($y - ($value * $this->bar_unit_height));
+    $bar['y'] = min($l1, $l2);
+    $bar['height'] = abs($l1-$l2);
+  }
+
+  /**
+   * Return box for legend
+   */
+  protected function DrawLegendEntry($set, $x, $y, $w, $h)
+  {
+    if(!array_key_exists($set, $this->bar_styles))
+      return '';
+
+    $bar = array('x' => $x, 'y' => $y, 'width' => $w, 'height' => $h);
+    return $this->Element('rect', $bar, $this->bar_styles[$set]);
+  }
 
 }
 

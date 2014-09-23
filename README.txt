@@ -1,4 +1,4 @@
-SVGGraph Library version 2.5
+SVGGraph Library version 2.6
 ============================
 
 This library provides PHP classes and functions for easily creating SVG
@@ -233,128 +233,9 @@ of settings to the SVGGraph constructor:
  $settings = array('back_colour' => 'white');
  $graph = new Graph($w, $h, $settings);
 
-The list of options and their defaults are shown below. Sizes are always in
-pixels. Since this is a standard PHP array, numbers and boolean values should
-be represented without quotes, everything else should be quoted with either
-single or double quotes.
- title                  NULL                Contents of title tag, or NULL for none
- description            NULL                Contents of desc tag, or NULL for none
- stroke_colour          'rgb(0,0,0)'        Colour of graph lines
- stroke_width           1                   Thickness of graph lines, 0 disables line drawing
- back_colour            'rgb(240,240,240)'  Background colour of graph
- back_round             0                   Radius of rounded background edge
- back_stroke_width      1                   Thickness of background edge
- back_stroke_colour     'rgb(0,0,0)'        Colour of background edge
- back_image             NULL                Image to use for background (NULL for none)
- back_image_width       '100%'              Width of background image
- back_image_height      '100%'              Height of background image
- back_image_opacity     1.0                 Opacity of background image (0.0-1.0)
- back_image_top         0                   Top offset of background image
- back_image_left        0                   Left offset of background image
- back_image_mode        'auto'              Background image display method. Options are 'auto', 'tile', 'stretch'
- pad_top                10                  Space at top of graph
- pad_bottom             10                  Space at bottom of graph
- pad_left               10                  Space to left of graph
- pad_right              10                  Space to right of graph
- link_base              ''                  Prepended to all links
- link_target            '_blank'            Link target frame
- namespace              false               Option to use the svg: namespace prefix
- doctype                false               Option to output the DOCTYPE
- show_tooltips          true                Enables display of tooltips over graph markers
- tooltip_colour         'black'             Tooltip text/border colour
- tooltip_stroke_width   1                   Tooltip border thickness
- tooltip_back_colour    '#ffffcc'           Tooltip rectangle background colour
- tooltip_font           'sans-serif'        Font for tooltips
- tooltip_font_weight    'normal'            Tooltip font weight
- tooltip_font_size      10                  Tooltip font size
- tooltip_padding        3                   Tooltip rectangle padding
- tooltip_round          0                   Radius of rounded tooltip corner
- tooltip_shadow_opacity 0.3                 Opacity of tooltip shadow (0.0-1.0, 0 disables shadow)
- tooltip_offset         10                  Distance between cursor and tooltip
- compat_events          false               Set to TRUE to fall back to inline event handlers, required by Adobe IE plugin
-
-These options are common to the Bar, Line, Bar3D, Scatter, StackedBar,
-GroupedBar, MultiLine, MultiScatter, HorizontalBar, HorizontalStackedBar
-and HorizontalGroupedBar graph types:
- show_grid              true                Grid on/off option
- show_axes              true                Axes on/off option
- show_divisions         true                Axis division points on/off
- show_label_h           true                Horizontal axis labelling on/off
- show_label_v           true                Vertical axis labelling on/off
- grid_colour            'rgb(220,220,220)'  Colour of grid lines
- axis_colour            'rgb(0,0,0)'        Colour of axis lines
- axis_font              'monospace'         Font for labels
- axis_font_size         10                  Label font size
- axis_font_adjust       0.6                 Approx ratio of font width to height
- axis_overlap           5                   Amount to extend axes past graph area
- label_colour           'rgb(0,0,0)'        Colour of label text
- division_size          3                   Length of division lines
- division_colour        NULL                Colour of division lines, or NULL to use axis colour
- minimum_grid_spacing   15                  Minimum distance between grid/axis lines
- minimum_grid_spacing_v NULL                Minimum distance between vertical grid lines
- minimum_grid_spacing_h NULL                Minimum distance between horizontal grid lines
- axis_min_v             NULL                Minimum value for Y-axis
- axis_max_v             NULL                Maximum value for Y-axis
- axis_min_h             NULL                Minimum value for X-axis
- axis_max_h             NULL                Maximum value for X-axis
- grid_division_v        NULL                Division step value for Y-axis (minimum_grid_spacing is ignored)
- grid_division_h        NULL                Division step value for X-axis (minimum_grid_spacing is ignored)
- show_subdivisions      false               Enables axis subdivisions
- subdivision_size       2                   Size of axis subdivision markings
- subdivision_colour     division_colour     Colour of axis subdivision markings
- show_grid_subdivision  false               Enables grid subdivisions
- grid_subdivision_colour rgba(220,220,220,0.5) Colour of grid subdivision lines
- minimum_subdivision    5                   Minimum distance between subdivisions
- subdivision_h          NULL                Subdivision step value on X-axis
- subdivision_v          NULL                Subdivision step value on Y-axis
-
-BarGraph and StackedBarGraph options:
- bar_space            10                  Space between bars
-
-Bar3DGraph options:
- bar_space            10                  Space between bars
- project_angle        30                  Angle between bar side edges and horizontal axis
-
-GroupedBarGraph options:
- bar_space            10                  Space between groups
- group_space          3                   Space between bars in group
-
-LineGraph, MultiLineGraph and ScatterGraph options:
- marker_size          5                   Size of point markers
- marker_type          'circle'            Type of marker to use (circle, square, triangle, cross, x, pentagon)
- marker_colour        NULL                Colour of marker (NULL to use same as line)
-
-LineGraph and MultiLineGraph options:
- line_stroke_width    2                   Thickness of graph line
- line_dash            NULL                Line dash pattern
- fill_under           false               If true, the area under the line is filled
- fill_opacity         1                   Opacity of the filled area (MultiLine default is 0.5)
-
-ScatterGraph and MultiScatterGraph options:
- scatter_2d           false             If true, supports data as array(x,y) pairs as described above.
-
-PieGraph and Pie3DGraph options:
- aspect_ratio          1.0              Ratio of height/width (or 'auto' to fill area)
- sort                  true             Sorts the pie slices, largest first
- reverse               false            Slices are drawn anti-clockwise instead of clockwise
- start_angle           0                Angle in degrees to start the first slice at
- show_labels           true             Slice labelling on/off option
- show_label_amount     false            Display slice value on/off option
- show_label_percent    false            Display slice percentage on/off option
- label_colour          'white'          Colour of label text
- label_back_colour     NULL             Label background colour
- label_font            'sans-serif'     Font for labels
- label_font_weight     'bold'           Label font weight
- label_font_size       18               Label font size
- label_fade_in_speed   0                Speed to fade in labels (try 1 - 10, 0 disables)
- label_fade_out_speed  0                Speed to fade out labels, if fading in enabled
- label_position        0.75             Distance of label from centre
-
-Pie3DGraph options:
- depth              40                  Depth of the 3D pie slice
-
-For examples and more information on how these options work, please visit
-the website: http://www.goat1000.com/
+There are now too many options for me to list them all here without wasting a 
+lot of time, and probably making mistakes. For the full list of options, examples
+and descriptions, please visit the website: http://www.goat1000.com/svggraph.php
 
 
 Contact details
@@ -363,4 +244,4 @@ For more information about this software please contact the author,
 graham(at)goat1000.com or visit the website: http://www.goat1000.com/
 
 
-Copyright (C) 2009-2011 Graham Breach
+Copyright (C) 2009-2012 Graham Breach

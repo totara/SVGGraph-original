@@ -19,150 +19,151 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-require_once('SVGGraphMultiGraph.php');
-require_once('SVGGraphBarGraph.php');
+require_once 'SVGGraphMultiGraph.php';
+require_once 'SVGGraphBarGraph.php';
 
 class StackedBarGraph extends BarGraph {
 
-	protected $multi_graph;
-	protected $bar_space = 10;
-	protected $label_centre = true;
+  protected $multi_graph;
 
-	protected function Draw()
-	{
-		$assoc = $this->AssociativeKeys();
-		$this->CalcAxes($assoc,true);
-		$body = $this->Grid();
+  protected function Draw()
+  {
+    $assoc = $this->AssociativeKeys();
+    $this->CalcAxes($assoc, true);
+    $body = $this->Grid();
 
-		$bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
-			$this->bar_unit_width - $this->bar_space);
-		$bar_style = array();
-		$this->SetStroke($bar_style);
-		$bar = array('width' => $bar_width);
+    $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
+      $this->bar_unit_width - $this->bar_space);
+    $bar_style = array();
+    $this->SetStroke($bar_style);
+    $bar = array('width' => $bar_width);
 
-		$bspace = $this->bar_space / 2;
-		$bnum = 0;
-		$ccount = count($this->colours);
-		$chunk_count = count($this->values);
-		foreach($this->multi_graph->all_keys as $k) {
-			$bar_pos = $this->GridPosition($k, $bnum);
+    $bspace = $this->bar_space / 2;
+    $bnum = 0;
+    $ccount = count($this->colours);
+    $chunk_count = count($this->values);
+    foreach($this->multi_graph->all_keys as $k) {
+      $bar_pos = $this->GridPosition($k, $bnum);
 
-			if(!is_null($bar_pos)) {
-				$bar['x'] = $bspace + $bar_pos;
+      if(!is_null($bar_pos)) {
+        $bar['x'] = $bspace + $bar_pos;
 
-				$ypos = $yneg = $yplus = $yminus = 0;
-				for($j = 0; $j < $chunk_count; ++$j) {
-					$value = $this->multi_graph->GetValue($k, $j);
-					$this->Bar($value >= 0 ? $value + $yplus : $value - $yminus, $bar);
-					if($value < 0) {
-						$bar['height'] -= $yneg;
-						$bar['y'] += $yneg;
-						$yneg += $bar['height'];
-						$yminus -= $value;
-					} else {
-						$bar['height'] -= $ypos;
-						$ypos += $bar['height'];
-						$yplus += $value;
-					}
+        $ypos = $yneg = $yplus = $yminus = 0;
+        for($j = 0; $j < $chunk_count; ++$j) {
+          $value = $this->multi_graph->GetValue($k, $j);
+          $this->Bar($value >= 0 ? $value + $yplus : $value - $yminus, $bar);
+          if($value < 0) {
+            $bar['height'] -= $yneg;
+            $bar['y'] += $yneg;
+            $yneg += $bar['height'];
+            $yminus -= $value;
+          } else {
+            $bar['height'] -= $ypos;
+            $ypos += $bar['height'];
+            $yplus += $value;
+          }
 
-					if($bar['height'] > 0) {
-						$bar_style['fill'] = $this->GetColour($j % $ccount);
+          if($bar['height'] > 0) {
+            $bar_style['fill'] = $this->GetColour($j % $ccount);
 
-						if($this->show_tooltips)
-							$this->SetTooltip($bar, $value);
-						$rect = $this->Element('rect', $bar, $bar_style);
-						$body .= $this->GetLink($k, $rect);
-						unset($bar['id']); // clear for next value
-					}
-				}
-			}
-			++$bnum;
-		}
+            if($this->show_tooltips)
+              $this->SetTooltip($bar, $value);
+            $rect = $this->Element('rect', $bar, $bar_style);
+            $body .= $this->GetLink($k, $rect);
+            unset($bar['id']); // clear for next value
 
-		$body .= $this->Axes();
-		return $body;
-	}
+            if(!array_key_exists($j, $this->bar_styles))
+              $this->bar_styles[$j] = $bar_style;
+          }
+        }
+      }
+      ++$bnum;
+    }
 
-	/**
-	 * construct multigraph
-	 */
-	public function Values($values)
-	{
-		parent::Values($values);
-		$this->multi_graph = new MultiGraph($this->values);
-	}
+    $body .= $this->Axes();
+    return $body;
+  }
 
-	/**
-	 * Find the longest data set
-	 */
-	protected function GetHorizontalCount()
-	{
-		return $this->multi_graph->KeyCount();
-	}
+  /**
+   * construct multigraph
+   */
+  public function Values($values)
+  {
+    parent::Values($values);
+    $this->multi_graph = new MultiGraph($this->values);
+  }
 
-	/**
-	 * Returns the maximum (stacked) value
-	 */
-	protected function GetMaxValue()
-	{
-		$stack = array();
-		$chunk_count = count($this->values);
+  /**
+   * Find the longest data set
+   */
+  protected function GetHorizontalCount()
+  {
+    return $this->multi_graph->KeyCount();
+  }
 
-		foreach($this->multi_graph->all_keys as $k) {
-			$s = 0;
-			for($j = 0; $j < $chunk_count; ++$j) {
-				$v = $this->multi_graph->GetValue($k, $j);
-				if($v > 0)
-					$s += $v;
-			}
-			$stack[] = $s;
-		}
-		return max($stack);
-	}
+  /**
+   * Returns the maximum (stacked) value
+   */
+  protected function GetMaxValue()
+  {
+    $stack = array();
+    $chunk_count = count($this->values);
 
-	/**
-	 * Returns the minimum (stacked) value
-	 */
-	protected function GetMinValue()
-	{
-		$stack = array();
-		$chunk_count = count($this->values);
+    foreach($this->multi_graph->all_keys as $k) {
+      $s = 0;
+      for($j = 0; $j < $chunk_count; ++$j) {
+        $v = $this->multi_graph->GetValue($k, $j);
+        if($v > 0)
+          $s += $v;
+      }
+      $stack[] = $s;
+    }
+    return max($stack);
+  }
 
-		foreach($this->multi_graph->all_keys as $k) {
-			$s = 0;
-			for($j = 0; $j < $chunk_count; ++$j) {
-				$v = $this->multi_graph->GetValue($k, $j);
-				if($v <= 0)
-					$s += $v;
-			}
-			$stack[] = $s;
-		}
-		return min($stack);
-	}
+  /**
+   * Returns the minimum (stacked) value
+   */
+  protected function GetMinValue()
+  {
+    $stack = array();
+    $chunk_count = count($this->values);
 
-	/**
-	 * Returns the key from the MultiGraph
-	 */
-	protected function GetKey($index)
-	{
-		return $this->multi_graph->GetKey($index);
-	}
+    foreach($this->multi_graph->all_keys as $k) {
+      $s = 0;
+      for($j = 0; $j < $chunk_count; ++$j) {
+        $v = $this->multi_graph->GetValue($k, $j);
+        if($v <= 0)
+          $s += $v;
+      }
+      $stack[] = $s;
+    }
+    return min($stack);
+  }
 
-	/**
-	 * Returns the maximum key from the MultiGraph
-	 */
-	protected function GetMaxKey()
-	{
-		return $this->multi_graph->GetMaxKey();
-	}
+  /**
+   * Returns the key from the MultiGraph
+   */
+  protected function GetKey($index)
+  {
+    return $this->multi_graph->GetKey($index);
+  }
 
-	/**
-	 * Returns the minimum key from the MultiGraph
-	 */
-	protected function GetMinKey()
-	{
-		return $this->multi_graph->GetMinKey();
-	}
+  /**
+   * Returns the maximum key from the MultiGraph
+   */
+  protected function GetMaxKey()
+  {
+    return $this->multi_graph->GetMaxKey();
+  }
+
+  /**
+   * Returns the minimum key from the MultiGraph
+   */
+  protected function GetMinKey()
+  {
+    return $this->multi_graph->GetMinKey();
+  }
 
 }
 
