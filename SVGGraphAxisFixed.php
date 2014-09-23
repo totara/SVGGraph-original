@@ -42,7 +42,10 @@ class AxisFixed extends Axis {
   {
     // if min and max are the same side of 0, only adjust one of them
     if($this->max_value * $this->min_value >= 0) {
-      $count = $this->max_value - $this->min_value + 1;
+      $count = $this->max_value - $this->min_value;
+      // $round_up means bars, so add space for the bar
+      if($round_up)
+        ++$count;
       if(abs($this->max_value) >= abs($this->min_value)) {
         $this->max_value = $this->min_value +
           $this->step * ceil($count / $this->step);
@@ -57,6 +60,8 @@ class AxisFixed extends Axis {
 
     $count = ($this->max_value - $this->min_value) / $this->step;
     $ulen = $this->max_value - $this->min_value;
+    if($ulen == 0)
+      throw new Exception("Zero length axis");
     $this->unit_size = $this->length / $ulen;
     $grid = $this->length / $count;
     $this->zero = (-$this->min_value / $this->step) * $grid;

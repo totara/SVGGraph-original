@@ -31,8 +31,6 @@ class HorizontalBarGraph extends GridGraph {
   protected function Draw()
   {
     $values = $this->GetValues();
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc, true);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
@@ -54,8 +52,11 @@ class HorizontalBarGraph extends GridGraph {
           $bar_style['fill'] = $this->GetColour($bnum % $ccount);
 
           if($this->show_tooltips)
-            $this->SetTooltip($bar, $value);
+            $this->SetTooltip($bar, $value, null,
+              !$this->compat_events && $this->show_bar_labels);
           $rect = $this->Element('rect', $bar, $bar_style);
+          if($this->show_bar_labels)
+            $rect .= $this->BarLabel($value, $bar);
           $body .= $this->GetLink($key, $rect);
           $this->bar_styles[] = $bar_style;
         }
@@ -77,6 +78,70 @@ class HorizontalBarGraph extends GridGraph {
     $l2 = $this->ClampHorizontal($x0 + ($value * $this->bar_unit_width));
     $bar['x'] = min($l1, $l2);
     $bar['width'] = abs($l1-$l2);
+  }
+
+  /**
+   * Text labels in or above the bar
+   */
+  protected function BarLabel($value, &$bar, $offset_x = null)
+  {
+    $font_size = $this->bar_label_font_size;
+    list($text_size) = $this->TextSize(strlen($value), 
+      $this->bar_label_font_size, $this->bar_label_font_adjust);
+    $space = $this->bar_label_space;
+    $y = $bar['y'] + ($bar['height'] + $font_size) / 2 - $font_size / 8;
+    $colour = $this->bar_label_colour;
+    $acolour = $this->bar_label_colour_above;
+    $anchor = 'end';
+
+    if(!is_null($offset_x)) {
+      $x = $bar['x'] + $bar['width'] - $offset_x;
+      $anchor = 'start';
+    } else {
+      // find positions - if $top > $bottom, text will not fit
+      $pos = $this->bar_label_position;
+      if(empty($pos))
+        $pos = 'top';
+      $top = $bar['x'] + $bar['width'] - $space;
+      $bottom = $bar['x'] + $space;
+      if($top - $text_size < $bottom)
+        $pos = 'above';
+
+      $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + $this->x0);
+      switch($pos) {
+      case 'above' :
+        $x = $swap ? $bottom - $space * 2 : $top + $space * 2;
+        $anchor = $swap ? 'end' : 'start';
+        if(!empty($acolour))
+          $colour = $acolour;
+        break;
+      case 'bottom' :
+        $x = $swap ? $top : $bottom;
+        $anchor = $swap ? 'end' : 'start';
+        break;
+      case 'centre' :
+        $x = $bar['x'] + $bar['width'] / 2;
+        $anchor = 'middle';
+        break;
+      case 'top' :
+      default :
+        $x = $swap ? $bottom : $top;
+        $anchor = $swap ? 'start' : 'end';
+        break;
+      }
+    }
+
+    $text = array(
+      'x' => $x,
+      'y' => $y,
+      'text-anchor' => $anchor,
+      'font-family' => $this->bar_label_font,
+      'font-size' => $font_size,
+      'fill' => $colour,
+    );
+    if($this->bar_label_font_weight != 'normal')
+      $text['font-weight'] = $this->bar_label_font_weight;
+    return $this->Element('text', $text, NULL, $value);
   }
 
   /**

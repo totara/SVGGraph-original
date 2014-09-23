@@ -29,17 +29,16 @@ class MultiRadarGraph extends RadarGraph {
 
   protected $multi_graph;
   private $line_styles = array();
+  private $fill_styles = array();
 
   public function Draw()
   {
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc, true);
     $body = $this->Grid();
 
     $plots = '';
     $ccount = count($this->colours);
     $chunk_count = count($this->values);
-    if(!$assoc)
+    if(!$this->AssociativeKeys())
       sort($this->multi_graph->all_keys, SORT_NUMERIC);
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
@@ -50,10 +49,15 @@ class MultiRadarGraph extends RadarGraph {
       $dash = $this->multi_graph->Option($this->line_dash, $i);
       $stroke_width = 
         $this->multi_graph->Option($this->line_stroke_width, $i);
+      $fill_style = null;
       if($fill) {
         $attr['fill'] = $this->GetColour($i % $ccount);
-        $attr['fill-opacity'] = 
-          $this->multi_graph->Option($this->fill_opacity, $i);
+        $fill_style = array('fill' => $attr['fill']);
+        $opacity = $this->multi_graph->Option($this->fill_opacity, $i);
+        if($opacity < 1.0) {
+          $attr['fill-opacity'] = $opacity;
+          $fill_style['fill-opacity'] = $opacity;
+        }
       }
       if(!is_null($dash))
         $attr['stroke-dasharray'] = $dash;
@@ -78,13 +82,14 @@ class MultiRadarGraph extends RadarGraph {
         ++$bnum;
       }
 
-      $path .= "z";
-
-      $attr['d'] = $path;
-      $attr['stroke'] = $this->GetColour($i % $ccount, true);
-      $plots .= $this->Element('path', $attr);
-      unset($attr['d']);
-      $this->AddLineStyle($attr);
+      if($path != '') {
+        $path .= "z";
+        $attr['d'] = $path;
+        $attr['stroke'] = $this->GetColour($i % $ccount, true);
+        $plots .= $this->Element('path', $attr);
+        unset($attr['d']);
+        $this->AddLineStyle($attr, $fill_style);
+      }
     }
 
     $group = array();
@@ -121,13 +126,16 @@ class MultiRadarGraph extends RadarGraph {
 
     $h1 = $h/2;
     $y += $h1;
-    $attr = $this->line_styles[$set];
-    if($this->fill_under)
-      $attr['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
-    else
-      $attr['d'] = "M$x {$y}l$w 0";
+    $line = $this->line_styles[$set];
+    $line['d'] = "M$x {$y}l$w 0";
+    $graph_line = $this->Element('path', $line);
+    if($this->fill_under && !empty($this->fill_styles[$set])) {
+      $fill = $this->fill_styles[$set];
+      $fill['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
+      $graph_line = $this->Element('path', $fill) . $graph_line;
+    }
 
-    return $this->Element('path', $attr) . $marker;
+    return $graph_line . $marker;
   }
 
   /**
@@ -181,9 +189,10 @@ class MultiRadarGraph extends RadarGraph {
     return $this->multi_graph->GetMinKey();
   }
 
-  protected function AddLineStyle($style)
+  protected function AddLineStyle($style, $fill_style)
   {
     $this->line_styles[] = $style;
+    $this->fill_styles[] = $fill_style;
   }
 }
 

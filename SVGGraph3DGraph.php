@@ -27,7 +27,6 @@ abstract class ThreeDGraph extends GridGraph {
   private $depth = 1;
   private $depth_unit = 1;
 
-
   /**
    * Returns the projection angle in radians
    */
@@ -47,26 +46,52 @@ abstract class ThreeDGraph extends GridGraph {
     return array($x + $xp, $y - $yp);
   }
 
+  /**
+   * Adjust axes for block spacing, returning the depth unit
+   */
+  private function Adjust3DAxes($count, &$x_len, &$y_len)
+  {
+    $a = $this->AngleRadians();
+
+    $d = $this->depth;
+    $u = $x_len / ($count + $d * cos($a));
+    $c = $u * $d * cos($a);
+    $d = $u * $d * sin($a);
+    $x_len -= $c;
+    $y_len -= $d;
+    return $u;
+  }
+
+  /**
+   * Adjust the axis sizes to account for the block depth
+   */
+  protected function GetAxes($ends, &$x_len, &$y_len)
+  {
+    if(!isset($this->g_width)) {
+      $count = $ends['k_max'] - $ends['k_min'] + 1;
+      $this->Adjust3DAxes($count, $x_len, $y_len);
+    }
+    return parent::GetAxes($ends, $x_len, $y_len);
+  }
 
   /**
    * Calculates the sizes of the 3D axes and grid
    */
-  protected function CalcAxes($h_by_count = false, $bar = false)
+  protected function CalcAxes()
   {
     // calculate bar 
-    $count = $this->GetHorizontalDivision();
+    $ends = $this->GetAxisEnds();
+    $count = $ends['k_max'] - $ends['k_min'] + 1;
     $a = $this->AngleRadians();
 
     if(!$this->label_adjust_done)
       $this->LabelAdjustment($this->GetMaxValue(), $this->GetLongestKey());
 
-    // adjust grid height for depth
-    $this->depth_unit = ($this->width - $this->pad_left - $this->pad_right)
-      / ($count + $this->depth * cos($a));
-    $this->g_width = $count * $this->depth_unit;
-    $this->g_height = ($this->height - $this->pad_top - $this->pad_bottom)
-      - ($this->depth * $this->depth_unit * sin($a));
-    parent::CalcAxes($h_by_count, $bar);
+    $this->g_width = $this->width - $this->pad_left - $this->pad_right;
+    $this->g_height = $this->height - $this->pad_top - $this->pad_bottom;
+    $this->depth_unit = $this->Adjust3DAxes($count, $this->g_width,
+      $this->g_height);
+    parent::CalcAxes();
   }
 
 
@@ -75,12 +100,13 @@ abstract class ThreeDGraph extends GridGraph {
    */
   protected function Grid()
   {
+    $this->CalcAxes();
     if(!$this->show_grid)
       return '';
 
     $this->CalcGrid();
-    $x_w = $this->axis_width;
-    $y_h = $this->axis_height;
+    $x_w = $this->g_width;
+    $y_h = $this->g_height;
     $xleft = $this->pad_left;
     $ybottom = $this->height - $this->pad_bottom;
     $h = $this->height - $this->pad_bottom - $this->pad_top;
@@ -90,36 +116,64 @@ abstract class ThreeDGraph extends GridGraph {
     $z = $this->depth * $this->depth_unit;
     list($xd,$yd) = $this->Project(0, 0, $z);
 
-    $subpath = $path = '';
+    $back = $subpath = $path_h = $path_v = '';
+    $back_colour = $this->grid_back_colour;
+    if(!empty($back_colour) && $back_colour != 'none') {
+      $bpath = array(
+        'd' => "M$xleft {$ybottom}v-{$y_h}l{$xd} {$yd}h{$x_w}v{$y_h}l" .
+          -$xd . " " . -$yd . "z",
+        'fill' => $back_colour
+      );
+      $back = $this->Element('path', $bpath);
+    }
     if($this->show_grid_subdivisions) {
+      $subpath_h = $subpath_v = '';
       foreach($this->y_subdivs as $y) 
-        $subpath .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
+        $subpath_v .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
       foreach($this->x_subdivs as $x) 
-        $subpath .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
-      if($subpath != '') {
-        $opts = array(
-          'd' => $subpath,
-          'stroke' => $this->grid_subdivision_colour,
-          'fill' => 'none'
-        );
-        $subpath = $this->Element('path', $opts);
+        $subpath_h .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
+      if($subpath_h != '' || $subpath_v != '') {
+        $colour_h = $this->GetFirst($this->grid_subdivision_colour_h,
+          $this->grid_subdivision_colour, $this->grid_colour_h,
+          $this->grid_colour);
+        $colour_v = $this->GetFirst($this->grid_subdivision_colour_v,
+          $this->grid_subdivision_colour, $this->grid_colour_v,
+          $this->grid_colour);
+        $dash_h = $this->GetFirst($this->grid_subdivision_dash_h,
+          $this->grid_subdivision_dash, $this->grid_dash_h, $this->grid_dash);
+        $dash_v = $this->GetFirst($this->grid_subdivision_dash_v,
+          $this->grid_subdivision_dash, $this->grid_dash_v, $this->grid_dash);
+
+        if($dash_h == $dash_v && $colour_h == $colour_v) {
+          $subpath = $this->GridLines($subpath_h . $subpath_v, $colour_h,
+            $dash_h, 'none');
+        } else {
+          $subpath = $this->GridLines($subpath_h, $colour_h, $dash_h, 'none') .
+            $this->GridLines($subpath_v, $colour_v, $dash_v, 'none');
+        }
       }
     }
 
     // start with axis lines
-    $path .= "M$xleft {$ybottom}l$x_w 0M$xleft {$ybottom}l0 " . -$y_h;
+    $path = "M$xleft {$ybottom}l$x_w 0M$xleft {$ybottom}l0 " . -$y_h;
     foreach($this->y_points as $y)
-      $path .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
+      $path_v .= "M$xleft {$y}l$xd {$yd}l$x_w 0";
     foreach($this->x_points as $x)
-      $path .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
+      $path_h .= "M$x {$ybottom}l$xd {$yd}l0 " . -$y_h;
 
-    $opts = array(
-      'd' => $path,
-      'stroke' => $this->grid_colour,
-      'fill' => 'none'
-    );
-    $path = $this->Element('path', $opts);
-    return $subpath . $path;
+    $colour_h = $this->GetFirst($this->grid_colour_h, $this->grid_colour);
+    $colour_v = $this->GetFirst($this->grid_colour_v, $this->grid_colour);
+    $dash_h = $this->GetFirst($this->grid_dash_h, $this->grid_dash);
+    $dash_v = $this->GetFirst($this->grid_dash_v, $this->grid_dash);
+
+    if($dash_h == $dash_v && $colour_h == $colour_v) {
+      $path = $this->GridLines($path_v . $path_h, $colour_h, $dash_h, 'none');
+    } else {
+      $path = $this->GridLines($path_h, $colour_h, $dash_h, 'none') .
+        $this->GridLines($path_v, $colour_v, $dash_v, 'none');
+    }
+
+    return $back . $subpath . $path;
   }
 
   /**
@@ -170,14 +224,27 @@ abstract class ThreeDGraph extends GridGraph {
       $x = $xd + $x1;
       $y = $this->pad_top;
       $w = 0;
-      $h = $this->axis_height;
+      if($h == 0) {
+        $h = $this->g_height;
+      } elseif($h < 0) {
+        $h = -$h;
+        return "M$x {$y}v$h";
+      } else {
+        $y = $this->height - $this->pad_bottom + $yd - $h;
+      }
     } else {
       $x1 = $x_axis_pos;
       $y1 = $y_axis_pos - ($value * $this->bar_unit_height);
       $x = $this->pad_left + $xd;
       $y = $yd + $y1;
-      $w = $this->axis_width;
       $h = 0;
+      if($w == 0) {
+        $w = $this->g_width;
+      } elseif($w < 0) {
+        $w = -$w;
+        $x = $this->pad_left + $xd + $this->g_width - $w;
+        return "M$x {$y}h$w";
+      }
     }
     return "M{$x} {$y}l{$w} {$h}M{$x1} {$y1} l{$xd} {$yd}";
   }

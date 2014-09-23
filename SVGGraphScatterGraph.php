@@ -28,8 +28,6 @@ class ScatterGraph extends PointGraph {
 
   public function Draw()
   {
-    $assoc = !$this->scatter_2d && $this->AssociativeKeys();
-    $this->CalcAxes($assoc);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
     $values = $this->GetValues();
 

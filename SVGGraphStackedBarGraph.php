@@ -29,8 +29,6 @@ class StackedBarGraph extends BarGraph {
 
   protected function Draw()
   {
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc, true);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
@@ -70,9 +68,16 @@ class StackedBarGraph extends BarGraph {
             $bar_style['fill'] = $this->GetColour($j % $ccount);
 
             if($this->show_tooltips)
-              $this->SetTooltip($bar, $value);
-            $rect = $this->Element('rect', $bar);
-            $groups[$j] .= $this->GetLink($k, $rect);
+              $this->SetTooltip($bar, $value, null,
+                !$this->compat_events && $this->show_bar_labels);
+            if($this->show_bar_labels) {
+              $rect = $this->Element('rect', $bar, $bar_style);
+              $rect .= $this->BarLabel($value, $bar, $j + 1 < $chunk_count);
+              $body .= $this->GetLink($k, $rect);
+            } else {
+              $rect = $this->Element('rect', $bar);
+              $groups[$j] .= $this->GetLink($k, $rect);
+            }
             unset($bar['id']); // clear for next value
 
             if(!array_key_exists($j, $this->bar_styles))
@@ -82,9 +87,11 @@ class StackedBarGraph extends BarGraph {
       }
       ++$bnum;
     }
-    foreach($groups as $j => $g)
-      if(array_key_exists($j, $this->bar_styles))
-        $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
+    if(!$this->show_bar_labels) {
+      foreach($groups as $j => $g)
+        if(array_key_exists($j, $this->bar_styles))
+          $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
+    }
 
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
@@ -97,6 +104,31 @@ class StackedBarGraph extends BarGraph {
   {
     parent::Values($values);
     $this->multi_graph = new MultiGraph($this->values, $this->force_assoc);
+  }
+
+  /**
+   * Overridden to prevent drawing behind higher bars
+   * $offset_y should be true for inner bars
+   */
+  protected function BarLabel($value, &$bar, $offset_y = null)
+  {
+    $font_size = $this->bar_label_font_size;
+    $space = $this->bar_label_space;
+    if($offset_y) {
+
+      // bar too small, would be above
+      if($bar['height'] < $font_size + 2 * $space)
+        return parent::BarLabel($value, $bar, ($bar['height'] + $font_size)/2);
+
+      // option set to above
+      if($this->bar_label_position == 'above') {
+        $this->bar_label_position = 'top';
+        $label = parent::BarLabel($value, $bar);
+        $this->bar_label_position = 'above';
+        return $label;
+      }
+    }
+    return parent::BarLabel($value, $bar);
   }
 
   /**

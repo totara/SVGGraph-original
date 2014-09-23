@@ -34,8 +34,6 @@ class Bar3DGraph extends ThreeDGraph {
     elseif($this->project_angle > 90)
       $this->project_angle = 90;
 
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc, true);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $values = $this->GetValues();

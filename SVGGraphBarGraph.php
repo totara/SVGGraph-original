@@ -29,8 +29,6 @@ class BarGraph extends GridGraph {
   protected function Draw()
   {
     $values = $this->GetValues();
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc, true);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
@@ -53,8 +51,11 @@ class BarGraph extends GridGraph {
           $bar_style['fill'] = $this->GetColour($bnum % $ccount);
 
           if($this->show_tooltips)
-            $this->SetTooltip($bar, $value);
+            $this->SetTooltip($bar, $value, null,
+              !$this->compat_events && $this->show_bar_labels);
           $rect = $this->Element('rect', $bar, $bar_style);
+          if($this->show_bar_labels)
+            $rect .= $this->BarLabel($value, $bar);
           $body .= $this->GetLink($key, $rect);
 
           $this->bar_styles[] = $bar_style;
@@ -77,6 +78,63 @@ class BarGraph extends GridGraph {
     $l2 = $this->ClampVertical($y - ($value * $this->bar_unit_height));
     $bar['y'] = min($l1, $l2);
     $bar['height'] = abs($l1-$l2);
+  }
+
+  /**
+   * Text labels in or above the bar
+   */
+  protected function BarLabel($value, &$bar, $offset_y = null)
+  {
+    $font_size = $this->bar_label_font_size;
+    $space = $this->bar_label_space;
+    $x = $bar['x'] + ($bar['width'] / 2);
+    $colour = $this->bar_label_colour;
+    $acolour = $this->bar_label_colour_above;
+
+    if(!is_null($offset_y)) {
+      $y = $bar['y'] + $offset_y;
+    } else {
+      // find positions
+      $pos = $this->bar_label_position;
+      if(empty($pos))
+        $pos = 'top';
+      $top = $bar['y'] + $font_size + $space;
+      $bottom = $bar['y'] + $bar['height'] - $space;
+      if($top > $bottom)
+        $pos = 'above';
+
+      $swap = ($bar['y'] >= $this->height - $this->pad_bottom - $this->y0);
+      switch($pos) {
+      case 'above' :
+        $y = $swap ? $bar['y'] + $bar['height'] + $font_size + $space :
+          $bar['y'] - $space;
+        if(!empty($acolour))
+          $colour = $acolour;
+        break;
+      case 'bottom' :
+        $y = $swap ? $top : $bottom;
+        break;
+      case 'centre' :
+        $y = $bar['y'] + ($bar['height'] + $font_size) / 2;
+        break;
+      case 'top' :
+      default :
+        $y = $swap ? $bottom : $top;
+        break;
+      }
+    }
+
+    $text = array(
+      'x' => $x,
+      'y' => $y,
+      'text-anchor' => 'middle',
+      'font-family' => $this->bar_label_font,
+      'font-size' => $font_size,
+      'fill' => $colour,
+    );
+    if($this->bar_label_font_weight != 'normal')
+      $text['font-weight'] = $this->bar_label_font_weight;
+    return $this->Element('text', $text, NULL, $value);
   }
 
   /**

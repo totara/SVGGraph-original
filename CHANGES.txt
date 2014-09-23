@@ -1,4 +1,27 @@
-Version 2.8
+Version 2.9 (29/08/2012)
+-----------
+- Added bar label options.
+- Added axis division and subdivision styles and other options.
+- Added diamond, hexagon, octagon, asterisk, star, threestar, fourstar and
+  eightstar markers.
+- Added legend columns option.
+- Added guide line opacity, text opacity, font adjust, text align, length and
+  length in units options.
+- Added grid background colour option.
+- Added grid line style options.
+- Added marker border options.
+- Added character encoding option.
+- Added gradient stop opacity support.
+- Improved subdivision calculations.
+- Improved axis text label spacing.
+- Removed main clipping path when not using a rounded rectangle background.
+- Fixed grid clipping path using non-unique ID.
+- Fixed line graphs not reaching right hand side of graph.
+- Fixed line graphs drawing vertical line to axis when filling enabled.
+- Fixed guide line title line spacing.
+- Fixed error caused by empty data sets.
+
+Version 2.8 (27/07/2012)
 -----------
 - Added stacked line graph.
 - Added radar graph and multi-radar graph.

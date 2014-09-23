@@ -32,8 +32,6 @@ class StackedLineGraph extends MultiLineGraph {
 
   public function Draw()
   {
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $plots = array();
@@ -42,30 +40,24 @@ class StackedLineGraph extends MultiLineGraph {
 
     $ccount = count($this->colours);
     $chunk_count = count($this->values);
-    if(!$assoc)
+    if(!$this->AssociativeKeys())
       sort($this->multi_graph->all_keys, SORT_NUMERIC);
     $stack = array();
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
       $cmd = 'M';
-      $path = '';
+      $path = $fillpath = '';
       $attr = array('fill' => 'none');
       $fill = $this->multi_graph->Option($this->fill_under, $i);
       $dash = $this->multi_graph->Option($this->line_dash, $i);
       $stroke_width = 
         $this->multi_graph->Option($this->line_stroke_width, $i);
-      if($fill) {
-        $cmd = 'L';
-        $attr['fill'] = $this->GetColour($i % $ccount);
-        $attr['fill-opacity'] = 
-          $this->multi_graph->Option($this->fill_opacity, $i);
-      }
-      if(!is_null($dash))
+      if(!empty($dash))
         $attr['stroke-dasharray'] = $dash;
       $attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
 
-
       $bottom = array();
+      $point_count = 0;
       foreach($this->multi_graph->all_keys as $key) {
         $value = $this->multi_graph->GetValue($key, $i);
         $point_pos = $this->GridPosition($key, $bnum);
@@ -75,33 +67,56 @@ class StackedLineGraph extends MultiLineGraph {
           $bottom[$point_pos] = $stack[$key];
           $x = $point_pos;
           $y_size = ($stack[$key] + $value) * $this->bar_unit_height;
+
           $y = $y_axis_pos - $y_size;
           $stack[$key] += $value;
 
-          if($fill && $path == '')
-            $path = "M$x $y_bottom";
           $path .= "$cmd$x $y ";
+          if($fill && $fillpath == '')
+            $fillpath = "M$x {$y}L";
+          else
+            $fillpath .= "$x $y ";
 
           // no need to repeat same L command
           $cmd = $cmd == 'M' ? 'L' : '';
-          $this->AddMarker($x, $y, $key, $value, NULL, $i);
+          if(!is_null($value)) {
+            $this->AddMarker($x, $y, $key, $value, NULL, $i);
+            ++$point_count;
+          }
         }
         ++$bnum;
       }
 
-      if($fill) {
-        $bpoints = array_reverse($bottom, TRUE);
-        foreach($bpoints as $x => $pos) {
-          $y = $y_axis_pos - ($pos * $this->bar_unit_height);
-          $path .= "$x $y ";
-        }
-      }
+      if($point_count > 0) {
+        $attr['d'] = $path;
+        $attr['stroke'] = $this->GetColour($i % $ccount, true);
+        $graph_line = $this->Element('path', $attr);
+        $fill_style = null;
 
-      $attr['d'] = $path;
-      $attr['stroke'] = $this->GetColour($i % $ccount, true);
-      $plots[] = $this->Element('path', $attr);
-      unset($attr['d']);
-      $this->AddLineStyle($attr);
+        if($fill) {
+          // complete the fill area with the previous stack total
+          $cmd = 'L';
+          $opacity = $this->multi_graph->Option($this->fill_opacity, $i);
+          $bpoints = array_reverse($bottom, TRUE);
+          foreach($bpoints as $x => $pos) {
+            $y = $y_axis_pos - ($pos * $this->bar_unit_height);
+            $fillpath .= "$x $y ";
+          }
+          $fillpath .= 'z';
+          $fill_style = array(
+            'fill' => $this->GetColour($i % $ccount),
+            'd' => $fillpath,
+            'stroke' => $attr['fill'],
+          );
+          if($opacity < 1)
+            $fill_style['opacity'] = $opacity;
+          $graph_line = $this->Element('path', $fill_style) . $graph_line;
+        }
+
+        $plots[] = $graph_line;
+        unset($attr['d']);
+        $this->AddLineStyle($attr, $fill_style);
+      }
     }
 
     $group = array();

@@ -27,11 +27,10 @@ require_once 'SVGGraphPointGraph.php';
 class LineGraph extends PointGraph {
 
   private $line_style;
+  private $fill_style;
 
   public function Draw()
   {
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $attr = array('stroke' => $this->stroke_colour, 'fill' => 'none');
@@ -39,7 +38,7 @@ class LineGraph extends PointGraph {
       $this->line_dash[0] : $this->line_dash;
     $stroke_width = is_array($this->line_stroke_width) ?
       $this->line_stroke_width[0] : $this->line_stroke_width;
-    if(!is_null($dash))
+    if(!empty($dash))
       $attr['stroke-dasharray'] = $dash;
     $attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
 
@@ -48,14 +47,7 @@ class LineGraph extends PointGraph {
     $y_axis_pos = $this->height - $this->pad_bottom - $this->y0;
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
-    $path = '';
-    if($this->fill_under) {
-      $cmd = 'L';
-      $attr['fill'] = $this->GetColour(0);
-      if($this->fill_opacity < 1.0)
-        $attr['fill-opacity'] = $this->fill_opacity;
-    }
-
+    $path = $fillpath = '';
     $values = $this->GetValues();
     foreach($values as $key => $value) {
       $point_pos = $this->GridPosition($key, $bnum);
@@ -64,8 +56,9 @@ class LineGraph extends PointGraph {
         $y = $y_axis_pos - ($value * $this->bar_unit_height);
 
         if($this->fill_under && $path == '')
-          $path = "M$x $y_bottom";
+          $fillpath = "M$x {$y_bottom}L";
         $path .= "$cmd$x $y ";
+        $fillpath .= "$x $y ";
 
         // no need to repeat same L command
         $cmd = $cmd == 'M' ? 'L' : '';
@@ -74,14 +67,25 @@ class LineGraph extends PointGraph {
       ++$bnum;
     }
 
-    if($this->fill_under)
-      $path .= "$cmd$x {$y_bottom}z";
-
     $this->line_style = $attr;
     $attr['d'] = $path;
+    $graph_line = $this->Element('path', $attr);
+
+    if($this->fill_under) {
+      $attr['fill'] = $this->GetColour(0);
+      if($this->fill_opacity < 1.0)
+        $attr['fill-opacity'] = $this->fill_opacity;
+      $fillpath .= "L$x {$y_bottom}z";
+      $attr['d'] = $fillpath;
+      $attr['stroke'] = 'none';
+      unset($attr['stroke-dasharray'], $attr['stroke-width']);
+      $this->fill_style = $attr;
+      $graph_line = $this->Element('path', $attr) . $graph_line;
+    }
+
     $group = array();
     $this->ClipGrid($group);
-    $body .= $this->Element('g', $group, NULL, $this->Element('path', $attr));
+    $body .= $this->Element('g', $group, NULL, $graph_line);
 
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE);
     $body .= $this->Axes();
@@ -111,12 +115,15 @@ class LineGraph extends PointGraph {
 
     $h1 = $h/2;
     $y += $h1;
-    $attr = $this->line_style;
-    if($this->fill_under)
-      $attr['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
-    else
-      $attr['d'] = "M$x {$y}l$w 0";
-    return $this->Element('path', $attr) . $marker;
+    $line = $this->line_style;
+    $line['d'] = "M$x {$y}l$w 0";
+    $graph_line = $this->Element('path', $line);
+    if($this->fill_under) {
+      $fill = $this->fill_style;
+      $fill['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
+      $graph_line = $this->Element('path', $fill) . $graph_line;
+    }
+    return $graph_line . $marker;
   }
 
 }

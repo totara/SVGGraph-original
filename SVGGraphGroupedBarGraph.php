@@ -28,8 +28,6 @@ class GroupedBarGraph extends BarGraph {
 
   protected function Draw()
   {
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc, true);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $chunk_count = count($this->values);
@@ -64,9 +62,16 @@ class GroupedBarGraph extends BarGraph {
             $bar_style['fill'] = $this->GetColour($j % $ccount);
 
             if($this->show_tooltips)
-              $this->SetTooltip($bar, $value);
-            $rect = $this->Element('rect', $bar);
-            $groups[$j] .= $this->GetLink($k, $rect);
+              $this->SetTooltip($bar, $value, null,
+                !$this->compat_events && $this->show_bar_labels);
+            if($this->show_bar_labels) {
+              $rect = $this->Element('rect', $bar, $bar_style);
+              $rect .= $this->BarLabel($value, $bar);
+              $body .= $this->GetLink($k, $rect);
+            } else {
+              $rect = $this->Element('rect', $bar);
+              $groups[$j] .= $this->GetLink($k, $rect);
+            }
             unset($bar['id']); // clear for next generated value
 
             if(!array_key_exists($j, $this->bar_styles))
@@ -76,9 +81,11 @@ class GroupedBarGraph extends BarGraph {
       }
       ++$bnum;
     }
-    foreach($groups as $j => $g)
-      if(array_key_exists($j, $this->bar_styles))
-        $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
+    if(!$this->show_bar_labels) {
+      foreach($groups as $j => $g)
+        if(array_key_exists($j, $this->bar_styles))
+          $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
+    }
 
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;

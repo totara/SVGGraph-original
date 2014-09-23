@@ -27,6 +27,7 @@ require_once 'SVGGraphPointGraph.php';
 class RadarGraph extends PointGraph {
 
   private $line_style;
+  private $fill_style;
   protected $xc;
   protected $yc;
   protected $radius;
@@ -34,10 +35,12 @@ class RadarGraph extends PointGraph {
   protected $arad;
   private $pad_v_axis_label;
 
+  // in the case of radar graphs, $label_centre means we want an axis that
+  // ends at N points + 1
+  protected $label_centre = true;
+
   public function Draw()
   {
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc, true);
     $body = $this->Grid();
 
     $attr = array('stroke' => $this->stroke_colour, 'fill' => 'none');
@@ -55,8 +58,14 @@ class RadarGraph extends PointGraph {
     $path = '';
     if($this->fill_under) {
       $attr['fill'] = $this->GetColour(0);
-      if($this->fill_opacity < 1.0)
+      $this->fill_style = array(
+        'fill' => $attr['fill'],
+        'stroke' => $attr['fill']
+      );
+      if($this->fill_opacity < 1.0) {
         $attr['fill-opacity'] = $this->fill_opacity;
+        $this->fill_style['fill-opacity'] = $this->fill_opacity;
+      }
     }
 
     $values = $this->GetValues();
@@ -116,12 +125,15 @@ class RadarGraph extends PointGraph {
 
     $h1 = $h/2;
     $y += $h1;
-    $attr = $this->line_style;
-    if($this->fill_under)
-      $attr['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
-    else
-      $attr['d'] = "M$x {$y}l$w 0";
-    return $this->Element('path', $attr) . $marker;
+    $line = $this->line_style;
+    $line['d'] = "M$x {$y}l$w 0";
+    $graph_line = $this->Element('path', $line);
+    if($this->fill_under) {
+      $fill = $this->fill_style;
+      $fill['d'] = "M$x {$y}l$w 0 0 $h1 -$w 0z";
+      $graph_line = $this->Element('path', $fill) . $graph_line;
+    }
+    return $graph_line . $marker;
   }
 
   /**
@@ -238,31 +250,58 @@ class RadarGraph extends PointGraph {
     $r = $this->radius;
 
     $this->CalcGrid();
-    $subpath = $path = '';
+    $back = $subpath = '';
+    $back_colour = $this->grid_back_colour;
+    if(!empty($back_colour) && $back_colour != 'none') {
+      // use the YGrid function to get the path
+      $points = array($r);
+      $bpath = array(
+        'd' => $this->YGrid($points),
+        'fill' => $back_colour
+      );
+      $back = $this->Element('path', $bpath);
+    }
     if($this->show_grid_subdivisions) {
+      $subpath_h = $this->YGrid($this->y_subdivs);
+      $subpath_v = $this->XGrid($this->x_subdivs);
+      if($subpath_h != '' || $subpath_v != '') {
+        $colour_h = $this->GetFirst($this->grid_subdivision_colour_h,
+          $this->grid_subdivision_colour, $this->grid_colour_h,
+          $this->grid_colour);
+        $colour_v = $this->GetFirst($this->grid_subdivision_colour_v,
+          $this->grid_subdivision_colour, $this->grid_colour_v,
+          $this->grid_colour);
+        $dash_h = $this->GetFirst($this->grid_subdivision_dash_h,
+          $this->grid_subdivision_dash, $this->grid_dash_h, $this->grid_dash);
+        $dash_v = $this->GetFirst($this->grid_subdivision_dash_v,
+          $this->grid_subdivision_dash, $this->grid_dash_v, $this->grid_dash);
 
-      $subpath .= $this->YGrid($this->y_subdivs);
-      $subpath .= $this->XGrid($this->x_subdivs);
-      if($subpath != '') {
-        $opts = array(
-          'd' => $subpath,
-          'stroke' => $this->grid_subdivision_colour,
-          'fill' => 'none'
-        );
-        $subpath = $this->Element('path', $opts);
+        if($dash_h == $dash_v && $colour_h == $colour_v) {
+          $subpath = $this->GridLines($subpath_h . $subpath_v, $colour_h,
+            $dash_h, 'none');
+        } else {
+          $subpath = $this->GridLines($subpath_h, $colour_h, $dash_h, 'none') .
+            $this->GridLines($subpath_v, $colour_v, $dash_v, 'none');
+        }
       }
     }
 
-    $path .= $this->YGrid($this->y_points);
-    $path .= $this->XGrid($this->x_points);
+    $path_v = $this->YGrid($this->y_points);
+    $path_h = $this->XGrid($this->x_points);
 
-    $opts = array(
-      'd' => $path,
-      'stroke' => $this->grid_colour,
-      'fill' => 'none'
-    );
-    $path = $this->Element('path', $opts);
-    return $subpath . $path;
+    $colour_h = $this->GetFirst($this->grid_colour_h, $this->grid_colour);
+    $colour_v = $this->GetFirst($this->grid_colour_v, $this->grid_colour);
+    $dash_h = $this->GetFirst($this->grid_dash_h, $this->grid_dash);
+    $dash_v = $this->GetFirst($this->grid_dash_v, $this->grid_dash);
+
+    if($dash_h == $dash_v && $colour_h == $colour_v) {
+      $path = $this->GridLines($path_v . $path_h, $colour_h, $dash_h, 'none');
+    } else {
+      $path = $this->GridLines($path_h, $colour_h, $dash_h, 'none') .
+        $this->GridLines($path_v, $colour_v, $dash_v, 'none');
+    }
+
+    return $back . $subpath . $path;
   }
 
   /**
@@ -356,16 +395,22 @@ class RadarGraph extends PointGraph {
   /**
    * Division marks around the graph
    */
-  protected function XAxisDivisions(&$points, $size, $yoff)
+  protected function XAxisDivisions(&$points, $style, $style_default,
+    $size, $size_default, $yoff)
   {
     $r1 = $this->radius;
     $path = '';
+    $pos = $this->DivisionsPositions($style, $style_default, $size,
+      $size_default, $this->radius, 0, $yoff);
+    if(is_null($pos))
+      return '';
+    $r1 = $this->radius - $pos['pos'];
     foreach($points as $p) {
       $a = $this->arad + $p / $this->g_height;
       $x1 = $this->xc + $r1 * sin($a);
-      $x2 = $size * sin($a);
       $y1 = $this->yc + $r1 * cos($a);
-      $y2 = $size * cos($a);
+      $x2 = -$pos['sz'] * sin($a);
+      $y2 = -$pos['sz'] * cos($a);
       $path .= "M$x1 {$y1}l$x2 $y2";
     }
     return $path;
@@ -374,17 +419,25 @@ class RadarGraph extends PointGraph {
   /**
    * Draws Y-axis divisions at whatever angle the Y-axis is
    */
-  protected function YAxisDivisions(&$points, $size, $xoff)
+  protected function YAxisDivisions(&$points, $style, $style_default,
+    $size, $size_default, $xoff)
   {
     $path = '';
+    $pos = $this->DivisionsPositions($style, $style_default, $size,
+      $size_default, $size_default, 0, $xoff);
+    if(is_null($pos))
+      return '';
+
     $a = $this->arad + ($this->arad <= M_PI_2 ? - M_PI_2 : M_PI_2);
-    $x2 = $size * 2 * sin($a);
-    $y2 = $size * 2 * cos($a);
+    $px = $pos['pos'] * sin($a);
+    $py = $pos['pos'] * cos($a);
+    $x2 = $pos['sz'] * sin($a);
+    $y2 = $pos['sz'] * cos($a);
     $c = cos($this->arad);
     $s = sin($this->arad);
     foreach($points as $y) {
-      $x1 = ($this->xc + $y * $s) - $x2 / 2;
-      $y1 = ($this->yc + $y * $c) - $y2 / 2;
+      $x1 = ($this->xc + $y * $s) + $px;
+      $y1 = ($this->yc + $y * $c) + $py;
       $path .= "M$x1 {$y1}l$x2 $y2";
     }
     return $path;

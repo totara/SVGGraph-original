@@ -335,7 +335,7 @@ JAVASCRIPT;
 function duplicate(f,t) {
   var e = getE(f), g, a, p = e && e.parentNode;
   if(e) {
-    while(p.parentNode &&
+    while(p.parentNode && p.tagName != 'svg' &&
       (p.tagName != 'g' || !p.getAttributeNS(null,'clip-path'))) {
       p.tagName == 'a' && (a = p);
       p = p.parentNode;

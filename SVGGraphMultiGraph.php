@@ -68,7 +68,8 @@ class MultiGraph {
     $maxima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
-      $maxima[] = max($this->values[$i]);
+      if(!empty($this->values[$i]))
+        $maxima[] = max($this->values[$i]);
 
     return max($maxima);
   }
@@ -82,7 +83,8 @@ class MultiGraph {
     $minima = array();
     $chunk_count = count($this->values);
     for($i = 0; $i < $chunk_count; ++$i)
-      $minima[] = min($this->values[$i]);
+      if(!empty($this->values[$i]))
+        $minima[] = min($this->values[$i]);
 
     return min($minima);
   }

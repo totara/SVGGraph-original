@@ -29,8 +29,6 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 
   protected function Draw()
   {
-    $assoc = $this->AssociativeKeys();
-    $this->CalcAxes($assoc, true);
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $chunk_count = count($this->values);
@@ -61,18 +59,22 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
           $bar['y'] = $bar_pos - $bspace - $bar_height +
             (($chunk_count - 1 - $j) * $chunk_unit_height);
           $value = $this->multi_graph->GetValue($k, $j);
-          $bar['width'] = abs($value * $this->bar_unit_width);
-          $bar['x'] = $this->pad_left + $this->x0 + 
-            ($value < 0 ? -$bar['width'] : 0);
           $this->Bar($value, $bar);
 
           if($bar['width'] > 0) {
             $bar_style['fill'] = $this->GetColour($j % $ccount);
 
             if($this->show_tooltips)
-              $this->SetTooltip($bar, $value);
-            $rect = $this->Element('rect', $bar);
-            $groups[$j] .= $this->GetLink($k, $rect);
+              $this->SetTooltip($bar, $value, null,
+                !$this->compat_events && $this->show_bar_labels);
+            if($this->show_bar_labels) {
+              $rect = $this->Element('rect', $bar, $bar_style);
+              $rect .= $this->BarLabel($value, $bar);
+              $body .= $this->GetLink($k, $rect);
+            } else {
+              $rect = $this->Element('rect', $bar);
+              $groups[$j] .= $this->GetLink($k, $rect);
+            }
             unset($bar['id']); // clear ID for next generated value
 
             if(!array_key_exists($j, $this->bar_styles))
@@ -82,9 +84,11 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
       }
       ++$bnum;
     }
-    foreach($groups as $j => $g)
-      if(array_key_exists($j, $this->bar_styles))
-        $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
+    if(!$this->show_bar_labels) {
+      foreach($groups as $j => $g)
+        if(array_key_exists($j, $this->bar_styles))
+          $body .= $this->Element('g', NULL, $this->bar_styles[$j], $g);
+    }
 
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
