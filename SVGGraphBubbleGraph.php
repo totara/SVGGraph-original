@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2013 Graham Breach
+ * Copyright (C) 2013-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -37,6 +37,7 @@ class BubbleGraph extends PointGraph {
 
     $bnum = 0;
     $ccount = count($this->colours);
+    $y_axis = $this->y_axes[$this->main_y_axis];
     foreach($this->values[0] as $item) {
       $area = $item->Data('area');
       $point_pos = $this->GridPosition($item->key, $bnum);
@@ -44,7 +45,7 @@ class BubbleGraph extends PointGraph {
         $x = $point_pos;
         $y = $this->GridY($item->value);
         if(!is_null($y)) {
-          $r = $this->bubble_scale * $this->bar_unit_height * sqrt(abs($area) / M_PI);
+          $r = $this->bubble_scale * $y_axis->Unit() * sqrt(abs($area) / M_PI);
           $circle = array('cx' => $x, 'cy' => $y, 'r' => $r);
           if($area < 0) {
             // draw negative bubbles with a checked pattern

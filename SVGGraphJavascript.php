@@ -459,7 +459,7 @@ function initDrag() {
     for(d in draggable) {
       e = draggable[d] = getE(d);
       e.draginfo = [0,0,0,0,newel('g',{cursor:'move'})];
-      document.documentElement.appendChild(e.draginfo[4]);
+      (e.nearestViewportElement || document.documentElement).appendChild(e.draginfo[4]);
       e.parentNode.removeChild(e);
       e.draginfo[4].appendChild(e);
     }

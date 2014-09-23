@@ -52,6 +52,14 @@ class Axis {
   }
 
   /**
+   * Allow length adjustment
+   */
+  public function SetLength($l)
+  {
+    $this->length = $l;
+  }
+
+  /**
    * Returns TRUE if the number $n is 'nice'
    */
   private function nice($n, $m)

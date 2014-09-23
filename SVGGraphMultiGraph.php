@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -229,12 +229,5 @@ class MultiGraph implements Countable, ArrayAccess, Iterator {
       $this->values->GetMinMaxSumValues();
   }
 
-  /**
-   * Returns an option from array, or non-array option
-   */
-  public function Option($o, $i)
-  {
-    return is_array($o) ? $o[$i % count($o)] : $o;
-  }
 }
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,7 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 
   protected $multi_graph;
   protected $legend_reverse = false;
+  protected $single_axis = true;
 
   protected function Draw()
   {
@@ -34,8 +35,7 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
-    $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
-      $this->bar_unit_height - $this->bar_space);
+    $bar_height = $this->BarHeight();
     $bar_style = array();
     $bar = array('height' => $bar_height);
 
@@ -170,7 +170,8 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
     $top = $bar['x'] + $bar['width'] - $this->bar_total_space;
     $bottom = $bar['x'] + $this->bar_total_space;
 
-    $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + $this->x_axis->Zero());
+    $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + 
+      $this->x_axes[$this->main_x_axis]->Zero());
     $x = $swap ? $bottom - $this->bar_total_space * 2 :
       $top + $this->bar_total_space * 2;
     $anchor = $swap ? 'end' : 'start';

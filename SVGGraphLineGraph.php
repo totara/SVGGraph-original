@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2013 Graham Breach
+ * Copyright (C) 2009-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -45,7 +45,8 @@ class LineGraph extends PointGraph {
 
     $bnum = 0;
     $cmd = 'M';
-    $y_axis_pos = $this->height - $this->pad_bottom - $this->y_axis->Zero();
+    $y_axis_pos = $this->height - $this->pad_bottom - 
+      $this->y_axes[$this->main_y_axis]->Zero();
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
     $path = $fillpath = '';

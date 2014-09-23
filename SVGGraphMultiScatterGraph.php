@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -43,10 +43,11 @@ class MultiScatterGraph extends PointGraph {
     $chunk_count = count($this->multi_graph);
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
+      $axis = $this->DatasetYAxis($i);
       foreach($this->multi_graph[$i] as $item) {
         $x = $this->GridPosition($item->key, $bnum);
         if(!is_null($item->value) && !is_null($x)) {
-          $y = $this->GridY($item->value);
+          $y = $this->GridY($item->value, $axis);
           if(!is_null($y))
             $this->AddMarker($x, $y, $item, NULL, $i);
         }
@@ -55,10 +56,10 @@ class MultiScatterGraph extends PointGraph {
 
       // draw the best-fit line for this data set
       if($this->best_fit) {
-        $best_fit = $this->multi_graph->Option($this->best_fit, $i);
-        $colour = $this->multi_graph->Option($this->best_fit_colour, $i);
-        $stroke_width = $this->multi_graph->Option($this->best_fit_width, $i);
-        $dash = $this->multi_graph->Option($this->best_fit_dash, $i);
+        $best_fit = $this->ArrayOption($this->best_fit, $i);
+        $colour = $this->ArrayOption($this->best_fit_colour, $i);
+        $stroke_width = $this->ArrayOption($this->best_fit_width, $i);
+        $dash = $this->ArrayOption($this->best_fit_dash, $i);
         $body .= $this->BestFit($best_fit, $i, $colour, $stroke_width, $dash);
       }
     }

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012-2013 Graham Breach
+ * Copyright (C) 2012-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -32,8 +32,7 @@ class GroupedBar3DGraph extends Bar3DGraph {
 
     $chunk_count = count($this->multi_graph);
     $gap_count = $chunk_count - 1;
-    $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
-      $this->bar_unit_width - $this->bar_space);
+    $bar_width = $this->BarWidth();
     $chunk_gap = $gap_count > 0 ? $this->group_space : 0;
     if($gap_count > 0 && $chunk_gap * $gap_count > $bar_width - $chunk_count)
       $chunk_gap = ($bar_width - $chunk_count) / $gap_count;
@@ -69,7 +68,8 @@ class GroupedBar3DGraph extends Bar3DGraph {
 
           if(!is_null($item->value)) {
             $colour = $j % $ccount;
-            $bar_sections = $this->Bar3D($item, $bar, $top, $colour);
+            $bar_sections = $this->Bar3D($item, $bar, $top, $colour, NULL,
+              $this->DatasetYAxis($j));
             $group['fill'] = $this->GetColour($item, $colour);
 
             if($this->show_tooltips)
@@ -112,7 +112,7 @@ class GroupedBar3DGraph extends Bar3DGraph {
      * bar and group spacing, which is where things get messy
      */
     $ends = $this->GetAxisEnds();
-    $num = $ends['k_max'] - $ends['k_min'] + 1;
+    $num = $ends['k_max'][0] - $ends['k_min'][0] + 1;
 
     $block = $x_len / $num;
     $group = count($this->values);

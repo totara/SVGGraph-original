@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,7 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 
   protected $multi_graph;
   protected $legend_reverse = true;
+  protected $single_axis = true;
 
   protected function Draw()
   {
@@ -33,8 +34,7 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 
     $chunk_count = count($this->multi_graph);
     $gap_count = $chunk_count - 1;
-    $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
-      $this->bar_unit_height - $this->bar_space);
+    $bar_height = $this->BarHeight();
     $chunk_gap = $gap_count > 0 ? $this->group_space : 0;
     if($gap_count > 0 && $chunk_gap * $gap_count > $bar_height - $chunk_count)
       $chunk_gap = ($bar_height - $chunk_count) / $gap_count;

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,9 +31,7 @@ class HorizontalBarGraph extends GridGraph {
   protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
-
-    $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
-      $this->bar_unit_height - $this->bar_space);
+    $bar_height = $this->BarHeight();
 
     $bnum = 0;
     $bspace = $this->bar_space / 2;
@@ -68,6 +66,15 @@ class HorizontalBarGraph extends GridGraph {
 
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     return $body;
+  }
+
+  /**
+   * Returns the height of a bar rectangle
+   */
+  protected function BarHeight()
+  {
+    $unit_h = $this->y_axes[$this->main_y_axis]->Unit();
+    return ($this->bar_space >= $unit_h ? '1' : $unit_h - $this->bar_space);
   }
 
   /**
@@ -143,7 +150,8 @@ class HorizontalBarGraph extends GridGraph {
       $top = $bar['x'] + $bar['width'] - $this->bar_label_space;
       $bottom = $bar['x'] + $this->bar_label_space;
 
-      $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + $this->x_axis->Zero());
+      $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + 
+        $this->x_axes[$this->main_x_axis]->Zero());
       switch($pos) {
       case 'above' :
         $x = $swap ? $bottom - $this->bar_label_space * 2 :

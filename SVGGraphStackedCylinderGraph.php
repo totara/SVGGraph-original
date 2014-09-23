@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2013 Graham Breach
+ * Copyright (C) 2013-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,7 @@ class StackedCylinderGraph extends CylinderGraph {
 
   protected $multi_graph;
   protected $legend_reverse = true;
+  protected $single_axis = true;
 
   protected function Draw()
   {
@@ -34,8 +35,7 @@ class StackedCylinderGraph extends CylinderGraph {
 
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
-    $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
-      $this->bar_unit_width - $this->bar_space);
+    $bar_width = $this->BarWidth();
     $bar = array('width' => $bar_width);
 
     $this->block_width = $bar_width;

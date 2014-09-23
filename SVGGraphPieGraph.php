@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2013 Graham Breach
+ * Copyright (C) 2009-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -30,6 +30,8 @@ class PieGraph extends Graph {
   protected $calc_done;
   protected $slice_styles = array();
   protected $total = 0;
+
+  private $sub_total = 0;
 
   /**
    * Calculates position of pie
@@ -64,6 +66,7 @@ class PieGraph extends Graph {
       $this->radius_x = $this->radius_y / $this->aspect_ratio;
     }
     $this->calc_done = true;
+    $this->sub_total = 0;
   }
 
   /**
@@ -81,7 +84,6 @@ class PieGraph extends Graph {
     $unit_slice = 2.0 * M_PI / $this->total;
     $ccount = count($this->colours);
     $vcount = 0;
-    $sub_total = 0.0;
 
     // need to store the original position of each value, because the
     // sorted list must still refer to the relevant legend entries
@@ -98,6 +100,7 @@ class PieGraph extends Graph {
     $body = $labels = '';
     $slice = 0;
     $slices = array();
+    $slice_no = 0;
     foreach($values as $key => $value) {
 
       // get the original array position of the value
@@ -114,31 +117,16 @@ class PieGraph extends Graph {
         ++$slice;
       }
 
-      if(!$value)
+      if(!$this->GetSliceInfo($slice_no++, $item, $angle_start, $angle_end,
+        $radius_x, $radius_y))
         continue;
 
-      $angle_start = $sub_total * $unit_slice;
-      $angle_end = ($sub_total + $value) * $unit_slice;
-
-      if($this->show_tooltips)
-        $this->SetTooltip($attr, $item, $key, $value, !$this->compat_events);
-  
       $t_style = NULL;
       if($this->show_labels) {
-        if($vcount > 1) {
-          $ac = $this->s_angle + ($sub_total + ($value * 0.5)) * $unit_slice;
-          $xc = $this->label_position * $this->radius_x * cos($ac);
-          $yc = ($this->reverse ? -1 : 1) * $this->label_position *
-            $this->radius_y * sin($ac);
-        } else {
-          $xc = $yc = 0;
-        }
 
         $text['id'] = $this->NewID();
         if($this->label_fade_in_speed && $this->compat_events)
           $text['opacity'] = '0.0';
-        $tx = $this->x_centre + $xc;
-        $ty = $this->y_centre + $yc + ($this->label_font_size * 0.3);
 
         // display however many lines of label
         $label = $item->Data('label');
@@ -156,37 +144,53 @@ class PieGraph extends Graph {
         } else {
           $parts = array($label);
         }
+        $parts = implode("\n", $parts);
 
-        $x_offset = empty($this->label_back_colour) ? $tx : 0;
-        $string = $this->TextLines($parts, $x_offset, $this->label_font_size);
-
-        if(!empty($this->label_back_colour)) {
-          $labels .= $this->ContrastText($tx, $ty, $string, 
-            $this->label_colour, $this->label_back_colour, $text);
+        if($vcount > 1) {
+          list($xc, $yc) = $this->GetLabelPosition($item, $angle_start, $angle_end,
+            $radius_x, $radius_y, $parts);
         } else {
-          $text['x'] = $tx;
-          $text['y'] = $ty;
-          $text['fill'] = $this->label_colour;
-          $labels .= $this->Element('text', $text, NULL, $string);
+          $xc = $yc = 0;
         }
+        $tx = $this->x_centre + $xc;
+        $ty = $this->y_centre + $yc;
+
+        $text['x'] = $tx;
+        $text['y'] = $ty;
+        $text['fill'] = $this->label_colour;
+        if(!empty($this->label_back_colour)) {
+          $outline = array(
+            'stroke-width' => '3px',
+            'stroke' => $this->label_back_colour,
+            'stroke-linejoin' => 'round',
+          );
+          $t1 = array_merge($outline, $text);
+          $labels .= $this->Text($parts, $this->label_font_size, $t1);
+        }
+        $labels .= $this->Text($parts, $this->label_font_size, $text);
       }
-      if($speed_in || $speed_out)
-        $this->SetFader($attr, $speed_in, $speed_out, $text['id'],
-          !$this->compat_events);
 
-      $this->CalcSlice($angle_start, $angle_end, $x1, $y1, $x2, $y2);
-      $single_slice = ($vcount == 1) || 
-        ((string)$x1 == (string)$x2 && (string)$y1 == (string)$y2 &&
-          (string)$angle_start != (string)$angle_end);
+      if($radius_x || $radius_y) {
+        if($this->show_tooltips)
+          $this->SetTooltip($attr, $item, $key, $value, !$this->compat_events);
+        if($speed_in || $speed_out)
+          $this->SetFader($attr, $speed_in, $speed_out, $text['id'],
+            !$this->compat_events);
+  
+        $this->CalcSlice($angle_start, $angle_end, $radius_x, $radius_y,
+          $x1, $y1, $x2, $y2);
+        $single_slice = ($vcount == 1) || 
+          ((string)$x1 == (string)$x2 && (string)$y1 == (string)$y2 &&
+            (string)$angle_start != (string)$angle_end);
 
-      $path = $this->GetSlice($angle_start, $angle_end, $attr, $single_slice);
-      $this_slice = $this->GetLink($item, $key, $path);
-      if($single_slice)
-        array_unshift($slices, $this_slice);
-      else
-        $slices[] = $this_slice;
-
-      $sub_total += $value;
+        $path = $this->GetSlice($item, $angle_start, $angle_end,
+          $radius_x, $radius_y, $attr, $single_slice);
+        $this_slice = $this->GetLink($item, $key, $path);
+        if($single_slice)
+          array_unshift($slices, $this_slice);
+        else
+          $slices[] = $this_slice;
+      }
     }
     $body .= implode($slices);
 
@@ -206,37 +210,41 @@ class PieGraph extends Graph {
   /**
    * Returns a single slice of pie
    */
-  protected function GetSlice($angle_start, $angle_end, &$attr, $single_slice)
+  protected function GetSlice($item, $angle_start, $angle_end, $radius_x, $radius_y,
+    &$attr, $single_slice)
   {
     $x_start = $y_start = $x_end = $y_end = 0;
     $angle_start += $this->s_angle;
     $angle_end += $this->s_angle;
-    $this->CalcSlice($angle_start, $angle_end, $x_start, $y_start,
-      $x_end, $y_end);
+    $this->CalcSlice($angle_start, $angle_end, $radius_x, $radius_y,
+      $x_start, $y_start, $x_end, $y_end);
     if($single_slice) {
       $attr['cx'] = $this->x_centre;
       $attr['cy'] = $this->y_centre;
-      $attr['rx'] = $this->radius_x;
-      $attr['ry'] = $this->radius_y;
+      $attr['rx'] = $radius_x;
+      $attr['ry'] = $radius_y;
       return $this->Element('ellipse', $attr);
     } else {
       $outer = ($angle_end - $angle_start > M_PI ? 1 : 0);
       $sweep = ($this->reverse ? 0 : 1);
       $attr['d'] = "M{$this->x_centre},{$this->y_centre} L$x_start,$y_start " .
-        "A{$this->radius_x} {$this->radius_y} 0 $outer,$sweep $x_end,$y_end z";
+        "A{$radius_x} {$radius_y} 0 $outer,$sweep $x_end,$y_end z";
       return $this->Element('path', $attr);
     }
   }
 
-  protected function CalcSlice($angle_start, $angle_end,
+  /**
+   * Calculates start and end points of slice
+   */
+  protected function CalcSlice($angle_start, $angle_end, $radius_x, $radius_y,
     &$x_start, &$y_start, &$x_end, &$y_end)
   {
-    $x_start = ($this->radius_x * cos($angle_start));
+    $x_start = ($radius_x * cos($angle_start));
     $y_start = ($this->reverse ? -1 : 1) *
-      ($this->radius_y * sin($angle_start));
-    $x_end = ($this->radius_x * cos($angle_end));
+      ($radius_y * sin($angle_start));
+    $x_end = ($radius_x * cos($angle_end));
     $y_end = ($this->reverse ? -1 : 1) *
-      ($this->radius_y * sin($angle_end));
+      ($radius_y * sin($angle_end));
 
     $x_start += $this->x_centre;
     $y_start += $this->y_centre;
@@ -244,6 +252,43 @@ class PieGraph extends Graph {
     $y_end += $this->y_centre;
   }
 
+  /**
+   * Finds the angles and radii for a slice
+   */
+  protected function GetSliceInfo($num, $item, &$angle_start, &$angle_end,
+    &$radius_x, &$radius_y)
+  {
+    if(!$item->value)
+      return false;
+
+    $unit_slice = 2.0 * M_PI / $this->total;
+    $angle_start = $this->sub_total * $unit_slice;
+    $angle_end = ($this->sub_total + $item->value) * $unit_slice;
+    $radius_x = $this->radius_x;
+    $radius_y = $this->radius_y;
+
+    $this->sub_total += $item->value;
+    return true;
+  }
+
+  /**
+   * Returns the x and y position of the label, relative to centre
+   */
+  protected function GetLabelPosition($item, $a_start, $a_end, $rx, $ry, $text)
+  {
+    $ts = $this->TextSize($text, $this->label_font_size, 0.65,
+      $this->encoding, 0, $this->label_font_size);
+
+    // place it at the label_position distance from centre
+    $ac = $this->s_angle + $a_start + ($a_end - $a_start) / 2;
+    $xc = $this->label_position * $this->radius_x * cos($ac);
+    $yc = ($this->reverse ? -1 : 1) * $this->label_position *
+      $this->radius_y * sin($ac);
+    // try to place the centre of the label at the position
+    $oy = $ts[1] / 2 - $this->label_font_size * 0.8;
+    return array($xc, $yc - $oy);
+  }
+  
   /**
    * Checks that the data are valid
    */

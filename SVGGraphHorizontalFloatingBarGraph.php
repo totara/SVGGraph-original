@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2013 Graham Breach
+ * Copyright (C) 2013-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,8 +31,7 @@ class HorizontalFloatingBarGraph extends HorizontalBarGraph {
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
-    $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
-      $this->bar_unit_height - $this->bar_space);
+    $bar_height = $this->BarHeight();
     $bar_style = array();
     $bar = array('height' => $bar_height);
 

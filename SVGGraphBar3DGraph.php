@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2013 Graham Breach
+ * Copyright (C) 2009-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -32,7 +32,7 @@ class Bar3DGraph extends ThreeDGraph {
   protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
-    $this->block_width = $this->bar_unit_width - $this->bar_space;
+    $this->block_width = $this->BarWidth();
 
     // make the top parallelogram, set it as a symbol for re-use
     list($this->bx, $this->by) = $this->Project(0, 0, $this->block_width);
@@ -83,6 +83,15 @@ class Bar3DGraph extends ThreeDGraph {
   }
 
   /**
+   * Returns the width of a bar
+   */
+  protected function BarWidth()
+  {
+    $unit_w = $this->x_axes[$this->main_x_axis]->Unit();
+    return $this->bar_space >= $unit_w ? '1' : $unit_w - $this->bar_space;
+  }
+
+  /**
    * Returns the bar top path details array
    */
   protected function BarTop()
@@ -100,9 +109,9 @@ class Bar3DGraph extends ThreeDGraph {
   /**
    * Returns the SVG code for a 3D bar
    */
-  protected function Bar3D($item, &$bar, &$top, $colour, $start = null)
+  protected function Bar3D($item, &$bar, &$top, $colour, $start = null, $axis = NULL)
   {
-    $pos = $this->Bar($item->value, $bar, $start);
+    $pos = $this->Bar($item->value, $bar, $start, $axis);
     if(is_null($pos) || $pos > $this->height - $this->pad_bottom)
       return '';
 
@@ -126,18 +135,20 @@ class Bar3DGraph extends ThreeDGraph {
 
   /**
    * Fills in the y-position and height of a bar (copied from BarGraph)
-   * @param number $value bar value
-   * @param array  &$bar  bar element array [out]
-   * @param number $start bar start value
+   * @param number $value value
+   * @param array  &$bar  element array [out]
+   * @param number $start start value
+   * @param number $axis axis number
    * @return number unclamped bar position
    */
-  protected function Bar($value, &$bar, $start = null)
+  protected function Bar($value, &$bar, $start = null, $axis = NULL)
   {
     if($start)
       $value += $start;
 
-    $startpos = is_null($start) ? $this->OriginY() : $this->GridY($start);
-    $pos = $this->GridY($value);
+    $startpos = is_null($start) ? $this->OriginY($axis) :
+      $this->GridY($start, $axis);
+    $pos = $this->GridY($value, $axis);
     if(is_null($pos)) {
       $bar['height'] = 0;
     } else {

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012-2013 Graham Breach
+ * Copyright (C) 2012-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,6 +29,7 @@ require_once 'SVGGraphMultiLineGraph.php';
 class StackedLineGraph extends MultiLineGraph {
 
   protected $legend_reverse = true;
+  protected $single_axis = true;
 
   protected function Draw()
   {
@@ -46,10 +47,10 @@ class StackedLineGraph extends MultiLineGraph {
       $cmd = 'M';
       $path = $fillpath = '';
       $attr = array('fill' => 'none');
-      $fill = $this->multi_graph->Option($this->fill_under, $i);
-      $dash = $this->multi_graph->Option($this->line_dash, $i);
+      $fill = $this->ArrayOption($this->fill_under, $i);
+      $dash = $this->ArrayOption($this->line_dash, $i);
       $stroke_width = 
-        $this->multi_graph->Option($this->line_stroke_width, $i);
+        $this->ArrayOption($this->line_stroke_width, $i);
       if(!empty($dash))
         $attr['stroke-dasharray'] = $dash;
       $attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
@@ -92,7 +93,7 @@ class StackedLineGraph extends MultiLineGraph {
         if($fill) {
           // complete the fill area with the previous stack total
           $cmd = 'L';
-          $opacity = $this->multi_graph->Option($this->fill_opacity, $i);
+          $opacity = $this->ArrayOption($this->fill_opacity, $i);
           $bpoints = array_reverse($bottom, TRUE);
           foreach($bpoints as $x => $pos) {
             $y = $this->GridY($pos);

@@ -1,3 +1,11 @@
+Version 2.15 (11/03/2014)
+------------
+- Added donut graph.
+- Added polar area graph.
+- Added exploded pie graph.
+- Added support for dual Y axes.
+- Fixed legend dragging when embedded in HTML.
+
 Version 2.14 (05/10/2013)
 ------------
 - Added pattern fill support.

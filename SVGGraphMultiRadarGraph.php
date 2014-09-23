@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -34,6 +34,7 @@ class MultiRadarGraph extends RadarGraph {
     $body = $this->Grid();
 
     $plots = '';
+    $y_axis = $this->y_axes[$this->main_y_axis];
     $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
     for($i = 0; $i < $chunk_count; ++$i) {
@@ -41,15 +42,14 @@ class MultiRadarGraph extends RadarGraph {
       $cmd = 'M';
       $path = '';
       $attr = array('fill' => 'none');
-      $fill = $this->multi_graph->Option($this->fill_under, $i);
-      $dash = $this->multi_graph->Option($this->line_dash, $i);
-      $stroke_width = 
-        $this->multi_graph->Option($this->line_stroke_width, $i);
+      $fill = $this->ArrayOption($this->fill_under, $i);
+      $dash = $this->ArrayOption($this->line_dash, $i);
+      $stroke_width = $this->ArrayOption($this->line_stroke_width, $i);
       $fill_style = null;
       if($fill) {
         $attr['fill'] = $this->GetColour(null, $i % $ccount);
         $fill_style = array('fill' => $attr['fill']);
-        $opacity = $this->multi_graph->Option($this->fill_opacity, $i);
+        $opacity = $this->ArrayOption($this->fill_opacity, $i);
         if($opacity < 1.0) {
           $attr['fill-opacity'] = $opacity;
           $fill_style['fill-opacity'] = $opacity;
@@ -59,11 +59,10 @@ class MultiRadarGraph extends RadarGraph {
         $attr['stroke-dasharray'] = $dash;
       $attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
 
-
       foreach($this->multi_graph[$i] as $item) {
         $point_pos = $this->GridPosition($item->key, $bnum);
         if(!is_null($item->value) && !is_null($point_pos)) {
-          $val = $this->y_axis->Position($item->value);
+          $val = $y_axis->Position($item->value);
           if(!is_null($val)) {
             $angle = $this->arad + $point_pos / $this->g_height;
             $x = $this->xc + ($val * sin($angle));

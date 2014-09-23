@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2013 Graham Breach
+ * Copyright (C) 2013-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -36,8 +36,7 @@ class PopulationPyramid extends HorizontalBarGraph {
 
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
-    $bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
-      $this->bar_unit_height - $this->bar_space);
+    $bar_height = $this->BarHeight();
     $bar_style = array();
     $bar = array('height' => $bar_height);
 
@@ -174,7 +173,8 @@ class PopulationPyramid extends HorizontalBarGraph {
     $top = $bar['x'] + $bar['width'] - $this->bar_total_space;
     $bottom = $bar['x'] + $this->bar_total_space;
 
-    $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + $this->x_axis->Zero());
+    $swap = ($bar['x'] + $bar['width'] <= $this->pad_left + 
+      $this->x_axes[$this->main_x_axis]->Zero());
     $x = $swap ? $bottom - $this->bar_total_space * 2 :
       $top + $this->bar_total_space * 2;
     $anchor = $swap ? 'end' : 'start';
@@ -297,30 +297,33 @@ class PopulationPyramid extends HorizontalBarGraph {
     // always assoc, no units
     $this->units_x = $this->units_before_x = null;
 
-    $max_h = $ends['v_max'];
-    $min_h = $ends['v_min'];
-    $max_v = $ends['k_max'];
-    $min_v = $ends['k_min'];
-    $x_min_unit = $this->minimum_units_y;
+    // if fixed grid spacing is specified, make the min spacing 1 pixel
+    if(is_numeric($this->grid_division_v))
+      $this->minimum_grid_spacing_v = 1;
+    if(is_numeric($this->grid_division_h))
+      $this->minimum_grid_spacing_h = 1;
+
+    $max_h = $ends['v_max'][0];
+    $min_h = $ends['v_min'][0];
+    $max_v = $ends['k_max'][0];
+    $min_v = $ends['k_min'][0];
+    $x_min_unit = $this->ArrayOption($this->minimum_units_y, 0);
     $x_fit = false;
     $y_min_unit = 1;
     $y_fit = true;
-    $x_units_after = (string)$this->units_y;
-    $y_units_after = (string)$this->units_x;
-    $x_units_before = (string)$this->units_before_y;
-    $y_units_before = (string)$this->units_before_x;
+    $x_units_after = (string)$this->ArrayOption($this->units_y, 0);
+    $y_units_after = (string)$this->ArrayOption($this->units_x, 0);
+    $x_units_before = (string)$this->ArrayOption($this->units_before_y, 0);
+    $y_units_before = (string)$this->ArrayOption($this->units_before_x, 0);
+
+    $this->grid_division_h = $this->ArrayOption($this->grid_division_h, 0);
+    $this->grid_division_v = $this->ArrayOption($this->grid_division_v, 0);
 
     // sanitise grid divisions
     if(is_numeric($this->grid_division_v) && $this->grid_division_v <= 0)
       $this->grid_division_v = null;
     if(is_numeric($this->grid_division_h) && $this->grid_division_h <= 0)
       $this->grid_division_h = null;
-
-    // if fixed grid spacing is specified, make the min spacing 1 pixel
-    if(is_numeric($this->grid_division_v))
-      $this->minimum_grid_spacing_v = 1;
-    if(is_numeric($this->grid_division_h))
-      $this->minimum_grid_spacing_h = 1;
 
     if(!is_numeric($max_h) || !is_numeric($min_h) ||
       !is_numeric($max_v) || !is_numeric($min_v))
@@ -341,7 +344,7 @@ class PopulationPyramid extends HorizontalBarGraph {
         $y_units_before, $y_units_after);
 
     $y_axis->Reverse(); // because axis starts at bottom
-    return array($x_axis, $y_axis);
+    return array(array($x_axis), array($y_axis));
   }
 }
 

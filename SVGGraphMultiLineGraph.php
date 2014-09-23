@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -35,7 +35,8 @@ class MultiLineGraph extends LineGraph {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $plots = '';
-    $y_axis_pos = $this->height - $this->pad_bottom - $this->y_axis->Zero();
+    $y_axis_pos = $this->height - $this->pad_bottom - 
+      $this->y_axes[$this->main_y_axis]->Zero();
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
     $ccount = count($this->colours);
@@ -45,18 +46,19 @@ class MultiLineGraph extends LineGraph {
       $cmd = 'M';
       $path = $fillpath = '';
       $attr = array('fill' => 'none');
-      $fill = $this->multi_graph->Option($this->fill_under, $i);
-      $dash = $this->multi_graph->Option($this->line_dash, $i);
+      $fill = $this->ArrayOption($this->fill_under, $i);
+      $dash = $this->ArrayOption($this->line_dash, $i);
       $stroke_width = 
-        $this->multi_graph->Option($this->line_stroke_width, $i);
+        $this->ArrayOption($this->line_stroke_width, $i);
       if(!empty($dash))
         $attr['stroke-dasharray'] = $dash;
       $attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
 
+      $axis = $this->DatasetYAxis($i);
       foreach($this->multi_graph[$i] as $item) {
         $x = $this->GridPosition($item->key, $bnum);
         if(!is_null($x) && !is_null($item->value)) {
-          $y = $this->GridY($item->value);
+          $y = $this->GridY($item->value, $axis);
           if(!is_null($y)) {
 
             if($fill && empty($fillpath))
@@ -80,7 +82,7 @@ class MultiLineGraph extends LineGraph {
         $fill_style = null;
 
         if($fill) {
-          $opacity = $this->multi_graph->Option($this->fill_opacity, $i);
+          $opacity = $this->ArrayOption($this->fill_opacity, $i);
           $fillpath .= "L{$last_x} {$y_bottom}z";
           $fill_style = array(
             'fill' => $this->GetColour(null, $i % $ccount),

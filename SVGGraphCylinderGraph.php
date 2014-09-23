@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012-2013 Graham Breach
+ * Copyright (C) 2012-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -118,11 +118,11 @@ class CylinderGraph extends Bar3DGraph {
   /**
    * Returns the SVG code for a 3D cylinder
    */
-  protected function Bar3D($item, &$bar, &$top, $colour, $start = null)
+  protected function Bar3D($item, &$bar, &$top, $colour, $start = null, $axis = NULL)
   {
     if(is_null($this->arc_path))
       $this->SetupCylinder();
-    $pos = $this->Bar($item->value, $bar, $start);
+    $pos = $this->Bar($item->value, $bar, $start, $axis);
     if(is_null($pos) || $pos > $this->height - $this->pad_bottom)
       return '';
 

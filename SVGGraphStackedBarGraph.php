@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -27,6 +27,7 @@ class StackedBarGraph extends BarGraph {
 
   protected $multi_graph;
   protected $legend_reverse = true;
+  protected $single_axis = true;
 
   protected function Draw()
   {
@@ -34,11 +35,8 @@ class StackedBarGraph extends BarGraph {
       throw new Exception('log_axis_y not supported by StackedBarGraph');
 
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
-
-    $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
-      $this->bar_unit_width - $this->bar_space);
     $bar_style = array();
-    $bar = array('width' => $bar_width);
+    $bar = array('width' => $this->BarWidth());
 
     $bspace = $this->bar_space / 2;
     $bnum = 0;
@@ -170,7 +168,8 @@ class StackedBarGraph extends BarGraph {
     $x = $bar['x'] + ($bar['width'] / 2);
     $colour = $this->bar_total_colour;
 
-    $swap = ($bar['y'] >= $this->height - $this->pad_bottom - $this->y_axis->Zero());
+    $swap = ($bar['y'] >= $this->height - $this->pad_bottom - 
+      $this->y_axes[$this->main_y_axis]->Zero());
     $y = $swap ? $bar['y'] + $bar['height'] + $font_size + $space : $bar['y'] - $space;
     $offset = 0;
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2013 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -32,8 +32,7 @@ class GroupedBarGraph extends BarGraph {
 
     $chunk_count = count($this->multi_graph);
     $gap_count = $chunk_count - 1;
-    $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
-      $this->bar_unit_width - $this->bar_space);
+    $bar_width = $this->BarWidth();
     $chunk_gap = $gap_count > 0 ? $this->group_space : 0;
     if($gap_count > 0 && $chunk_gap * $gap_count > $bar_width - $chunk_count)
       $chunk_gap = ($bar_width - $chunk_count) / $gap_count;
@@ -60,7 +59,7 @@ class GroupedBarGraph extends BarGraph {
           $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
 
           if(!is_null($item->value)) {
-            $this->Bar($item->value, $bar);
+            $this->Bar($item->value, $bar, NULL, $this->DatasetYAxis($j));
 
             if($bar['height'] > 0) {
               ++$bars_shown[$j];

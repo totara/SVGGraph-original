@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2013 Graham Breach
+ * Copyright (C) 2009-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.14');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.15');
 
 class SVGGraph {
 
@@ -995,6 +995,14 @@ abstract class Graph {
     foreach($opts as $opt)
       if(!empty($opt) || $opt === 0)
         return $opt;
+  }
+
+  /**
+   * Returns an option from array, or non-array option
+   */
+  protected static function ArrayOption($o, $i)
+  {
+    return is_array($o) ? $o[$i % count($o)] : $o;
   }
 
   /**

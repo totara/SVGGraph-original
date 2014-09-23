@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2013 Graham Breach
+ * Copyright (C) 2009-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,17 +29,13 @@ class BarGraph extends GridGraph {
   protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
-
-    $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
-      $this->bar_unit_width - $this->bar_space);
-
     $bnum = 0;
     $bspace = $this->bar_space / 2;
     $ccount = count($this->colours);
     foreach($this->values[0] as $item) {
 
       // assign bar in the loop so it doesn't keep ID
-      $bar = array('width' => $bar_width);
+      $bar = array('width' => $this->BarWidth());
       $bar_pos = $this->GridPosition($item->key, $bnum);
       if($this->legend_show_empty || $item->value != 0) {
         $bar_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
@@ -71,21 +67,32 @@ class BarGraph extends GridGraph {
   }
 
   /**
+   * Returns the width of a bar
+   */
+  protected function BarWidth()
+  {
+    $unit_w = $this->x_axes[$this->main_x_axis]->Unit();
+    return $this->bar_space >= $unit_w ? '1' : $unit_w - $this->bar_space;
+  }
+
+  /**
    * Fills in the y-position and height of a bar
    * @param number $value bar value
    * @param array  &$bar  bar element array [out]
    * @param number $start bar start value
+   * @param number $axis bar Y-axis number
    * @return number unclamped bar position
    */
-  protected function Bar($value, &$bar, $start = null)
+  protected function Bar($value, &$bar, $start = null, $axis = NULL)
   {
     if($start)
       $value += $start;
 
-    $startpos = is_null($start) ? $this->OriginY() : $this->GridY($start);
+    $startpos = is_null($start) ? $this->OriginY($axis) :
+      $this->GridY($start, $axis);
     if(is_null($startpos))
-      $startpos = $this->OriginY();
-    $pos = $this->GridY($value);
+      $startpos = $this->OriginY($axis);
+    $pos = $this->GridY($value, $axis);
     if(is_null($pos)) {
       $bar['height'] = 0;
     } else {
@@ -131,7 +138,8 @@ class BarGraph extends GridGraph {
       $y = $bar['y'] + $offset_y;
     } else {
       $pos = $this->BarLabelPosition($bar);
-      $swap = ($bar['y'] >= $this->height - $this->pad_bottom - $this->y_axis->Zero());
+      $swap = ($bar['y'] >= $this->height - $this->pad_bottom - 
+        $this->y_axes[$this->main_y_axis]->Zero());
       switch($pos) {
       case 'above' :
         $y = $swap ? $bar['y'] + $bar['height'] + $font_size + $space :

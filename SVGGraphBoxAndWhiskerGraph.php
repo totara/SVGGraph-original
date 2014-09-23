@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2013 Graham Breach
+ * Copyright (C) 2013-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -33,8 +33,8 @@ class BoxAndWhiskerGraph extends PointGraph {
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
-    $bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
-      $this->bar_unit_width - $this->bar_space);
+    $bar_width = $this->BarWidth();
+    $x_axis = $this->x_axes[$this->main_x_axis];
     $box_style = array();
 
     $bspace = $this->bar_space / 2;
@@ -64,7 +64,7 @@ class BoxAndWhiskerGraph extends PointGraph {
         $this->box_styles[$bnum] = $box_style;
 
         // add outliers as markers
-        $x = $bar_pos + $this->bar_unit_width / 2;
+        $x = $bar_pos + $x_axis->Unit() / 2;
         foreach($this->GetOutliers($item) as $ovalue) {
           $y = $this->GridY($ovalue);
           $this->AddMarker($x, $y, $item);
@@ -76,6 +76,15 @@ class BoxAndWhiskerGraph extends PointGraph {
     $body .= $this->Guidelines(SVGG_GUIDELINE_ABOVE) . $this->Axes();
     $body .= $this->DrawMarkers();
     return $body;
+  }
+
+  /**
+   * Returns the width of a bar
+   */
+  protected function BarWidth()
+  {
+    $unit_w = $this->x_axes[$this->main_x_axis]->Unit();
+    return $this->bar_space >= $unit_w ? '1' : $unit_w - $this->bar_space;
   }
 
   /**

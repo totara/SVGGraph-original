@@ -1,4 +1,4 @@
-SVGGraph Library version 2.14
+SVGGraph Library version 2.15
 =============================
 
 This library provides PHP classes and functions for easily creating SVG
@@ -62,7 +62,14 @@ At the moment these types of graph are supported by SVGGraph:
 
  StackedCylinderGraph - a cylinder-bar version of the stacked bar graph;
 
- GroupedCylinderGraph - a cylinder-bar version of the grouped bar graph.
+ GroupedCylinderGraph - a cylinder-bar version of the grouped bar graph;
+
+ DonutGraph - a pie graph with a hole in the middle;
+
+ PolarAreaGraph - a pie graph where the area of the slice varies instead of
+                  its angle;
+
+ ExplodedPieGraph - a pie graph with slices exploded out from the centre.
  
 Using SVGGraph
 ==============
@@ -261,4 +268,4 @@ For more information about this software please contact the author,
 graham(at)goat1000.com or visit the website: http://www.goat1000.com/
 
 
-Copyright (C) 2009-2013 Graham Breach
+Copyright (C) 2009-2014 Graham Breach
