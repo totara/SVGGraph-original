@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011-2012 Graham Breach
+ * Copyright (C) 2011-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -274,6 +274,22 @@ class Axis {
   public function Value($position)
   {
     return ($position - $this->Zero()) / $this->Unit();
+  }
+
+  /**
+   * Return the before units text
+   */
+  public function BeforeUnits()
+  {
+    return $this->units_before;
+  }
+
+  /**
+   * Return the after units text
+   */
+  public function AfterUnits()
+  {
+    return $this->units_after;
   }
 
   /**

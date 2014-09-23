@@ -25,7 +25,6 @@ require_once 'SVGGraphData.php';
 
 class StackedBarGraph extends BarGraph {
 
-  protected $multi_graph;
   protected $legend_reverse = true;
   protected $single_axis = true;
 
@@ -215,30 +214,5 @@ class StackedBarGraph extends BarGraph {
   {
     return $this->multi_graph->GetMinSumValue();
   }
-
-  /**
-   * Returns the key from the MultiGraph
-   */
-  protected function GetKey($index)
-  {
-    return $this->multi_graph->GetKey($index);
-  }
-
-  /**
-   * Returns the maximum key from the MultiGraph
-   */
-  protected function GetMaxKey()
-  {
-    return $this->multi_graph->GetMaxKey();
-  }
-
-  /**
-   * Returns the minimum key from the MultiGraph
-   */
-  protected function GetMinKey()
-  {
-    return $this->multi_graph->GetMinKey();
-  }
-
 }
 

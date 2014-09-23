@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2012-2013 Graham Breach
+ * Copyright (C) 2012-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -55,7 +55,7 @@ class SVGGraphJavascript {
       return TRUE;
 
     $simple_functions = array(
-      'setattr' => "function setattr(i,a,v){i.setAttributeNS(null,a,v)}\n",
+      'setattr' => "function setattr(i,a,v){i.setAttributeNS(null,a,v);return v}\n",
       'getE' => "function getE(i){return document.getElementById(i)}\n",
       'newtext' => "function newtext(c){return document.createTextNode(c)}\n",
     );
@@ -152,6 +152,7 @@ JAVASCRIPT;
       $this->AddFunction('setattr');
       $this->AddFunction('newel');
       $this->AddFunction('showhide');
+      $this->AddFunction('svgNode');
       $this->AddFunction('svgCoords');
       $this->InsertVariable('tooltipOn', '');
       $max_x = $this->graph->width - $this->tooltip_stroke_width;
@@ -182,9 +183,7 @@ function tooltip(e,callback,on,param) {
     offset = {$this->tooltip_offset},
     x = e.clientX + offset, y = e.clientY + offset, inner, brect, bw, bh,
     sw, sh, pos = svgCoords(e),
-    de = e.target.correspondingUseElement || e.target;
-  while(de.parentNode && de.nodeName != '{$namespace}svg')
-    de = de.parentNode;
+    de = svgNode(e);
   if(on && !tt) {
     tt = newel('g',{id:'tooltip',visibility:'visible'});
     rect = newel('rect',{
@@ -369,13 +368,21 @@ function initDups() {
 }\n
 JAVASCRIPT;
       break;
-    case 'svgCoords' :
+    case 'svgNode' :
       $fn = <<<JAVASCRIPT
-function svgCoords(e) {
-  var d = e.target.correspondingUseElement || e.target, m;
+function svgNode(e) {
+  var d = e.target.correspondingUseElement || e.target;
   while(d.parentNode && d.nodeName != '{$namespace}svg')
     d = d.parentNode;
-  m = d.getScreenCTM ? d.getScreenCTM() : {e:0,f:0};
+  return d
+}\n
+JAVASCRIPT;
+      break;
+    case 'svgCoords' :
+      $this->AddFunction('svgNode');
+      $fn = <<<JAVASCRIPT
+function svgCoords(e) {
+  var d = svgNode(e), m = d.getScreenCTM ? d.getScreenCTM() : {e:0,f:0};
   return [m.e,m.f];
 }\n
 JAVASCRIPT;
@@ -397,6 +404,158 @@ function autoHide() {
       setattr(finditem(e,autohide),'opacity',0);
     });
   }
+}\n
+JAVASCRIPT;
+      break;
+    case 'chEvt' :
+      $this->AddFunction('init');
+      $this->InsertVariable('initfns', NULL, 'chEvt');
+      $fn = <<<JAVASCRIPT
+function chEvt() {
+  document.addEventListener && document.addEventListener('mousemove',
+    crosshairs, false);
+}\n
+JAVASCRIPT;
+      break;
+    case 'getData' :
+      $fn = <<<JAVASCRIPT
+function getData(doc,ename) {
+  var ns = 'http://www.goat1000.com/svggraph', element;
+  element = doc.getElementsByTagName('svggraph:' + ename);
+  if(!element.length)
+    element = doc.getElementsByTagNameNS(ns, ename);
+  if(!element.length)
+    return null;
+  return element[0];
+}\n
+JAVASCRIPT;
+      break;
+    case 'fitRect' :
+      $this->AddFunction('setattr');
+      $fn = <<<JAVASCRIPT
+function fitRect(rect,brect,pad) {
+  var bw = Math.ceil(brect.width + pad + pad),
+    bh = Math.ceil(brect.height + pad + pad);
+  setattr(rect, 'x', (brect.x - pad) + 'px');
+  setattr(rect, 'y', (brect.y - pad) + 'px');
+  setattr(rect, 'width', bw + 'px');
+  setattr(rect, 'height', bh + 'px');
+}\n
+JAVASCRIPT;
+      break;
+    case 'textAttr' :
+      $fn = <<<JAVASCRIPT
+function textAttr(e,a) {
+  var s = e.getAttributeNS(null,a);
+  return s ? s : '';
+}\n
+JAVASCRIPT;
+      break;
+    case 'showCoords' :
+      $this->AddFunction('getE');
+      $this->AddFunction('newel');
+      $this->AddFunction('newtext');
+      $this->AddFunction('getData');
+      $this->AddFunction('showhide');
+      $this->AddFunction('fitRect');
+      $this->AddFunction('textAttr');
+      $yb = "textAttr(ti,'unitsby') + ";
+      $ya = " + textAttr(ti,'unitsy')";
+      $xb = "textAttr(ti,'unitsbx') + ";
+      $xa = " + textAttr(ti,'unitsx')";
+      $text_format = "{$xb}x1.toFixed(xp){$xa} + ', ' + {$yb}y1.toFixed(yp){$ya}";
+      if(!$this->crosshairs_show_h)
+        $text_format = "{$xb}x1.toFixed(xp){$xa}";
+      elseif(!$this->crosshairs_show_v)
+        $text_format = "{$yb}y1.toFixed(yp){$ya}";
+      $font_size = max(3, (int)$this->crosshairs_text_font_size);
+      $pad = max(0, (int)$this->crosshairs_text_padding);
+      $space = max(0, (int)$this->crosshairs_text_space);
+      $fn = <<<JAVASCRIPT
+function showCoords(de,x,y,bb,on) {
+  var gx = getData(de, 'gridx'), gy = getData(de, 'gridy'),
+    textList = getData(de,'chtext'), group, i, x1, y1, xz, yz, xp, yp,
+    textNode, rect, gbb, tbb, ti, ds, ybase, xbase, lgmin, lgmax, lgmul;
+  for(i = 0; i < textList.childNodes.length; ++i) {
+    if(textList.childNodes[i].nodeName == 'svggraph:chtextitem') {
+      ti = textList.childNodes[i];
+      group = getE(ti.getAttributeNS(null, 'groupid'));
+      if(on) {
+        textNode = group.querySelector('text');
+        rect = group.querySelector('rect');
+        while(textNode.childNodes.length > 0)
+          textNode.removeChild(textNode.childNodes[0]);
+        xz = gx.getAttributeNS(null, 'zero');
+        yz = gy.getAttributeNS(null, 'zero');
+        xp = gx.getAttributeNS(null, 'precision');
+        yp = gy.getAttributeNS(null, 'precision');
+        xbase = gx.getAttributeNS(null, 'base');
+        ybase = gy.getAttributeNS(null, 'base');
+        gbb = group.getBBox();
+        if(xbase) {
+          lgmin = Math.log(xz)/Math.log(xbase);
+          lgmax = Math.log(gx.getAttributeNS(null, 'scale'))/Math.log(xbase);
+          lgmul = bb.width / (lgmax - lgmin);
+          x1 = Math.pow(xbase, lgmin*1 + x / lgmul);
+        } else {
+          x1 = (x - xz) / gx.getAttributeNS(null, 'scale');
+        }
+        if(ybase) {
+          lgmin = Math.log(yz)/Math.log(ybase);
+          lgmax = Math.log(gy.getAttributeNS(null, 'scale'))/Math.log(ybase);
+          lgmul = bb.height / (lgmax - lgmin);
+          y1 = Math.pow(ybase, lgmin*1 + (bb.height - y) / lgmul);
+        } else {
+          y1 = (bb.height - y - yz) / gy.getAttributeNS(null, 'scale');
+        }
+        textNode.appendChild(newtext({$text_format}));
+        setattr(textNode, 'y', 0 + 'px');
+        tbb = textNode.getBBox();
+        ds = tbb.height + tbb.y;
+        x1 = x + bb.x + {$pad} + {$space};
+        y1 = y + bb.y - {$pad} - {$space} - ds;
+        if(x1 + tbb.width + {$pad} > bb.x + bb.width)
+          x1 -= gbb.width + ({$space} * 2);
+        if(y1 - tbb.height - {$pad} < bb.y)
+          y1 += gbb.height + ({$space} * 2);
+        setattr(textNode, 'x', x1 + 'px');
+        setattr(textNode, 'y', y1 + 'px');
+        tbb = textNode.getBBox();
+        fitRect(rect,tbb,{$pad});
+      }
+      showhide(group, on);
+    }
+  }
+}\n
+JAVASCRIPT;
+      break;
+    case 'crosshairs' :
+      $this->AddFunction('chEvt');
+      $this->AddFunction('setattr');
+      $this->AddFunction('svgNode');
+      $this->AddFunction('svgCoords');
+      $this->AddFunction('showhide');
+      $show_text = '';
+      if($this->crosshairs_show_text) {
+        $this->AddFunction('showCoords');
+        $show_text = "showCoords(de, x - bx, y - by, bb, on);";
+      }
+      $show_x = $this->crosshairs_show_h ? 'showhide(xc, on);' : '';
+      $show_y = $this->crosshairs_show_v ? 'showhide(yc, on);' : '';
+      $fn = <<<JAVASCRIPT
+function crosshairs(e) {
+  var de = svgNode(e), pos = svgCoords(e), xc = de.querySelector('.chX'), 
+    yc = de.querySelector('.chY'), grid = de.querySelector('.grid'),
+    bb = grid.getBBox(), bx = bb.x + pos[0], by = bb.y + pos[1],
+    x = e.clientX, y = e.clientY;
+  on = (x >= bx && x <= bx + bb.width && y >= by && y <= by + bb.height);
+  if(on) {
+    setattr(xc,'y1',setattr(xc,'y2', y - pos[1]));
+    setattr(yc,'x1',setattr(yc,'x2', x - pos[0]));
+  }
+  {$show_text}
+  {$show_x}
+  {$show_y}
 }\n
 JAVASCRIPT;
       break;

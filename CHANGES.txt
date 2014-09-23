@@ -1,3 +1,8 @@
+Version 2.15.1 (12/05/2014)
+--------------
+- Added crosshair options.
+- Fixed X axis being incorrectly labelled when using large associative dataset.
+
 Version 2.15 (11/03/2014)
 ------------
 - Added donut graph.

@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.15');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.15.1');
 
 class SVGGraph {
 
@@ -116,6 +116,7 @@ abstract class Graph {
   protected $gradient_map = array();
   protected $pattern_list = NULL;
   protected $defs = array();
+  protected $back_matter = '';
 
   protected $namespaces = array();
   protected static $javascript = NULL;
@@ -128,6 +129,7 @@ abstract class Graph {
   protected $repeated_keys = 'error';
   protected $require_structured = false;
   protected $require_integer_keys = true;
+  protected $multi_graph = NULL;
 
   public function __construct($w, $h, $settings = NULL)
   {
@@ -247,22 +249,32 @@ abstract class Graph {
 
   protected function GetMinValue()
   {
+    if(!is_null($this->multi_graph))
+      return $this->multi_graph->GetMinValue();
     return $this->values->GetMinValue();
   }
   protected function GetMaxValue()
   {
+    if(!is_null($this->multi_graph))
+      return $this->multi_graph->GetMaxValue();
     return $this->values->GetMaxValue();
   }
   protected function GetMinKey()
   {
+    if(!is_null($this->multi_graph))
+      return $this->multi_graph->GetMinKey();
     return $this->values->GetMinKey();
   }
   protected function GetMaxKey()
   {
+    if(!is_null($this->multi_graph))
+      return $this->multi_graph->GetMaxKey();
     return $this->values->GetMaxKey();
   }
   protected function GetKey($i)
   {
+    if(!is_null($this->multi_graph))
+      return $this->multi_graph->GetKey($i);
     return $this->values->GetKey($i);
   }
 
@@ -276,6 +288,7 @@ abstract class Graph {
     $contents = $this->Canvas($canvas_id);
     $contents .= $this->DrawTitle();
     $contents .= $this->Draw();
+    $contents .= $this->DrawBackMatter();
     $contents .= $this->DrawLegend();
 
     // rounded rects might need a clip path
@@ -286,6 +299,14 @@ abstract class Graph {
     return $contents;
   }
 
+
+  /**
+   * Adds any markup that goes after the graph
+   */
+  protected function DrawBackMatter()
+  {
+    return $this->back_matter;
+  }
 
   /**
    * Draws the legend
@@ -1044,6 +1065,13 @@ abstract class Graph {
     return $this->id_prefix . 'e' . base_convert(++Graph::$last_id, 10, 36);
   }
 
+  /**
+   * Adds markup to be inserted between graph and legend
+   */
+  public function AddBackMatter($fragment)
+  {
+    $this->back_matter .= $fragment;
+  }
 
   /**
    * Loads the Javascript class

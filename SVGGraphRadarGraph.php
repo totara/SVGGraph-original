@@ -511,9 +511,12 @@ class RadarGraph extends LineGraph {
     $p = 0;
     $direction = $this->reverse ? -1 : 1;
     foreach($points as $grid_point) {
-      $label = $grid_point->text;
+      $key = $grid_point->text;
       $x = $grid_point->position - $this->pad_left;
-      $key = $this->GetKey($label);
+      // if the key is different to value, use it
+      $k = $this->GetKey($grid_point->value);
+      if($k !== $grid_point->value)
+        $key = $k;
       if(mb_strlen($key, $this->encoding) > 0 && ++$p < $count) {
         $a = $this->arad + $direction * $x / $this->radius;
         $s = sin($a);

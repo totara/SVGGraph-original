@@ -28,7 +28,6 @@ require_once 'SVGGraphMultiGraph.php';
 class MultiLineGraph extends LineGraph {
 
   protected $require_integer_keys = false;
-  protected $multi_graph;
 
   protected function Draw()
   {
@@ -129,40 +128,6 @@ class MultiLineGraph extends LineGraph {
   protected function GetHorizontalCount()
   {
     return $this->multi_graph->ItemsCount();
-  }
-
-  /**
-   * Returns the maximum value
-   */
-  protected function GetMaxValue()
-  {
-    return $this->multi_graph->GetMaxValue();
-  }
-
-  /**
-   * Returns the minimum value
-   */
-  protected function GetMinValue()
-  {
-    return $this->multi_graph->GetMinValue();
-  }
-
-  protected function GetMaxKey()
-  {
-    return $this->multi_graph->GetMaxKey();
-  }
-
-  protected function GetMinKey()
-  {
-    return $this->multi_graph->GetMinKey();
-  }
-
-  /**
-   * Returns the key from the MultiGraph
-   */
-  protected function GetKey($index)
-  {
-    return $this->multi_graph->GetKey($index);
   }
 
 }

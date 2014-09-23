@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2013 Graham Breach
+ * Copyright (C) 2013-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -313,10 +313,10 @@ class SVGGraphStructuredData implements Countable, ArrayAccess, Iterator {
   {
     if(is_null($this->axis_text_field) && !$this->AssociativeKeys())
       return $index;
+    $index = (int)round($index);
     if($this->AssociativeKeys()) {
       $item = $this->iterators[$dataset]->GetItemByIndex($index);
     } else {
-      $index = $this->StripLabel($index);
       $item = $this->iterators[$dataset]->GetItemByKey($index);
     }
     if(is_null($item))

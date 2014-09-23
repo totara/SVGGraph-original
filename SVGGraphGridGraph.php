@@ -48,6 +48,7 @@ abstract class GridGraph extends Graph {
    */
   protected $single_axis = false;
 
+  protected $crosshairs = null;
   protected $g_width = null;
   protected $g_height = null;
   protected $label_adjust_done = false;
@@ -617,7 +618,6 @@ abstract class GridGraph extends Graph {
       $x_axes[] = $x_axis;
     }
 
-
     $y_axes = array();
     $y_axis_count = $this->YAxisCount();
     for($i = 0; $i < $y_axis_count; ++$i) {
@@ -964,9 +964,14 @@ abstract class GridGraph extends Graph {
     }
     $p = 0;
     foreach($points as $grid_point) {
-      $label = $grid_point->text;
+      $key = $grid_point->text;
       $x = $grid_point->position;
-      $key = $this->flip_axes ? $label : $this->GetKey($label);
+      if(!$this->flip_axes) {
+        // if the key is different to value, use it
+        $k = $this->GetKey($grid_point->value);
+        if($k !== $grid_point->value)
+          $key = $k;
+      }
 
       // don't draw 0 over the axis line
       if($inside && !$label_centre_x && $key == '0')
@@ -1025,9 +1030,14 @@ abstract class GridGraph extends Graph {
     $count = count($points);
     $p = 0;
     foreach($points as $grid_point) {
-      $label = $grid_point->text;
+      $key = $grid_point->text;
       $y = $grid_point->position;
-      $key = $this->flip_axes ? $this->GetKey($label) : $label;
+      if($this->flip_axes) {
+        // if the key is different to value, use it
+        $k = $this->GetKey($grid_point->value);
+        if($k !== $grid_point->value)
+          $key = $k;
+      }
 
       // don't draw 0 over the axis line
       if($inside && !$label_centre_y && !$axis_no && $key == '0')
@@ -1403,6 +1413,136 @@ abstract class GridGraph extends Graph {
     return $this->Element('path', $opts);
   }
 
+
+  /**
+   * Adds crosshairs to the grid
+   */
+  protected function GridCrossHairs(&$grid_group)
+  {
+    if(!$this->crosshairs || 
+      !($this->crosshairs_show_v || $this->crosshairs_show_h))
+      return '';
+
+    $grid_id = $this->NewID();
+    $this->AddFunction('crosshairs');
+    $grid_group['class'] = 'grid';
+
+    // make the crosshair lines
+    $crosshairs = '';
+    $ch = array(
+      'x1' => $this->pad_left, 'y1' => $this->pad_top,
+      'x2' => $this->pad_left, 'y2' => $this->pad_top,
+      'visibility' => 'hidden', // don't show them to start with!
+    );
+
+    // horizontal hair first
+    $hch = array('class' => 'chX', 'x2' => $ch['x1'] + $this->g_width);
+    if($this->crosshairs_show_h) {
+      $hch['stroke'] = $this->SolidColour(
+        $this->GetFirst($this->crosshairs_colour_h, $this->crosshairs_colour));
+      $hch['stroke-width'] = $this->GetFirst($this->crosshairs_stroke_width_h,
+        $this->crosshairs_stroke_width);
+      $opacity = $this->GetFirst($this->crosshairs_opacity_h,
+        $this->crosshairs_opacity);
+      if($opacity > 0 && $opacity < 1)
+        $hch['opacity'] = $opacity;
+      $dash = $this->GetFirst($this->crosshairs_dash_h, $this->crosshairs_dash);
+      if(!empty($dash))
+        $hch['stroke-dasharray'] = $dash;
+    }
+    $crosshairs .= $this->Element('line', array_merge($ch, $hch));
+
+    // vertical hair
+    $hch = array('class' => 'chY', 'y2' => $ch['y1'] + $this->g_height);
+    if($this->crosshairs_show_v) {
+      $hch['stroke'] = $this->SolidColour(
+        $this->GetFirst($this->crosshairs_colour_v, $this->crosshairs_colour));
+      $hch['stroke-width'] = $this->GetFirst($this->crosshairs_stroke_width_v,
+        $this->crosshairs_stroke_width);
+      $opacity = $this->GetFirst($this->crosshairs_opacity_v,
+        $this->crosshairs_opacity);
+      if($opacity > 0 && $opacity < 1)
+        $hch['opacity'] = $opacity;
+      $dash = $this->GetFirst($this->crosshairs_dash_v, $this->crosshairs_dash);
+      if(!empty($dash))
+        $hch['stroke-dasharray'] = $dash;
+    }
+    $crosshairs .= $this->Element('line', array_merge($ch, $hch));
+
+    // text group for grid details
+    $text_group = array('id' => $this->NewId(), 'visibility' => 'hidden');
+    $text_rect = array(
+      'x' => $this->grid_, 'y' => 0, 'width' => '10', 'height' => 10,
+      'fill' => $this->ParseColour($this->crosshairs_text_back_colour),
+    );
+    if($this->crosshairs_text_round)
+      $text_rect['rx'] = $text_rect['ry'] = $this->crosshairs_text_round;
+    if($this->crosshairs_text_stroke_width) {
+      $text_rect['stroke-width'] = $this->crosshairs_text_stroke_width;
+      $text_rect['stroke'] = $this->crosshairs_text_colour;
+    }
+    $font_size = max(3, (int)$this->crosshairs_text_font_size);
+    $text_element = array(
+      'x' => 0, 'y' => $font_size,
+      'font-family' => $this->crosshairs_text_font,
+      'font-size' => $font_size,
+      'fill' => $this->crosshairs_text_colour,
+    );
+    $weight = $this->crosshairs_text_font_weight;
+    if($weight && $weight != 'normal')
+      $text_element['font-weight'] = $weight;
+
+    $text = $this->Element('g', $text_group, NULL,
+      $this->Element('rect', $text_rect) . $this->Text('', $font_size, 
+        $text_element));
+    $this->AddBackMatter($text);
+
+    // add in the details of the grid scales
+    $x_axis = $this->x_axes[$this->main_x_axis];
+    $y_axis = $this->y_axes[$this->main_y_axis];
+    $zero_x = $x_axis->Zero();
+    $scale_x = $x_axis->Unit();
+    $zero_y = $y_axis->Zero();
+    $scale_y = $y_axis->Unit();
+    $prec_x = $this->GetFirst($this->crosshairs_text_precision_h,
+      max(0, ceil(log10($scale_x))));
+    $prec_y = $this->GetFirst($this->crosshairs_text_precision_v,
+      max(0, ceil(log10($scale_y))));
+
+    $units = $base_y = $base_x = '';
+    $u = $x_axis->AfterUnits();
+    if(!empty($u)) $units .= " unitsx=\"{$u}\"";
+    $u = $y_axis->AfterUnits();
+    if(!empty($u)) $units .= " unitsy=\"{$u}\"";
+    $u = $x_axis->BeforeUnits();
+    if(!empty($u)) $units .= " unitsbx=\"{$u}\"";
+    $u = $y_axis->BeforeUnits();
+    if(!empty($u)) $units .= " unitsby=\"{$u}\"";
+
+    if($this->log_axis_y) {
+      if($this->flip_axes) {
+        $base_x = " base=\"{$this->log_axis_y_base}\"";
+        $zero_x = $x_axis->Value(0);
+        $scale_x = $x_axis->Value($this->g_width);
+      } else {
+        $base_y = " base=\"{$this->log_axis_y_base}\"";
+        $zero_y = $y_axis->Value(0);
+        $scale_y = $y_axis->Value($this->g_height);
+      }
+    }
+    
+    $this->defs[] = <<<XML
+<svggraph:data xmlns:svggraph="http://www.goat1000.com/svggraph">
+  <svggraph:gridx zero="{$zero_x}" scale="{$scale_x}" precision="{$prec_x}"{$base_x}/>
+  <svggraph:gridy zero="{$zero_y}" scale="{$scale_y}" precision="{$prec_y}"{$base_y}/>
+  <svggraph:chtext>
+    <svggraph:chtextitem type="xy" groupid="{$text_group['id']}"$units/>
+  </svggraph:chtext>
+</svggraph:data>
+XML;
+    return $crosshairs;
+  }
+
   /**
    * Draws the grid behind the bar / line graph
    */
@@ -1410,10 +1550,16 @@ abstract class GridGraph extends Graph {
   {
     $this->CalcAxes();
     $this->CalcGrid();
-    if(!$this->show_grid || (!$this->show_grid_h && !$this->show_grid_v))
-      return '';
 
     $back = $subpath = $path_h = $path_v = '';
+    $grid_group = array();
+    $crosshairs = $this->GridCrossHairs($grid_group);
+
+    // if the grid is not displayed, stop now
+    if(!$this->show_grid || (!$this->show_grid_h && !$this->show_grid_v))
+      return empty($crosshairs) ? '' :
+        $this->Element('g', $grid_group, NULL, $crosshairs);
+
     $back_colour = $this->ParseColour($this->grid_back_colour);
     if(!empty($back_colour) && $back_colour != 'none') {
 
@@ -1515,7 +1661,8 @@ abstract class GridGraph extends Graph {
         $this->GridLines($path_v, $colour_v, $dash_v);
     }
 
-    return $back . $subpath . $path;
+    return $this->Element('g', $grid_group, NULL,
+      $back . $subpath . $path . $crosshairs);
   }
 
   /**

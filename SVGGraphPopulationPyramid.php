@@ -26,7 +26,6 @@ require_once 'SVGGraphAxisFixedDoubleEnded.php';
 
 class PopulationPyramid extends HorizontalBarGraph {
 
-  protected $multi_graph;
   protected $legend_reverse = false;
 
   protected function Draw()
@@ -263,30 +262,6 @@ class PopulationPyramid extends HorizontalBarGraph {
     if(!count($sums[0]))
       return NULL;
     return min(min($sums[0]), min($sums[1]));
-  }
-
-  /**
-   * Returns the key from the MultiGraph
-   */
-  protected function GetKey($index)
-  {
-    return $this->multi_graph->GetKey($index);
-  }
-
-  /**
-   * Returns the maximum key from the MultiGraph
-   */
-  protected function GetMaxKey()
-  {
-    return $this->multi_graph->GetMaxKey();
-  }
-
-  /**
-   * Returns the minimum key from the MultiGraph
-   */
-  protected function GetMinKey()
-  {
-    return $this->multi_graph->GetMinKey();
   }
 
   /**

@@ -24,7 +24,6 @@ require_once 'SVGGraphHorizontalBarGraph.php';
 
 class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 
-  protected $multi_graph;
   protected $legend_reverse = true;
   protected $single_axis = true;
 
@@ -108,46 +107,5 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
   {
     return $this->multi_graph->ItemsCount(-1);
   }
-
-  /**
-   * Returns the maximum (stacked) value
-   */
-  protected function GetMaxValue()
-  {
-    return $this->multi_graph->GetMaxValue();
-  }
-
-  /**
-   * Returns the minimum (stacked) value
-   */
-  protected function GetMinValue()
-  {
-    return $this->multi_graph->GetMinValue();
-  }
-
-  /**
-   * Returns the key from the MultiGraph
-   */
-  protected function GetKey($index)
-  {
-    return $this->multi_graph->GetKey($index);
-  }
-
-  /**
-   * Returns the maximum key from the MultiGraph
-   */
-  protected function GetMaxKey()
-  {
-    return $this->multi_graph->GetMaxKey();
-  }
-
-  /**
-   * Returns the minimum key from the MultiGraph
-   */
-  protected function GetMinKey()
-  {
-    return $this->multi_graph->GetMinKey();
-  }
-
 }
 

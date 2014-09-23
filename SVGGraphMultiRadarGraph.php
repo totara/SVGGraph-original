@@ -27,8 +27,6 @@ require_once 'SVGGraphMultiGraph.php';
  */
 class MultiRadarGraph extends RadarGraph {
 
-  protected $multi_graph;
-
   protected function Draw()
   {
     $body = $this->Grid();
@@ -116,40 +114,5 @@ class MultiRadarGraph extends RadarGraph {
   {
     return $this->multi_graph->ItemsCount(-1);
   }
-
-  /**
-   * Returns the maximum value
-   */
-  protected function GetMaxValue()
-  {
-    return $this->multi_graph->GetMaxValue();
-  }
-
-  /**
-   * Returns the minimum value
-   */
-  protected function GetMinValue()
-  {
-    return $this->multi_graph->GetMinValue();
-  }
-
-  /**
-   * Returns the key from the MultiGraph
-   */
-  protected function GetKey($index)
-  {
-    return $this->multi_graph->GetKey($index);
-  }
-
-  protected function GetMaxKey()
-  {
-    return $this->multi_graph->GetMaxKey();
-  }
-
-  protected function GetMinKey()
-  {
-    return $this->multi_graph->GetMinKey();
-  }
-
 }
 
