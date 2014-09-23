@@ -24,6 +24,7 @@ class PieGraph extends Graph {
 	protected $aspect_ratio = 1.0;
 	protected $sort = true;
 	protected $reverse = false;
+	protected $start_angle = 0;
 	protected $show_labels = true;
 	protected $show_label_amount = false;
 	protected $show_label_percent = false;
@@ -41,6 +42,7 @@ class PieGraph extends Graph {
 	protected $y_centre;
 	protected $radius_x;
 	protected $radius_y;
+	protected $s_angle;
 	protected $calc_done;
 
 	/**
@@ -48,9 +50,6 @@ class PieGraph extends Graph {
 	 */
 	protected function Calc()
 	{
-		if($this->show_labels && $this->label_fade_in_speed)
-			$this->AddFunction('fadeIn','fadeOut');
-
 		$bound_x1 = $this->pad_left;
 		$bound_y1 = $this->pad_top;
 		$bound_x2 = $this->width - $this->pad_right;
@@ -66,6 +65,10 @@ class PieGraph extends Graph {
 
 		$this->x_centre = (($bound_x2 - $bound_x1) / 2) + $bound_x1;
 		$this->y_centre = (($bound_y2 - $bound_y1) / 2) + $bound_y1;
+		$this->start_angle %= 360;
+		if($this->start_angle < 0)
+			$this->start_angle = 360 + $this->start_angle;
+		$this->s_angle = deg2rad($this->start_angle);
 
 		if($h/$w > $this->aspect_ratio) {
 			$this->radius_x = $w / 2.0;
@@ -91,7 +94,7 @@ class PieGraph extends Graph {
 		$values = $this->GetValues();
 		$total = array_sum($values);
 
-		$unit_slice = 2.0 * pi() / $total;
+		$unit_slice = 2.0 * M_PI / $total;
 		$ccount = count($this->colours);
 		$vcount = count($values);
 		$sub_total = 0.0;
@@ -109,31 +112,20 @@ class PieGraph extends Graph {
 
 			$angle1 = $sub_total * $unit_slice;
 			$angle2 = ($sub_total + $value) * $unit_slice;
-			$degrees = ($angle2 - $angle1) * 180.0 / pi();
 
 			// get the path (or whatever) for a pie slice
-			$attr = array('id' => 'pieSlice' . $slice, 'fill' => $this->GetColour(($slice-1) % $ccount, true));
+			$attr = array('fill' => $this->GetColour(($slice-1) % $ccount, true));
 			if($this->show_tooltips)
-				$this->SetTooltip($attr, $key, $value);
-			if($speed_in) {
-				$attr['onmouseover'] = 'fadeIn(evt,"pieLabel' . $slice . '", ' . $speed_in . ')';
-				if($speed_out) {
-					if(isset($attr['onmouseout']))
-						$attr['onmouseout'] .= ';fadeOut(evt,"pieLabel' . $slice . '", ' . $speed_out . ')';
-					else
-						$attr['onmouseout'] = 'fadeOut(evt,"pieLabel' . $slice . '", ' . $speed_out . ')';
-				}
-			}
-			$path = $this->GetSlice($angle1, $angle2, $attr);
+				$this->SetTooltip($attr, $key, $value, !$this->compat_events);
 	
 			$t_style = NULL;
 			if($this->show_labels) {
-				$ac = ($sub_total + ($value * 0.5)) * $unit_slice;
+				$ac = $this->s_angle + ($sub_total + ($value * 0.5)) * $unit_slice;
 				$xc = $this->label_position * $this->radius_x * cos($ac);
 				$yc = ($this->reverse ? -1 : 1) * $this->label_position * $this->radius_y * sin($ac);
 
-				$text['id'] = 'pieLabel' . $slice;
-				if($this->label_fade_in_speed)
+				$text['id'] = $this->NewID();
+				if($this->label_fade_in_speed && $this->compat_events)
 					$text['opacity'] = '0.0';
 				$tx = $this->x_centre + $xc;
 				$ty = $this->y_centre + $yc + ($this->label_font_size * 0.3);
@@ -148,10 +140,6 @@ class PieGraph extends Graph {
 				$x_offset = is_null($this->label_back_colour) ? $tx : 0;
 				$string = $this->TextLines($parts, $x_offset, $this->label_font_size);
 
-				// make sure hovering over the text doesn't make it fade out
-				if($speed_in && $speed_out)
-					$text['onmouseover'] = 'fadeIn(evt,"pieLabel' . $slice . '", ' . $speed_in . ')';
-
 				if(!is_null($this->label_back_colour)) {
 					$labels .= $this->ContrastText($tx, $ty, $string, 
 						$this->label_colour, $this->label_back_colour, $text);
@@ -162,14 +150,17 @@ class PieGraph extends Graph {
 					$labels .= $this->Element('text', $text, NULL, $string);
 				}
 			}
-
+			if($speed_in || $speed_out)
+				$this->SetFader($attr, $speed_in, $speed_out, $text['id'], !$this->compat_events);
+			$path = $this->GetSlice($angle1, $angle2, $attr);
 			$body .= $this->GetLink($key, $path);
 
 			$sub_total += $value;
 		}
 
 		// group the slices
-		$attr = array('stroke' => $this->stroke_colour);
+		$attr = array();
+		$this->SetStroke($attr, 'round');
 		$body = $this->Element('g', $attr, NULL, $body);
 
 		if($this->show_labels) {
@@ -190,6 +181,8 @@ class PieGraph extends Graph {
 	protected function GetSlice($angle1, $angle2, &$attr)
 	{
 		$x1 = $y1 = $x2 = $y2 = 0;
+		$angle1 += $this->s_angle;
+		$angle2 += $this->s_angle;
 		$this->CalcSlice($angle1, $angle2, $x1, $y1, $x2, $y2);
 		if((string)$x1 == (string)$x2 && (string)$y1 == (string)$y2) {
 			$attr['cx'] = $this->x_centre;
@@ -198,7 +191,7 @@ class PieGraph extends Graph {
 			$attr['ry'] = $this->radius_y;
 			return $this->Element('ellipse', $attr);
 		} else {
-			$outer = ($angle2 - $angle1 > pi() ? 1 : 0);
+			$outer = ($angle2 - $angle1 > M_PI ? 1 : 0);
 			$sweep = ($this->reverse ? 0 : 1);
 			$attr['d'] = "M{$this->x_centre},{$this->y_centre} L$x1,$y1 A{$this->radius_x} {$this->radius_y} 0 $outer,$sweep $x2,$y2 z";
 			return $this->Element('path', $attr);

@@ -1,4 +1,4 @@
-SVGGraph Library version 2.4
+SVGGraph Library version 2.5
 ============================
 
 This library provides PHP classes and functions for easily creating SVG
@@ -240,11 +240,12 @@ single or double quotes.
  title                  NULL                Contents of title tag, or NULL for none
  description            NULL                Contents of desc tag, or NULL for none
  stroke_colour          'rgb(0,0,0)'        Colour of graph lines
+ stroke_width           1                   Thickness of graph lines, 0 disables line drawing
  back_colour            'rgb(240,240,240)'  Background colour of graph
  back_round             0                   Radius of rounded background edge
  back_stroke_width      1                   Thickness of background edge
  back_stroke_colour     'rgb(0,0,0)'        Colour of background edge
- back_image             NULL                Image to use for background (NULL for none).
+ back_image             NULL                Image to use for background (NULL for none)
  back_image_width       '100%'              Width of background image
  back_image_height      '100%'              Height of background image
  back_image_opacity     1.0                 Opacity of background image (0.0-1.0)
@@ -270,6 +271,7 @@ single or double quotes.
  tooltip_round          0                   Radius of rounded tooltip corner
  tooltip_shadow_opacity 0.3                 Opacity of tooltip shadow (0.0-1.0, 0 disables shadow)
  tooltip_offset         10                  Distance between cursor and tooltip
+ compat_events          false               Set to TRUE to fall back to inline event handlers, required by Adobe IE plugin
 
 These options are common to the Bar, Line, Bar3D, Scatter, StackedBar,
 GroupedBar, MultiLine, MultiScatter, HorizontalBar, HorizontalStackedBar
@@ -297,6 +299,14 @@ and HorizontalGroupedBar graph types:
  axis_max_h             NULL                Maximum value for X-axis
  grid_division_v        NULL                Division step value for Y-axis (minimum_grid_spacing is ignored)
  grid_division_h        NULL                Division step value for X-axis (minimum_grid_spacing is ignored)
+ show_subdivisions      false               Enables axis subdivisions
+ subdivision_size       2                   Size of axis subdivision markings
+ subdivision_colour     division_colour     Colour of axis subdivision markings
+ show_grid_subdivision  false               Enables grid subdivisions
+ grid_subdivision_colour rgba(220,220,220,0.5) Colour of grid subdivision lines
+ minimum_subdivision    5                   Minimum distance between subdivisions
+ subdivision_h          NULL                Subdivision step value on X-axis
+ subdivision_v          NULL                Subdivision step value on Y-axis
 
 BarGraph and StackedBarGraph options:
  bar_space            10                  Space between bars
@@ -311,11 +321,12 @@ GroupedBarGraph options:
 
 LineGraph, MultiLineGraph and ScatterGraph options:
  marker_size          5                   Size of point markers
- marker_type          'circle'            Type of marker to use (circle, square, triangle)
+ marker_type          'circle'            Type of marker to use (circle, square, triangle, cross, x, pentagon)
  marker_colour        NULL                Colour of marker (NULL to use same as line)
 
 LineGraph and MultiLineGraph options:
  line_stroke_width    2                   Thickness of graph line
+ line_dash            NULL                Line dash pattern
  fill_under           false               If true, the area under the line is filled
  fill_opacity         1                   Opacity of the filled area (MultiLine default is 0.5)
 
@@ -326,6 +337,7 @@ PieGraph and Pie3DGraph options:
  aspect_ratio          1.0              Ratio of height/width (or 'auto' to fill area)
  sort                  true             Sorts the pie slices, largest first
  reverse               false            Slices are drawn anti-clockwise instead of clockwise
+ start_angle           0                Angle in degrees to start the first slice at
  show_labels           true             Slice labelling on/off option
  show_label_amount     false            Display slice value on/off option
  show_label_percent    false            Display slice percentage on/off option

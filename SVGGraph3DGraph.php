@@ -37,7 +37,7 @@ abstract class ThreeDGraph extends GridGraph {
 	 */
 	protected function AngleRadians()
 	{
-		return $this->project_angle * pi() / 180.0;
+		return deg2rad($this->project_angle);
 	}
 
 	/**
@@ -80,7 +80,7 @@ abstract class ThreeDGraph extends GridGraph {
 		if(!$this->show_grid)
 			return '';
 
-		$values = $this->GetValues();
+		$this->CalcGrid();
 		$x_w = $this->axis_width;
 		$y_h = $this->axis_height;
 		$x1 = $this->pad_left;
@@ -90,34 +90,32 @@ abstract class ThreeDGraph extends GridGraph {
 		$h = $this->height - $this->pad_bottom - $this->pad_top;
 		$w = $this->width - $this->pad_left - $this->pad_right;
 
-		$path = '';
-
 		// move to depth
 		$z = $this->depth * $this->depth_unit;
 		list($xd,$yd) = $this->Project(0, 0, $z);
-		$y = $h + $this->pad_top;
 
-
-		$c = 0;
-		$x = $x1;
-		while($x < $x2) {
-			$path .= 'M' . $x . ' ' . $y1 . 'l' . $xd . ' ' . $yd . 'l0 ' . -$y_h;
-			++$c;
-			$x = $x1 + ($c * $this->h_grid);
+		$subpath = $path = '';
+		if($this->show_grid_subdivisions) {
+			foreach($this->y_subdivs as $y) 
+				$subpath .= "M$x1 {$y}l$xd {$yd}l$x_w 0";
+			foreach($this->x_subdivs as $x) 
+				$subpath .= "M$x {$y1}l$xd {$yd}l0 " . -$y_h;
+			if($subpath != '') {
+				$opts = array('d' => $subpath, 'stroke' => $this->grid_subdivision_colour, 'fill' => 'none');
+				$subpath = $this->Element('path', $opts);
+			}
 		}
-		$path .= 'M' . $x1 . ' ' . $y . 'l' . $x_w . ' 0';
 
-		$c = 0;
-		$y = $y1;
-		while($y >= $y2) {
-			$path .= 'M ' . $x1 . ' ' . $y . 'l' . $xd . ' ' . $yd . 'l' . $x_w . ' 0';
-			++$c;
-			$y = $y1 - ($c * $this->v_grid);
-		}
-		$path .= 'M' . $x1 . ' ' . $y1 . 'l0 ' . -$y_h;
- 
+		// start with axis lines
+		$path .= "M$x1 {$y1}l$x_w 0M$x1 {$y1}l0 " . -$y_h;
+		foreach($this->y_points as $y)
+			$path .= "M$x1 {$y}l$xd {$yd}l$x_w 0";
+		foreach($this->x_points as $x)
+			$path .= "M$x {$y1}l$xd {$yd}l0 " . -$y_h;
+
 		$opts = array('d' => $path, 'stroke' => $this->grid_colour, 'fill' => 'none');
-		return $this->Element('path', $opts);
+		$path = $this->Element('path', $opts);
+		return $subpath . $path;
 	}
 
 	/**

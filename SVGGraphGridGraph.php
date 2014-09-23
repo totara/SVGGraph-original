@@ -23,29 +23,37 @@ require_once('SVGGraphAxis.php');
 require_once('SVGGraphAxisFixed.php');
 
 abstract class GridGraph extends Graph {
-	protected $grid_colour = 'rgb(220,220,220)';
-	protected $axis_colour = 'rgb(0,0,0)';
-	protected $label_colour = 'rgb(0,0,0)';
-	protected $show_grid = true;
 	protected $show_axes = true;
-	protected $show_label_h = true;
-	protected $show_label_v = true;
+	protected $axis_colour = 'rgb(0,0,0)';
 	protected $axis_font = 'monospace';
 	protected $axis_font_size = '10'; // pixels
 	protected $axis_font_adjust = 0.6; // approx ratio of width to height
 	protected $axis_overlap = 5;
-	protected $show_divisions = true;
-	protected $division_size = 3;
-	protected $division_colour = NULL; // default to use axis colour
-	protected $minimum_grid_spacing = 15;
-	protected $minimum_grid_spacing_h = null;
-	protected $minimum_grid_spacing_v = null;
 	protected $axis_min_h = null;
 	protected $axis_min_v = null;
 	protected $axis_max_h = null;
 	protected $axis_max_v = null;
+	protected $show_grid = true;
+	protected $grid_colour = 'rgb(220,220,220)';
 	protected $grid_division_h = null;
 	protected $grid_division_v = null;
+	protected $minimum_grid_spacing = 15;
+	protected $minimum_grid_spacing_h = null;
+	protected $minimum_grid_spacing_v = null;
+	protected $show_label_h = true;
+	protected $show_label_v = true;
+	protected $label_colour = 'rgb(0,0,0)';
+	protected $show_divisions = true;
+	protected $division_size = 3;
+	protected $division_colour = null; // default to use axis colour
+	protected $show_subdivisions = false;
+	protected $subdivision_size = 2;
+	protected $subdivision_colour = null; // default to use axis colour
+	protected $subdivision_h = null;
+	protected $subdivision_v = null;
+	protected $minimum_subdivision = 5;
+	protected $show_grid_subdivisions = false;
+	protected $grid_subdivision_colour = 'rgba(220,220,220,0.5)';
 
 	protected $bar_unit_width = 0;
 	protected $x0;
@@ -63,6 +71,8 @@ abstract class GridGraph extends Graph {
 	protected $uneven_y = false;
 	protected $label_adjust_done = false;
 	protected $axes_calc_done = false;
+	protected $sub_x;
+	protected $sub_y;
 
 	protected function LabelAdjustment($m = 1000)
 	{
@@ -86,6 +96,12 @@ abstract class GridGraph extends Graph {
 	{
 		if($this->axes_calc_done)
 			return;
+
+		// sanitise grid divisions
+		if(!is_null($this->grid_division_v) && $this->grid_division_v <= 0)
+			$this->grid_division_v = null;
+		if(!is_null($this->grid_division_h) && $this->grid_division_h <= 0)
+			$this->grid_division_h = null;
 
 		$v_max = $this->GetMaxValue();
 		$v_min = $this->GetMinValue();
@@ -184,8 +200,64 @@ abstract class GridGraph extends Graph {
 		$this->axis_width = $this->g_width;
 		$this->axis_height = $this->g_height;
 
+		if($this->show_subdivisions) {
+			$this->sub_y = $this->FindSubdiv($this->v_grid, $this->bar_unit_height, $this->minimum_subdivision, $y_min_unit, $this->subdivision_v);
+			$this->sub_x = $this->FindSubdiv($this->h_grid, $this->bar_unit_width, $this->minimum_subdivision, $x_min_unit, $this->subdivision_h);
+		}
+
 		$this->axes_calc_done = true;
 	}
+
+
+	/**
+	 * Find the subdivision size
+	 */
+	protected function FindSubdiv($grid_div, $u, $min, $min_unit, $fixed)
+	{
+		if(is_null($fixed)) {
+
+			$D = $grid_div / $u;	// D = actual division size
+			$min = max($min, $min_unit * $u);	// use the larger minimum value
+
+			// can we subdivide at all?
+			if($grid_div / 2 < $min || $D <= $min_unit)
+				return null;
+
+			// find significant digits
+			$d1 = sprintf('%0.f', $D);
+			$count = ltrim($d1, '0.');
+			while(strlen($count) > 2 && $count % 100 == 0)
+				$count /= 10;
+
+			$div = $grid_div / $count;
+			if($div < $min) {
+
+				// try to find a factor
+				$start = floor($count / 2);
+				$end = floor(sqrt((float)$count));
+				for($f = floor($count/2); $f >= $end; --$f) {
+					if($count % $f == 0) {
+						$scount = $count / $f;
+						$div1 = $grid_div / $scount;
+						$div2 = $grid_div / $f;
+
+						if($div1 >= $min && $div2 >= $min)
+							return min($div1,$div2);
+						if($div1 >= $min)
+							return $div1;
+						if($div2 >= $min)
+							return $div2;
+					}
+				}
+				return null;
+			}
+			return $div;
+
+		} else {
+			return $u * $fixed;
+		}
+	}
+
 
 	/**
 	 * Calculates the position of grid lines
@@ -201,6 +273,8 @@ abstract class GridGraph extends Graph {
 		$grid_right = $this->width - $this->pad_right;
 		$this->y_points = array();
 		$this->x_points = array();
+		$this->y_subdivs = array();
+		$this->x_subdivs = array();
 
 		// keys are converted to strings to make them work
 		$c = $y = 0;
@@ -210,7 +284,14 @@ abstract class GridGraph extends Graph {
 			$ypoint = $this->NumString(($y - $this->y0) / $this->bar_unit_height);
 			$this->y_points[$ypoint] = $grid_bottom - $y;
 			++$c;
+			$s = $y + $this->sub_y;
 			$y = $c * $this->v_grid;
+			if($this->sub_y) {
+				while($s < $this->axis_height && $s < $y) {
+					$this->y_subdivs[] = $grid_bottom - $s;
+					$s += $this->sub_y;
+				}
+			}
 		} 
 
 		$c = $x = 0;
@@ -219,7 +300,14 @@ abstract class GridGraph extends Graph {
 			$xpoint = $this->NumString(($x - $this->x0) / $this->bar_unit_width);
 			$this->x_points[$xpoint] = $grid_left + $x;
 			++$c;
+			$s = $x + $this->sub_x;
 			$x = $c * $this->h_grid;
+			if($this->sub_x) {
+				while($s < $this->axis_width && $s < $x) {
+					$this->x_subdivs[] = $grid_left + $s;
+					$s += $this->sub_x;
+				}
+			}
 		} 
 		// prime numbers can cause trouble
 		if($this->uneven_x) {
@@ -237,8 +325,19 @@ abstract class GridGraph extends Graph {
 	 */
 	protected function NumString($n)
 	{
-		return is_int($n) ? number_format($n) : (string)($n);
+		//return is_int($n) ? number_format($n) : (string)($n);
+		$d = is_int($n) ? 0 : $this->precision;
+		$s = number_format($n, $d);
+		if($d && strpos($s, '.') !== false) {
+			list($a,$b) = explode('.',$s);
+			$b1 = rtrim($b, '0');
+			if($b1 != '')
+				return "$a.$b1";
+			return $a;
+		}
+		return $s;
 	}
+
 
 	/**
 	 * Subclasses can override this for non-linear graphs
@@ -307,25 +406,27 @@ abstract class GridGraph extends Graph {
 					$x_offset = 0.5 * $this->bar_unit_width;
 			}
 
-			$v_group = '';
+			$d_path = $sd_path = $v_group = '';
 			$y_prev = $this->height;
 			arsort($this->y_points);
 			if($this->show_label_v || $this->show_divisions) {
 				$labels = '';
 				$text_centre = $this->axis_font_size * 0.3;
-				$d_path = '';
 
 				$points = count($this->y_points);
 				$p = 0;
 				foreach($this->y_points as $label => $y) {
-
 					$text['y'] = $y + $text_centre + $y_offset;
 					$key = $this->flip_axes ? $this->GetKey($label) : $label;
 
-					if($y_prev - $y >= $this->minimum_grid_spacing_v && (++$p < $points || !$label_centre_y))
+					if(strlen($key) && $y_prev - $y >= $this->minimum_grid_spacing_v && (++$p < $points || !$label_centre_y))
 						$labels .= $this->Element('text', $text, NULL, $key);
+
 					$d_path .= 'M' . ($grid_left + $xoff) . ' ' . $y . 'l-' . $this->division_size . ' 0';
 					$y_prev = $y;
+				}
+				foreach($this->y_subdivs as $y) {
+					$sd_path .= 'M' . ($grid_left + $xoff) . ' ' . $y . 'l-' . $this->subdivision_size . ' 0';
 				}
 				$v_group = $this->Element('g', array('text-anchor' => 'end'), NULL, $labels);
 			}
@@ -344,11 +445,14 @@ abstract class GridGraph extends Graph {
 
 					$text['x'] = $x + $x_offset;
 					$key = $this->flip_axes ? $label : $this->GetKey($label);
-					if($x - $x_prev >= $this->minimum_grid_spacing_h && (++$p < $points || !$label_centre_x))
+					if(strlen($key) && $x - $x_prev >= $this->minimum_grid_spacing_h && (++$p < $points || !$label_centre_x))
 						$labels .= $this->Element('text', $text, NULL, $key);
 						
 					$d_path .= 'M' . $x . ' ' . ($grid_bottom - $yoff) . 'l0 ' . $this->division_size;
 					$x_prev = $x;
+				}
+				foreach($this->x_subdivs as $x) {
+					$sd_path .= 'M' . $x . ' ' . ($grid_bottom - $yoff) . 'l0 ' . $this->subdivision_size;
 				}
 				$h_group = $this->Element('g', array('text-anchor' => 'middle'), NULL, $labels);
 			}
@@ -366,8 +470,14 @@ abstract class GridGraph extends Graph {
 
 			if($this->show_divisions) {
 				$colour = is_null($this->division_colour) ? $this->axis_colour : $this->division_colour;
-				$div = array('d' => $d_path, 'stroke-width' => 1, 'stroke' => $colour);
-				$divisions = $this->Element('path', $div);
+				if(!$this->show_subdivisions || is_null($this->subdivision_colour) || $this->subdivision_colour == $colour) {
+					$div = array('d' => $d_path . $sd_path, 'stroke-width' => 1, 'stroke' => $colour);
+					$divisions = $this->Element('path', $div);
+				} else {
+					$div = array('d' => $d_path, 'stroke-width' => 1, 'stroke' => $colour);
+					$sdiv = array('d' => $sd_path, 'stroke-width' => 1, 'stroke' => $this->subdivision_colour);
+					$divisions = $this->Element('path', $div) . $this->Element('path', $sdiv);
+				}
 			}
 		}
 		return $divisions . $axis_group . $label_group;
@@ -388,14 +498,25 @@ abstract class GridGraph extends Graph {
 		$y2 = $this->pad_top;
 
 		$this->CalcGrid();
-		$path = '';
+		$subpath = $path = '';
+		if($this->show_grid_subdivisions) {
+			foreach($this->y_subdivs as $y) 
+				$subpath .= 'M' . $x1 . ' ' . $y . 'L' . $x2 . ' ' . $y;
+			foreach($this->x_subdivs as $x) 
+				$subpath .= 'M' . $x . ' ' . $y1 . 'L' . $x . ' ' . $y2;
+			if($subpath != '') {
+				$opts = array('d' => $subpath, 'stroke' => $this->grid_subdivision_colour);
+				$subpath = $this->Element('path', $opts);
+			}
+		}
 		foreach($this->y_points as $y) 
 			$path .= 'M' . $x1 . ' ' . $y . 'L' . $x2 . ' ' . $y;
 		foreach($this->x_points as $x) 
 			$path .= 'M' . $x . ' ' . $y1 . 'L' . $x . ' ' . $y2;
 
 		$opts = array('d' => $path, 'stroke' => $this->grid_colour);
-		return $this->Element('path', $opts);
+		$path = $this->Element('path', $opts);
+		return $subpath . $path;
 	}
 
 	/**

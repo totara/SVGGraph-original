@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011 Graham Breach
+ * Copyright (C) 2011-2012 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -36,7 +36,8 @@ class StackedBarGraph extends BarGraph {
 
 		$bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
 			$this->bar_unit_width - $this->bar_space);
-		$bar_style = array('stroke' => $this->stroke_colour);
+		$bar_style = array();
+		$this->SetStroke($bar_style);
 		$bar = array('width' => $bar_width);
 
 		$bspace = $this->bar_space / 2;
@@ -52,7 +53,7 @@ class StackedBarGraph extends BarGraph {
 				$ypos = $yneg = $yplus = $yminus = 0;
 				for($j = 0; $j < $chunk_count; ++$j) {
 					$value = $this->multi_graph->GetValue($k, $j);
-					$this->Bar($value > 0 ? $value + $yplus : $value - $yminus, $bar);
+					$this->Bar($value >= 0 ? $value + $yplus : $value - $yminus, $bar);
 					if($value < 0) {
 						$bar['height'] -= $yneg;
 						$bar['y'] += $yneg;
@@ -71,6 +72,7 @@ class StackedBarGraph extends BarGraph {
 							$this->SetTooltip($bar, $value);
 						$rect = $this->Element('rect', $bar, $bar_style);
 						$body .= $this->GetLink($k, $rect);
+						unset($bar['id']); // clear for next value
 					}
 				}
 			}

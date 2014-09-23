@@ -28,6 +28,7 @@ require_once('SVGGraphMultiGraph.php');
 class MultiLineGraph extends PointGraph {
 
 	protected $line_stroke_width = 2;
+	protected $line_dash = null;
 	protected $fill_under = false;
 	protected $fill_opacity = 0.5;
 	protected $multi_graph;
@@ -39,7 +40,6 @@ class MultiLineGraph extends PointGraph {
 		$body = $this->Grid();
 
 		$plots = '';
-		$attr = array('stroke-width' => $this->line_stroke_width, 'fill' => 'none');
 
 		$ccount = count($this->colours);
 		$chunk_count = count($this->values);
@@ -47,15 +47,18 @@ class MultiLineGraph extends PointGraph {
 			$bnum = 0;
 			$cmd = 'M';
 			$path = '';
-			$fill = $this->fill_under && (!is_array($this->fill_under) || $this->fill_under[$i % count($this->fill_under)]);
+			$attr = array('fill' => 'none');
+			$fill = $this->multi_graph->Option($this->fill_under, $i);
+			$dash = $this->multi_graph->Option($this->line_dash, $i);
+			$stroke_width = $this->multi_graph->Option($this->line_stroke_width, $i);
 			if($fill) {
 				$cmd = 'L';
 				$attr['fill'] = $this->GetColour($i % $ccount);
-				$attr['fill-opacity'] = $this->fill_opacity;
-			} else {
-				unset($attr['fill-opacity']);
-				$attr['fill'] = 'none';
+				$attr['fill-opacity'] = $this->multi_graph->Option($this->fill_opacity, $i);
 			}
+			if(!is_null($dash))
+				$attr['stroke-dasharray'] = $dash;
+			$attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
 
 
 			foreach($this->multi_graph->all_keys as $key) {

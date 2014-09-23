@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2009-2011 Graham Breach
+ * Copyright (C) 2009-2012 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.4');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.5.1');
 
 class SVGGraph {
 
@@ -108,6 +108,7 @@ abstract class Graph {
 	protected $back_image_left = 0;
 	protected $back_image_mode = 'auto';
 	protected $stroke_colour = 'rgb(0,0,0)';
+	protected $stroke_width = 1;
 	protected $show_tooltips = true;
 	protected $tooltip_colour = 'black';
 	protected $tooltip_stroke_width = 1;
@@ -119,6 +120,7 @@ abstract class Graph {
 	protected $tooltip_padding = 3;
 	protected $tooltip_round = 0;
 	protected $tooltip_shadow_opacity = 0.3;
+	protected $compat_events = false;
 
 	protected $pad_top = 10;
 	protected $pad_bottom = 10;
@@ -132,11 +134,16 @@ abstract class Graph {
 
 	protected $defs = array();
 	protected $functions = array();
+	protected $variables = array();
+	protected $comments = array();
+	protected $onload = false;
 	protected $show_version = FALSE;
 	protected $title;
 	protected $description;
 	protected $namespace = FALSE;
 	protected $doctype = FALSE;
+
+	protected $namespaces = array();
 
 	public function __construct($w, $h, $settings = NULL)
 	{
@@ -523,11 +530,33 @@ abstract class Graph {
 	protected function AssociativeKeys()
 	{
 		$values = $this->GetValues();
-		$assoc = false;
 		foreach(array_keys($values) as $k)
 			if(!is_integer($k))
-				$assoc = true;
-		return $assoc;
+				return true;
+		return false;
+	}
+
+	/**
+	 * Sets the stroke options for an element
+	 */
+	protected function SetStroke(&$attr, $line_join = null)
+	{
+		if($this->stroke_width > 0) {
+			$attr['stroke'] = $this->stroke_colour;
+			$attr['stroke-width'] = $this->stroke_width;
+			if(!is_null($line_join))
+				$attr['stroke-linejoin'] = $line_join;
+		}
+	}
+
+	/**
+	 * Creates a new ID for an element
+	 */
+	protected function NewID()
+	{
+		if(!isset($this->last_id))
+			$this->last_id = 0;
+		return 'e' . base_convert(++$this->last_id, 10, 36);
 	}
 
 	/**
@@ -547,7 +576,10 @@ abstract class Graph {
 		switch($name)
 		{
 		case 'setattr' :
-			$fn = "function setattr(i,a,v){i.setAttributeNS(null,a,v);}\n";
+			$fn = "function setattr(i,a,v){i.setAttributeNS(null,a,v)}\n";
+			break;
+		case 'getE' :
+			$fn = "function getE(i){return document.getElementById(i)}\n";
 			break;
 
 		case 'textFit' :
@@ -575,27 +607,25 @@ JAVASCRIPT;
 		case 'fadeIn' : $name = 'fader';
 		case 'fadeOut' : $name = 'fader';
 		case 'fader' :
+			$this->AddFunction('getE');
+			$this->InsertVariable('faders','',1); // insert empty object
+			$this->InsertVariable('fader_itimer',null);
 			$fn = <<<JAVASCRIPT
-var faders_ = {};
-var fader_itimer;
-function fadeIn(evt,i,s){fader(evt,i,0.0,1.0,s);}
-function fadeOut(evt,i,s){fader(evt,i,1.0,0.0,s);}
-function fader(evt,i,o1,o2,s) {
-	var f = { id: i, o_start: o1, o_end: o2, step: (o1 < o2 ? s : -s) };
-	faders_[i] = f;
-	if(!fader_itimer)
-		fader_itimer = setInterval(fade,50);
+function fadeIn(e,i,s){fader(e,i,0,1,s)}
+function fadeOut(e,i,s){fader(e,i,1,0,s)}
+function fader(e,i,o1,o2,s) {
+	faders[i] = { id: i, o_start: o1, o_end: o2, step: (o1 < o2 ? s : -s) };
+	fader_itimer ||	(fader_itimer = setInterval(fade,50));
 }
 function fade() {
-	for(f in faders_) {
-		var ff = faders_[f], t = document.getElementById(ff.id),
-			o = (t.style.opacity == '' ? ff.o_start : t.style.opacity * 1.0),
-			r1 = (o <= ff.o_end), r2;
+	var f,ff,t,o;
+	for(f in faders) {
+		ff = faders[f], t = getE(ff.id);
+		o = (t.style.opacity == '' ? ff.o_start : t.style.opacity * 1);
 		o += ff.step;
-		t.style.opacity = Math.min(Math.max(o, 0.0), 1.0);
-		r2 = (o <= ff.o_end);
-		if(r2 != r1)
-			delete faders_[f];
+		t.style.opacity = o < .01 ? 0 : (o > .99 ? 1 : o);
+		if((ff.step > 0 && o >= 1) || (ff.step < 0 && o <= 0))
+			delete faders[f];
 	}
 }\n
 JAVASCRIPT;
@@ -619,66 +649,72 @@ JAVASCRIPT;
 			$this->AddFunction('setattr');
 			$fn = "function showhide(e,h){setattr(e,'visibility',h?'visible':'hidden');}\n";
 			break;
+		case 'finditem' :
+			$fn = <<<JAVASCRIPT
+function finditem(e,list) {
+	var l = e.target.correspondingUseElement || e.target, t;
+	while(!t && l.parentNode) {
+		t = l.id && list[l.id]
+		l = l.parentNode;
+	}
+	return t;
+}\n
+JAVASCRIPT;
+			break;
 		case 'tooltip' :
+			$this->AddFunction('getE');
 			$this->AddFunction('setattr');
 			$this->AddFunction('newel');
 			$this->AddFunction('showhide');
 			if($this->tooltip_shadow_opacity) {
+				$ttoffs = (2 - $this->tooltip_stroke_width/2) . 'px';
 				$shadow = <<<JAVASCRIPT
-			shadow = newel('rect',{
-				fill: 'rgba(0,0,0,{$this->tooltip_shadow_opacity})',
-				x: (2 - {$this->tooltip_stroke_width}/2) + 'px',
-				y: (2 - {$this->tooltip_stroke_width}/2) + 'px',
-				width: '10px',
-				height: '10px',
-				id: 'ttshdw',
-				rx: '{$this->tooltip_round}px',
-				ry: '{$this->tooltip_round}px'
-			});
-			tt.appendChild(shadow);
+		shadow = newel('rect',{
+			fill: 'rgba(0,0,0,{$this->tooltip_shadow_opacity})',
+			x:'{$ttoffs}',y:'{$ttoffs}',
+			width:'10px',height:'10px',
+			id: 'ttshdw',
+			rx:'{$this->tooltip_round}px',ry:'{$this->tooltip_round}px'
+		});
+		tt.appendChild(shadow);
 JAVASCRIPT;
 			} else {
 				$shadow = '';
 			}
+			$dpad = 2 * $this->tooltip_padding;
 			$fn = <<<JAVASCRIPT
 function tooltip(e,callback,on,param) {
-	var ns = 'http://www.w3.org/2000/svg', tt = document.getElementById('tooltip'),
-		rect = document.getElementById('ttrect'), shadow = document.getElementById('ttshdw'), offset = {$this->tooltip_offset},
-		x = e.clientX + offset, y = e.clientY + offset, inner, brect, bw, bh, sw, sh;
-	if(on) {
-		if(!tt) {
-			tt = newel('g', { id: 'tooltip', visibility: 'visible' });
-			rect = newel('rect',{
-				stroke: '{$this->tooltip_colour}',
-				'stroke-width': '{$this->tooltip_stroke_width}px',
-				fill: '{$this->tooltip_back_colour}',
-				width: '10px',
-				height: '10px',
-				id: 'ttrect',
-				rx: '{$this->tooltip_round}px',
-				ry: '{$this->tooltip_round}px'
-			});
+	var tt = getE('tooltip'), rect = getE('ttrect'), shadow = getE('ttshdw'), offset = {$this->tooltip_offset},
+		x = e.clientX + offset, y = e.clientY + offset, inner, brect, bw, bh, sw, sh, de = document.documentElement;
+	if(on && !tt) {
+		tt = newel('g',{id:'tooltip',visibility:'visible'});
+		rect = newel('rect',{
+			stroke: '{$this->tooltip_colour}',
+			'stroke-width': '{$this->tooltip_stroke_width}px',
+			fill: '{$this->tooltip_back_colour}',
+			width:'10px',height:'10px',
+			id: 'ttrect',
+			rx:'{$this->tooltip_round}px',ry:'{$this->tooltip_round}px'
+		});
 {$shadow}
-			tt.appendChild(rect);
-			document.documentElement.appendChild(tt);
-		}
+		tt.appendChild(rect);
+		de.appendChild(tt);
 	}
-	if(tt)
-		showhide(tt,on);
+	tt && showhide(tt,on);
 	inner = callback(e,tt,on,param);
 	if(inner && on) {
 		brect = inner.getBBox();
-		bw = Math.ceil(brect.width + (2 * {$this->tooltip_padding}));
-		bh = Math.ceil(brect.height + (2 * {$this->tooltip_padding}));
+		bw = Math.ceil(brect.width + {$dpad});
+		bh = Math.ceil(brect.height + {$dpad});
 		setattr(rect, 'width', bw + 'px');
 		setattr(rect, 'height', bh + 'px');
 		if(shadow) {
 			setattr(shadow, 'width', (bw + {$this->tooltip_stroke_width}) + 'px');
 			setattr(shadow, 'height', (bh + {$this->tooltip_stroke_width}) + 'px');
 		}
-		if(document.documentElement.width) {
-			sw = document.documentElement.width.baseVal.value;
-			sh = document.documentElement.height.baseVal.value;
+		if(de.width) {
+			sw = de.width.baseVal.value;
+			sh = de.height.baseVal.value;
 		} else {
 			sw = window.innerWidth;
 			sh = window.innerHeight;
@@ -688,19 +724,20 @@ function tooltip(e,callback,on,param) {
 		if(bh + y > sh)
 			y = Math.max(e.clientY - offset - bh,0);
 	}
-	if(on)
-		setattr(tt, 'transform', 'translate(' + x + ' ' + y + ')');
+	on && setattr(tt,'transform','translate('+x+' '+y+')');
 }\n
 JAVASCRIPT;
 			break;
 
 		case 'texttt' :
+			$this->AddFunction('getE');
 			$this->AddFunction('setattr');
 			$this->AddFunction('newel');
 			$this->AddFunction('newtext');
+			$tty = ($this->tooltip_font_size + $this->tooltip_padding) . 'px';
 			$fn = <<<JAVASCRIPT
 function texttt(e,tt,on,t){
-	var ttt = document.getElementById('tooltiptext');
+	var ttt = getE('tooltiptext');
 	if(on) {
 		if(!ttt) {
 			ttt = newel('text', {
@@ -708,21 +745,121 @@ function texttt(e,tt,on,t){
 				fill: '{$this->tooltip_colour}',
 				'font-size': '{$this->tooltip_font_size}px',
 				'font-family': '{$this->tooltip_font}',
-				'font-weight': '{$this->tooltip_font_weight}'
+				'font-weight': '{$this->tooltip_font_weight}',
+				x:'{$this->tooltip_padding}px',y:'{$tty}'
 			});
 			ttt.appendChild(newtext(t));
 			tt.appendChild(ttt);
 		} else {
-			ttt.removeChild(ttt.firstChild);
-			ttt.appendChild(newtext(t));
+			ttt.firstChild.data = t;
 		}
-		setattr(ttt, 'x', '{$this->tooltip_padding}px');
-		setattr(ttt, 'y', {$this->tooltip_font_size} + {$this->tooltip_padding} + 'px');
 	}
-	if(ttt)
-		showhide(ttt,on);
+	ttt && showhide(ttt,on);
 	return ttt;
+}\n
+JAVASCRIPT;
+			break;
+		case 'ttEvent' :
+			$this->AddFunction('finditem');
+			$this->AddFunction('init');
+			$this->InsertVariable('initfns', null, 'ttEvt');
+			$fn = <<<JAVASCRIPT
+function ttEvt() {
+	document.addEventListener && document.addEventListener('mousemove',function(e) {
+		var t = finditem(e,tips);
+		tooltip(e,texttt,t,t);
+	},false);
+}\n
+JAVASCRIPT;
+			break;
+		case 'fadeEvent' :
+			$this->AddFunction('getE');
+			$this->AddFunction('init');
+			$this->InsertVariable('initfns', null, 'fade');
+			$fn = <<<JAVASCRIPT
+function fade() {
+	var f,f1,e,o;
+	for(f in fades) {
+		f1 = fades[f];
+		if(f1.dir) {
+			e = getE(f1.id);
+			o = (e.style.opacity || fstart) * 1 + f1.dir;
+			e.style.opacity = o < .01 ? 0 : (o > .99 ? 1 : o);
+		}
+	}
+	setTimeout(fade,50);
+}\n
+JAVASCRIPT;
+			break;
+		case 'fadeEventIn' :
+			$this->AddFunction('init');
+			$this->AddFunction('finditem');
+			$this->InsertVariable('initfns', null, 'fiEvt');
+			$fn = <<<JAVASCRIPT
+function fiEvt() {
+	var f;
+	for(f in fades)
+		getE(fades[f].id).style.opacity = fstart;
+	document.addEventListener && document.addEventListener('mouseover',function(e) {
+		var t = finditem(e,fades);
+		t && (t.dir = fistep);
+	},false);
+}\n
+JAVASCRIPT;
+			break;
+		case 'fadeEventOut' :
+			$this->AddFunction('init');
+			$this->AddFunction('finditem');
+			$this->InsertVariable('initfns', null, 'foEvt');
+			$fn = <<<JAVASCRIPT
+function foEvt() {
+	document.addEventListener && document.addEventListener('mouseout',function(e) {
+		var t = finditem(e,fades);
+		t && (t.dir = fostep);
+	},false);
+}\n
+JAVASCRIPT;
+			break;
+		case 'duplicate' :
+			$this->AddFunction('getE');
+			$this->AddFunction('newel');
+			$this->AddFunction('init');
+			$this->InsertVariable('initfns', null, 'initDups');
+			$fn = <<<JAVASCRIPT
+function duplicate(f,t) {
+	var e = getE(f), g, a, p = e && e.parentNode;
+	if(e) {
+		while(p.parentNode && (p.tagName != 'g' || !p.getAttributeNS(null,'clip-path'))) {
+			p.tagName == 'a' && (a = p);
+			p = p.parentNode;
+		}
+		g = e.cloneNode(true);
+		g.style.opacity = 0;
+		e.id = t;
+
+		if(a) {
+			a = a.cloneNode(false);
+			a.appendChild(g);
+			g = a;
+		}
+		p.appendChild(g);
+	}
 }
+function initDups() {
+	for(var d in dups)
+		duplicate(d,dups[d]);
+}\n
+JAVASCRIPT;
+			break;
+		case 'init' :
+			$this->onload = true;
+			$fn = <<<JAVASCRIPT
+function init() {
+	if(!document.addEventListener || !initfns)
+		return;
+	for(var f in initfns)
+		eval(initfns[f] + '()');
+}\n
 JAVASCRIPT;
 			break;
 		default :
@@ -734,11 +871,35 @@ JAVASCRIPT;
 	}
 
 	/**
-	 * Inserts a function into the list
+	 * Inserts a Javascript function into the list
 	 */
 	public function InsertFunction($name, $fn)
 	{
 		$this->functions[$name] = $fn;
+	}
+
+	/**
+	 * Adds a Javascript variable
+	 * - use $value:$more for assoc
+	 * - use null:$more for array
+	 */
+	public function InsertVariable($var, $value, $more = null, $quote = true)
+	{
+		$q = $quote ? "'" : '';
+		if(is_null($more))
+			$this->variables[$var] = $q . $value . $q;
+		elseif(is_null($value))
+			$this->variables[$var][] = $q . $more . $q;
+		else
+			$this->variables[$var][$value] = $q . $more . $q;
+	}
+
+	/**
+	 * Insert a comment into the Javascript section - handy for debugging!
+	 */
+	public function InsertComment($details)
+	{
+		$this->comments[] = $details;
 	}
 
 	/**
@@ -772,15 +933,38 @@ JAVASCRIPT;
 	}
 
 	/**
+	 * Adds an inline event handler to an element's array
+	 */
+	protected function AddEventHandler(&$array, $evt, $code)
+	{
+		if(isset($array[$evt]))
+			$array[$evt] .= ';' . $code;
+		else
+			$array[$evt] = $code;
+	}
+
+	/**
 	 * Default tooltip contents are key and value, or whatever
 	 * $key is if $value is not set
 	 */
-	protected function SetTooltip(&$element, $key, $value = null)
+	protected function SetTooltip(&$element, $key, $value = null, $duplicate = false)
 	{
 		$this->AddFunction('tooltip','texttt');
 		$text = $this->TooltipText($key, $value);
-		$element['onmousemove'] = "tooltip(evt,texttt,true,'$text')";
-		$element['onmouseout'] = "tooltip(evt,texttt,false,'')";
+		if($this->compat_events) {
+			$this->AddEventHandler($element, 'onmousemove', "tooltip(evt,texttt,true,'$text')");
+			$this->AddEventHandler($element, 'onmouseout', "tooltip(evt,texttt,false,'')");
+		} else {
+			$id = isset($element['id']) ? $element['id'] : $this->NewID();
+			$this->AddFunction('ttEvent');
+			$this->InsertVariable('tips',$id,$text);
+			$element['id'] = $id;
+		}
+		if($duplicate) {
+			if(!isset($element['id']))
+				$element['id'] = $this->NewID();
+			$this->AddOverlay($element['id'], $this->NewID());
+		}
 	}
 
 	/**
@@ -791,6 +975,53 @@ JAVASCRIPT;
 		if(is_null($value))
 			return addslashes($key);
 		return addslashes($key . ', ' . $value);
+	}
+
+	/**
+	 * Sets the fader for an element
+	 */
+	protected function SetFader(&$element, $in, $out, $target = null, $duplicate = false)
+	{
+		if(!isset($element['id']))
+			$element['id'] = $this->NewID();
+		if(is_null($target))
+			$target = $element['id'];
+		$id = $duplicate ? $this->NewID() : $element['id'];
+		if($this->compat_events) {
+
+			if($in) {
+				$this->AddFunction('fadeIn');
+				$this->AddEventHandler($element, 'onmouseover', 'fadeIn(evt,"' . $target . '", ' . $in . ')');
+			}
+			if($out) {
+				$this->AddFunction('fadeOut');
+				$this->AddEventHandler($element, 'onmouseout', 'fadeOut(evt,"' . $target . '", ' . $out . ')');
+			}
+		} else {
+
+			$this->AddFunction('fadeEvent');
+			if($in) {
+				$this->AddFunction('fadeEventIn');
+				$this->InsertVariable('fistep', $in, null, false);
+			}
+			if($out) {
+				$this->AddFunction('fadeEventOut');
+				$this->InsertVariable('fostep', -$out, null, false);
+			}
+			if($duplicate)
+				$this->InsertVariable('fades',$element['id'],"{id:'{$target}',dir:0}",false);
+			else
+				$this->InsertVariable('fades',$element['id'],"{id:'{$target}',dir:0}",false);
+			$this->InsertVariable('fstart', $in ? 0 : 1, null, false);
+		}
+		if($duplicate)
+			$this->AddOverlay($element['id'], $id);
+	}
+
+	protected function AddOverlay($from, $to)
+	{
+		$this->AddFunction('duplicate');
+		$this->InsertVariable('dups',$from,$to);
 	}
 
 	/**
@@ -825,11 +1056,47 @@ JAVASCRIPT;
 			$body = $this->ErrorText($e->getMessage());
 		}
 
+		$variables = '';
+		$functions = '';
+		// insert Javascript variables
+		if(count($this->variables)) {
+			$vlist = array();
+			foreach($this->variables as $name => $value) {
+				$var = $name;
+				if(is_array($value)) {
+					if(isset($value[0]) && isset($value[count($value)-1])) {
+						$var .= '=[' . implode(',',$value) . ']';
+					} else {
+						$vs = array();
+						foreach($value as $k => $v)
+							if($k)
+								$vs[] = "$k:$v";
+
+						$var .= '={' . implode(',',$vs) . '}';
+					}
+				} elseif(!is_null($value)) {
+					$var .= "=$value";
+				}
+				$vlist[] = $var;
+			}
+			$variables = "var " . implode(', ', $vlist) . ";";
+		}
+		// comments can be stuck with the variables
+		if(count($this->comments)) {
+			foreach($this->comments as $c) {
+				if(!is_string($c))
+					$c = print_r($c,true);
+				$variables .= "\n// " . str_replace("\n", "\n// ", $c);
+			}
+		}
 		// insert selected Javascript functions
 		if(count($this->functions)) {
+			$functions = implode('', $this->functions);
+		}
+		if($variables != '' || $functions != '') {
 			$script = array('type' => 'text/javascript');
-			$heading .= $this->Element('script', $script, NULL, "<![CDATA[\n" .
-				implode('', $this->functions) . "\n// ]]>");
+			$heading .= $this->Element('script', $script, NULL,
+				"<![CDATA[\n$variables\n$functions\n// ]]>");
 		}
 
 		// insert any gradients that are used
@@ -844,10 +1111,17 @@ JAVASCRIPT;
 			'version' => '1.1', 
 			'xmlns:xlink' => 'http://www.w3.org/1999/xlink'
 		);
+		if($this->onload)
+			$svg['onload'] = 'init()';
+
 		if($this->namespace)
 			$svg['xmlns:svg'] = "http://www.w3.org/2000/svg";
 		else
 			$svg['xmlns'] = "http://www.w3.org/2000/svg";
+
+		// add any extra namespaces
+		foreach($this->namespaces as $ns => $url)
+			$svg['xmlns:' . $ns] = $url;
 
 		// display version string
 		if($this->show_version) {

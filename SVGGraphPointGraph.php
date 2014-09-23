@@ -153,18 +153,34 @@ abstract class PointGraph extends GridGraph {
 				$this->marker_ids[$set] = $this->marker_types[$m_key];
 			} else {
 
+				$a = $size; // will be repeated a lot, and 'a' is smaller
 				switch($type) {
 				case 'triangle' :
 					$type = 'path';
-					$a = $size;
-					$o = $a * tan(pi() / 6);
-					$h = $a / cos(pi() / 6);
+					$o = $a * tan(M_PI / 6);
+					$h = $a / cos(M_PI / 6);
 					$marker['d'] = "M$a,$o L0,-$h L-$a,$o z";
 					break;
 				case 'square' :
 					$type = 'rect';
-					$marker['x'] = $marker['y'] = -$size;
-					$marker['width'] = $marker['height'] = $size * 2;
+					$marker['x'] = $marker['y'] = -$a;
+					$marker['width'] = $marker['height'] = $a * 2;
+					break;
+				case 'x' :
+					$marker['transform'] = 'rotate(45)';
+					// no break - 'x' is a cross rotated by 45 degrees
+				case 'cross' :
+					$type = 'path';
+					$t = $a / 4;
+					$marker['d'] = "M-$a,-$t L-$a,$t L-$t,$t L-$t,$a L$t,$a L$t,$t L$a,$t L$a,-$t L$t,-$t L$t,-$a L-$t,-$a L-$t,-$t z";
+					break;
+				case 'pentagon' :
+					$type = 'path';
+					$x1 = $a * sin(M_PI * 0.4);
+					$y1 = $a * cos(M_PI * 0.4);
+					$x2 = $a * sin(M_PI * 0.2);
+					$y2 = $a * cos(M_PI * 0.2);
+					$marker['d'] = "M0,-$a L$x1,-$y1 L$x2,$y2 L-$x2,$y2 L-$x1,-$y1 z";
 					break;
 				case 'circle' :
 				default :

@@ -44,7 +44,8 @@ class GroupedBarGraph extends BarGraph {
 			$chunk_gap = ($bar_width - $chunk_count) / $gap_count;
 		$chunk_width = ($bar_width - ($chunk_gap * ($chunk_count - 1))) / $chunk_count;
 		$chunk_unit_width = $chunk_width + $chunk_gap;
-		$bar_style = array('stroke' => $this->stroke_colour);
+		$bar_style = array();
+		$this->SetStroke($bar_style);
 		$bar = array('width' => $chunk_width);
 
 		$b_start = $this->pad_left + ($this->bar_space / 2);
@@ -67,6 +68,7 @@ class GroupedBarGraph extends BarGraph {
 							$this->SetTooltip($bar, $value);
 						$rect = $this->Element('rect', $bar, $bar_style);
 						$body .= $this->GetLink($k, $rect);
+						unset($bar['id']); // clear for next generated value
 					}
 				}
 			}

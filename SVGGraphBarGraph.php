@@ -35,13 +35,15 @@ class BarGraph extends GridGraph {
 
 		$bar_width = ($this->bar_space >= $this->bar_unit_width ? '1' : 
 			$this->bar_unit_width - $this->bar_space);
-		$bar_style = array('stroke' => $this->stroke_colour);
-		$bar = array('width' => $bar_width);
+		$bar_style = array();
+		$this->SetStroke($bar_style);
 
 		$bnum = 0;
 		$bspace = $this->bar_space / 2;
 		$ccount = count($this->colours);
 		foreach($values as $key => $value) {
+			// assign bar in the loop so it doesn't keep ID
+			$bar = array('width' => $bar_width);
 			$bar_pos = $this->GridPosition($key, $bnum);
 			if(!is_null($bar_pos)) {
 				$bar['x'] = $bspace + $bar_pos;

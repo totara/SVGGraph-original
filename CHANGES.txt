@@ -1,3 +1,17 @@
+Version 2.5.1 (20/02/2012)
+-------------
+- Fixed bug with 0 values in stacked graphs.
+
+Version 2.5 (09/08/2011)
+-----------
+- Improved Javascript event handlers.
+- Added grid and axis subdivision options.
+- Added stroke width option.
+- Added more line/scatter marker symbols.
+- Added line dash option.
+- Added support for per-dataset fill opacity and line width.
+- Added pie graph start angle option.
+
 Version 2.4 (07/07/2011)
 -----------
 - Added multiple scatter graph.

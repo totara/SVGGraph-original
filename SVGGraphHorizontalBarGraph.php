@@ -36,13 +36,14 @@ class HorizontalBarGraph extends GridGraph {
 
 		$bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
 			$this->bar_unit_height - $this->bar_space);
-		$bar_style = array('stroke' => $this->stroke_colour);
-		$bar = array('height' => $bar_height);
+		$bar_style = array();
+		$this->SetStroke($bar_style);
 
 		$bnum = 0;
 		$bspace = $this->bar_space / 2;
 		$ccount = count($this->colours);
 		foreach($values as $key => $value) {
+			$bar = array('height' => $bar_height);
 			$bar_pos = $this->GridPosition($key, $bnum);
 			if(!is_null($bar_pos)) {
 				$bar['y'] = $bar_pos - $bspace - $bar_height;

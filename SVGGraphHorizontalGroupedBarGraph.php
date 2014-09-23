@@ -45,7 +45,8 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 			$chunk_gap = ($bar_height - $chunk_count) / $gap_count;
 		$chunk_height = ($bar_height - ($chunk_gap * ($chunk_count - 1))) / $chunk_count;
 		$chunk_unit_height = $chunk_height + $chunk_gap;
-		$bar_style = array('stroke' => $this->stroke_colour);
+		$bar_style = array();
+		$this->SetStroke($bar_style);
 		$bar = array('height' => $chunk_height);
 
 		$bnum = 0;
@@ -73,6 +74,7 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 							$this->SetTooltip($bar, $value);
 						$rect = $this->Element('rect', $bar, $bar_style);
 						$body .= $this->GetLink($k, $rect);
+						unset($bar['id']); // clear ID for next generated value
 					}
 				}
 			}

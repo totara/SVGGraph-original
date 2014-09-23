@@ -89,15 +89,13 @@ class Bar3DGraph extends ThreeDGraph {
 				if($this->show_tooltips)
 					$this->SetTooltip($group, $value);
 				$bars .= $this->Element('g', $group, NULL, $link);
+				unset($group['id']); // make sure a new one is generated
 			}
 			++$bnum;
 		}
 
-		$bgroup = array(
-			'stroke' => $this->stroke_colour,
-			'fill' => 'none',
-			'stroke-linejoin' => 'round'
-		);
+		$bgroup = array('fill' => 'none');
+		$this->SetStroke($bgroup, 'round');
 		$body .= $this->Element('g', $bgroup, NULL, $bars);
 		return $body . $axes;
 	}

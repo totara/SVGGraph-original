@@ -27,6 +27,7 @@ require_once('SVGGraphPointGraph.php');
 class LineGraph extends PointGraph {
 
 	protected $line_stroke_width = 2;
+	protected $line_dash = null;
 	protected $fill_under = false;
 	protected $fill_opacity = 1;
 
@@ -36,8 +37,12 @@ class LineGraph extends PointGraph {
 		$this->CalcAxes($assoc);
 		$body = $this->Grid();
 
-		$attr = array('stroke' => $this->stroke_colour,
-			'stroke-width' => $this->line_stroke_width, 'fill' => 'none');
+		$attr = array('stroke' => $this->stroke_colour, 'fill' => 'none');
+		$dash = is_array($this->line_dash) ? $this->line_dash[0] : $this->line_dash;
+		$stroke_width = is_array($this->line_stroke_width) ? $this->line_stroke_width[0] : $this->line_stroke_width;
+		if(!is_null($dash))
+			$attr['stroke-dasharray'] = $dash;
+		$attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
 
 		$bnum = 0;
 		$cmd = 'M';

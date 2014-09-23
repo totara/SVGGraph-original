@@ -41,17 +41,29 @@ class Pie3DGraph extends PieGraph {
 	protected function GetSlice($angle1, $angle2, &$attr)
 	{
 		$x1 = $y1 = $x2 = $y2 = 0;
+		$angle1 += $this->s_angle;
+		$angle2 += $this->s_angle;
 		$this->CalcSlice($angle1, $angle2, $x1, $y1, $x2, $y2);
 
-		$outer = ($angle2 - $angle1 > pi() ? 1 : 0);
-		$sweep = ($this->reverse ? 0 : 1);
+		$outer = $angle2 - $angle1 > M_PI ? 1 : 0;
+		$sweep = $this->reverse ? 0 : 1;
+		$side1 = $this->reverse ? M_PI : M_PI * 2;
+		$side2 = $this->reverse ? M_PI * 2 : M_PI;
 
 		$path = '';
-		if($this->LowerHalf($angle1) || $this->LowerHalf($angle2)) {
-			// if the edge is in the top half, need to truncate to x-radius
-			$a1 = $this->LowerHalf($angle1) ? $angle1 : pi(); 
-			$a2 = $this->LowerHalf($angle2) ? $angle2 : pi(); 
-			$path .= $this->GetEdge($a1, $a2);
+		$a1_l = $this->LowerHalf($angle1);
+		$a2_l = $this->LowerHalf($angle2);
+		if($a1_l || $a2_l || $outer) {
+			if($a1_l && $a2_l && $outer) {
+				// if this is a big slice with both sides at bottom, need 2 edges
+				$path .= $this->GetEdge($angle1, $side2);
+				$path .= $this->GetEdge($side1, $angle2);
+			} else {
+				// if an edge is in the top half, need to truncate to x-radius
+				$a1 = $a1_l ? $angle1 : $side1;
+				$a2 = $a2_l ? $angle2 : $side2;
+				$path .= $this->GetEdge($a1, $a2);
+			}
 		}
 		if((string)$x1 == (string)$x2 && (string)$y1 == (string)$y2) {
 			$attr1 = array('d' => $path);
@@ -62,7 +74,7 @@ class Pie3DGraph extends PieGraph {
 			return $this->Element('g', $attr, NULL, 
 				$this->Element('path', $attr1) . $this->Element('ellipse', $attr2));
 		} else {
-			$outer = ($angle2 - $angle1 > pi() ? 1 : 0);
+			$outer = ($angle2 - $angle1 > M_PI ? 1 : 0);
 			$sweep = ($this->reverse ? 0 : 1);
 			$attr['d'] = $path . "M{$this->x_centre},{$this->y_centre} L$x1,$y1 A{$this->radius_x} {$this->radius_y} 0 $outer,$sweep $x2,$y2 z";
 			return $this->Element('path', $attr);
@@ -80,9 +92,8 @@ class Pie3DGraph extends PieGraph {
 		$this->CalcSlice($angle1, $angle2, $x1, $y1, $x2, $y2);
 		$y2a = $y2 + $this->depth;
 
-		$outer = ($angle2 - $angle1 > pi() ? 1 : 0);
-		$sweep = ($this->reverse ? 0 : 1);
-		$rsweep = $sweep ? 0 : 1;
+		$outer = 0; // edge is never > PI
+		$sweep = $this->reverse ? 0 : 1;
 
 		return "M$x1,$y1 l0,{$this->depth} A{$this->radius_x} {$this->radius_y} 0 $outer,$sweep $x2,$y2a l0,-{$this->depth} ";
 	}
@@ -92,7 +103,9 @@ class Pie3DGraph extends PieGraph {
 	 */
 	protected function LowerHalf($angle)
 	{
-		return ($this->reverse && $angle > pi()) || (!$this->reverse && $angle < pi());
+		$angle = fmod($angle, M_PI * 2);
+		return ($this->reverse && $angle > M_PI && $angle < M_PI * 2) ||
+			(!$this->reverse && $angle < M_PI && $angle > 0);
 	}
 
 }

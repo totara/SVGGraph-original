@@ -113,5 +113,13 @@ class MultiGraph {
 	{
 		return is_numeric($this->all_keys[0]) ? min($this->all_keys) : 0;
 	}
+
+	/**
+	 * Returns an option from array, or non-array option
+	 */
+	public function Option(&$o, $i)
+	{
+		return is_array($o) ? $o[$i % count($o)] : $o;
+	}
 }
 

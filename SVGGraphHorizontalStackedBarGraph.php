@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2011 Graham Breach
+ * Copyright (C) 2011-2012 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -37,7 +37,8 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 
 		$bar_height = ($this->bar_space >= $this->bar_unit_height ? '1' : 
 			$this->bar_unit_height - $this->bar_space);
-		$bar_style = array('stroke' => $this->stroke_colour);
+		$bar_style = array();
+		$this->SetStroke($bar_style);
 		$bar = array('height' => $bar_height);
 
 		$bnum = 0;
@@ -54,7 +55,7 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 				$xpos = $xneg = $xplus = $xminus = 0;
 				for($j = 0; $j < $chunk_count; ++$j) {
 					$value = $this->multi_graph->GetValue($k, $j);
-					$this->Bar($value > 0 ? $value + $xplus : $value - $xminus, $bar);
+					$this->Bar($value >= 0 ? $value + $xplus : $value - $xminus, $bar);
 					if($value < 0) {
 						$bar['width'] -= $xneg;
 						$xneg += $bar['width'];
@@ -73,6 +74,7 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 							$this->SetTooltip($bar, $value);
 						$rect = $this->Element('rect', $bar, $bar_style);
 						$body .= $this->GetLink($k, $rect);
+						unset($bar['id']); // clear ID for next generated value
 					}
 				}
 			}
