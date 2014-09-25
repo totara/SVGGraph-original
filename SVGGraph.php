@@ -1316,10 +1316,18 @@ abstract class Graph {
     }
 
     $svg = array(
-      'width' => $this->width, 'height' => $this->height, 
+      'width' => $this->width, 'height' => $this->height,
+      'viewBox' => "0 0 $this->width $this->height",
       'version' => '1.1', 
       'xmlns:xlink' => 'http://www.w3.org/1999/xlink'
     );
+    if ($this->auto_fit_parent) {
+        $svg['width'] = $svg['height'] = '100%';
+    }
+    if ($this->preserve_aspect_ratio) {
+        $svg['preserveAspectRatio'] = $this->preserve_aspect_ratio;
+    }
+
     if(!$defer_javascript) {
       $js = $this->FetchJavascript();
       if($js != '') {
