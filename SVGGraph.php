@@ -1408,6 +1408,9 @@ abstract class Graph {
       $svg['viewBox'] = "0 0 {$this->width} {$this->height}";
       $svg['width'] = $svg['height'] = '100%';
     }
+    if ($this->preserve_aspect_ratio) {
+      $svg['preserveAspectRatio'] = $this->preserve_aspect_ratio;
+    }
 
     if(!$defer_javascript) {
       $js = $this->FetchJavascript();
