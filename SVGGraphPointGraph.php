@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2010-2013 Graham Breach
+ * Copyright (C) 2010-2014 Graham Breach
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -154,6 +154,10 @@ abstract class PointGraph extends GridGraph {
         $marker['stroke-width'] = $stroke_width;
     }
 
+    // check for image marker
+    if(strncmp($type, 'image:', 6) == 0)
+      list($type, $image_path) = explode(':', $type);
+
     $a = $size; // will be repeated a lot, and 'a' is smaller
     $element = 'path';
     switch($type) {
@@ -248,6 +252,13 @@ abstract class PointGraph extends GridGraph {
       $x = $a * sin(M_PI / 3);
       $y = $a * cos(M_PI / 3);
       $marker['d'] = "M0 -{$a}L$x -$y $x $y 0 $a -$x $y -$x -{$y}z";
+      break;
+    case 'image' :
+      $element = 'image';
+      $marker['xlink:href'] = $image_path;
+      $marker['x'] = $marker['y'] = -$size;
+      $marker['width'] = $size * 2;
+      $marker['height'] = $size * 2;
       break;
     case 'circle' :
     default :

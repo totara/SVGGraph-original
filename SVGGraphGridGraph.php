@@ -503,8 +503,8 @@ abstract class GridGraph extends Graph {
 
       // validate
       if(is_numeric($fixed_min) && is_numeric($fixed_max) &&
-        $fixed_max <= $fixed_min)
-        throw new Exception('Invalid axis options: min >= max');
+        $fixed_max < $fixed_min)
+        throw new Exception('Invalid Y axis options: min > max');
 
       if(is_numeric($fixed_min)) {
         $v_min[] = $fixed_min;
@@ -531,8 +531,8 @@ abstract class GridGraph extends Graph {
           $maxv_list[] = 0;
         $v_max[] = max($maxv_list);
       }
-      if($v_max[$i] <= $v_min[$i])
-        throw new Exception('Invalid axis: min >= max');
+      if($v_max[$i] < $v_min[$i])
+        throw new Exception('Invalid Y axis: min > max');
     }
 
     for($i = 0; $i < $x_axis_count; ++$i) {
@@ -541,8 +541,8 @@ abstract class GridGraph extends Graph {
 
       // validate
       if(is_numeric($fixed_min) && is_numeric($fixed_max) &&
-        $fixed_max <= $fixed_min)
-        throw new Exception('Invalid axis options: min >= max');
+        $fixed_max < $fixed_min)
+        throw new Exception('Invalid X axis options: min > max');
 
       if(is_numeric($fixed_max))
         $k_max[] = $fixed_max;
@@ -552,8 +552,8 @@ abstract class GridGraph extends Graph {
         $k_min[] = $fixed_min;
       else
         $k_min[] = min(0, $this->GetAxisMinKey($i), (float)$this->min_guide['x']);
-      if($k_max[$i] <= $k_min[$i])
-        throw new Exception('Invalid axis: min >= max');
+      if($k_max[$i] < $k_min[$i])
+        throw new Exception('Invalid X axis: min > max');
     }
     return compact('v_max', 'v_min', 'k_max', 'k_min');
   }
@@ -591,7 +591,9 @@ abstract class GridGraph extends Graph {
         $x_fit = false;
         $x_units_after = (string)$this->ArrayOption($this->units_y, $i);
         $x_units_before = (string)$this->ArrayOption($this->units_before_y, $i);
-
+        $x_decimal_digits = $this->GetFirst(
+          $this->ArrayOption($this->decimal_digits_y, $i),
+          $this->decimal_digits);
       } else {
         $max_h = $ends['k_max'][$i];
         $min_h = $ends['k_min'][$i];
@@ -599,6 +601,9 @@ abstract class GridGraph extends Graph {
         $x_fit = true;
         $x_units_after = (string)$this->ArrayOption($this->units_x, $i);
         $x_units_before = (string)$this->ArrayOption($this->units_before_x, $i);
+        $x_decimal_digits = $this->GetFirst(
+          $this->ArrayOption($this->decimal_digits_x, $i),
+          $this->decimal_digits);
       }
 
       if(!is_numeric($max_h) || !is_numeric($min_h))
@@ -606,15 +611,15 @@ abstract class GridGraph extends Graph {
 
       if($this->ArrayOption($this->log_axis_y, $i) && $this->flip_axes)
         $x_axis = new AxisLog($x_len, $max_h, $min_h, $x_min_unit, $x_fit,
-          $x_units_before, $x_units_after,
+          $x_units_before, $x_units_after, $x_decimal_digits,
           $this->ArrayOption($this->log_axis_y_base, $i),
           $grid_division);
       elseif(!is_numeric($grid_division))
         $x_axis = new Axis($x_len, $max_h, $min_h, $x_min_unit, $x_fit,
-          $x_units_before, $x_units_after);
+          $x_units_before, $x_units_after, $x_decimal_digits);
       else
         $x_axis = new AxisFixed($x_len, $max_h, $min_h, $grid_division,
-          $x_units_before, $x_units_after);
+          $x_units_before, $x_units_after, $x_decimal_digits);
       $x_axes[] = $x_axis;
     }
 
@@ -639,6 +644,9 @@ abstract class GridGraph extends Graph {
         $y_fit = true;
         $y_units_after = (string)$this->ArrayOption($this->units_x, $i);
         $y_units_before = (string)$this->ArrayOption($this->units_before_x, $i);
+        $y_decimal_digits = $this->GetFirst(
+          $this->ArrayOption($this->decimal_digits_x, $i),
+          $this->decimal_digits);
 
       } else {
         $max_v = $ends['v_max'][$i];
@@ -647,6 +655,9 @@ abstract class GridGraph extends Graph {
         $y_fit = false;
         $y_units_after = (string)$this->ArrayOption($this->units_y, $i);
         $y_units_before = (string)$this->ArrayOption($this->units_before_y, $i);
+        $y_decimal_digits = $this->GetFirst(
+          $this->ArrayOption($this->decimal_digits_y, $i),
+          $this->decimal_digits);
       }
 
       if(!is_numeric($max_v) || !is_numeric($min_v))
@@ -654,15 +665,15 @@ abstract class GridGraph extends Graph {
 
       if($this->ArrayOption($this->log_axis_y, $i) && !$this->flip_axes)
         $y_axis = new AxisLog($y_len, $max_v, $min_v, $y_min_unit, $y_fit,
-          $y_units_before, $y_units_after,
+          $y_units_before, $y_units_after, $y_decimal_digits,
           $this->ArrayOption($this->log_axis_y_base, $i),
           $grid_division);
       elseif(!is_numeric($grid_division))
         $y_axis = new Axis($y_len, $max_v, $min_v, $y_min_unit, $y_fit,
-          $y_units_before, $y_units_after);
+          $y_units_before, $y_units_after, $y_decimal_digits);
       else
         $y_axis = new AxisFixed($y_len, $max_v, $min_v, $grid_division,
-          $y_units_before, $y_units_after);
+          $y_units_before, $y_units_after, $y_decimal_digits);
 
       $y_axis->Reverse(); // because axis starts at bottom
 
@@ -1328,7 +1339,10 @@ abstract class GridGraph extends Graph {
         if(!empty($dx_path)) {
           $dx_colour = $this->GetFirst($this->division_colour_h,
             $this->division_colour, $this->axis_colour);
-          @$div_paths[$dx_colour] .= $dx_path;
+          if(isset($div_paths[$dx_colour]))
+            $div_paths[$dx_colour] .= $dx_path;
+          else
+            $div_paths[$dx_colour] = $dx_path;
         }
       }
       if($this->show_axis_v) {
@@ -1343,7 +1357,10 @@ abstract class GridGraph extends Graph {
                 $this->division_colour,
                 $this->ArrayOption($this->axis_colour_v, $i),
                 $this->axis_colour);
-              @$div_paths[$dy_colour] .= $dy_path;
+              if(isset($div_paths[$dy_colour]))
+                $div_paths[$dy_colour] .= $dy_path;
+              else
+                $div_paths[$dy_colour] = $dy_path;
             }
           }
         }
@@ -1362,7 +1379,10 @@ abstract class GridGraph extends Graph {
             $sdx_colour = $this->GetFirst($this->subdivision_colour_h,
               $this->subdivision_colour, $this->division_colour_h,
               $this->division_colour, $this->axis_colour);
-            @$div_paths[$sdx_colour] .= $sdx_path;
+            if(isset($div_paths[$sdx_colour]))
+              $div_paths[$sdx_colour] .= $sdx_path;
+            else
+              $div_paths[$sdx_colour] = $sdx_path;
           }
         }
         if($this->show_axis_v) {
@@ -1379,7 +1399,10 @@ abstract class GridGraph extends Graph {
                   $this->division_colour,
                   $this->ArrayOption($this->axis_colour_v, $i),
                   $this->axis_colour);
-                @$div_paths[$sdy_colour] .= $sdy_path;
+                if(isset($div_paths[$sdy_colour]))
+                  $div_paths[$sdy_colour] .= $sdy_path;
+                else
+                  $div_paths[$sdy_colour] = $sdy_path;
               }
             }
           }

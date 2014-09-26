@@ -46,7 +46,11 @@ class SVGGraphPatternList {
       if(!isset($pattern['size']))
         $pattern['size'] = 10;
       $pattern['width'] = $pattern['height'] = $pattern['size'];
-      @list($colour, $opacity) = explode(':', $pattern[0]);
+      $opacity = null;
+      if(strpos($pattern[0], ':') !== FALSE)
+        list($colour, $opacity) = explode(':', $pattern[0]);
+      else
+        $colour = $pattern[0];
       $pattern['colour'] = $colour;
       if(is_numeric($opacity))
         $pattern['opacity'] = $opacity;
@@ -72,8 +76,8 @@ class SVGGraphPatternList {
     $back_opacity = '';
     if(array_key_exists('back_colour', $pattern)) {
       $back_colour = $pattern['back_colour'];
-      if(!is_null($back_colour))
-        @list($back_colour, $back_opacity) = explode(':', $back_colour);
+      if(!is_null($back_colour) && strpos($back_colour, ':') !== FALSE)
+        list($back_colour, $back_opacity) = explode(':', $back_colour);
     }
 
     if(!is_null($back_colour)) {

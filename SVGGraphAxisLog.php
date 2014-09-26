@@ -37,18 +37,20 @@ class AxisLog extends Axis {
   protected $int_base = true;
 
   public function __construct($length, $max_val, $min_val,
-    $min_unit, $fit, $units_before, $units_after, $base, $divisions)
+    $min_unit, $fit, $units_before, $units_after, $decimal_digits,
+    $base, $divisions)
   {
     if($min_val == 0 || $max_val == 0)
       throw new Exception('0 value on log axis');
     if($min_val < 0 && $max_val > 0)
       throw new Exception('-ve and +ve on log axis');
     if($max_val <= $min_val && $min_unit == 0)
-      throw new Exception('Zero length axis');
+      throw new Exception('Zero length axis (min >= max)');
     $this->length = $length;
     $this->min_unit = $min_unit;
     $this->units_before = $units_before;
     $this->units_after = $units_after;
+    $this->decimal_digits = $decimal_digits;
     if(is_numeric($base) && $base > 1) {
       $this->base = $base * 1.0;
       $this->int_base = $this->base == floor($this->base);
@@ -98,7 +100,8 @@ class AxisLog extends Axis {
     while($l <= $this->lgmax) {
       $val = pow($this->base, $l) * ($this->negative ? -1 : 1);
       // convert to string to use as array key
-      $point = $this->units_before . Graph::NumString($val) . $this->units_after;
+      $point = $this->units_before .
+        Graph::NumString($val, $this->decimal_digits) . $this->units_after;
       $pos = $this->Position($val);
       $position = $start + ($this->direction * $pos);
       $points[] = new GridPoint($position, $point, $val);
@@ -107,7 +110,8 @@ class AxisLog extends Axis {
       if($l < $this->lgmax) {
         foreach($spoints as $l1) {
           $val = pow($this->base, $l + $l1) * ($this->negative ? -1 : 1);
-          $point = $this->units_before . Graph::NumString($val) . $this->units_after;
+          $point = $this->units_before .
+            Graph::NumString($val, $this->decimal_digits) . $this->units_after;
           $pos = $this->Position($val);
           $position = $start + ($this->direction * $pos);
           $points[] = new GridPoint($position, $point, $val);

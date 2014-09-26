@@ -40,7 +40,7 @@ class PopulationPyramid extends HorizontalBarGraph {
     $bar = array('height' => $bar_height);
 
     $bnum = 0;
-    $bspace = $this->bar_space / 2;
+    $bspace = max(0, ($this->y_axes[$this->main_y_axis]->Unit() - $bar_height) / 2);
     $b_start = $this->height - $this->pad_bottom - ($this->bar_space / 2);
     $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
@@ -236,7 +236,10 @@ class PopulationPyramid extends HorizontalBarGraph {
     for($i = 0; $i < $sets; ++$i) {
       $dir = $i % 2;
       foreach($this->values[$i] as $item) {
-        @$sums[$dir][$item->key] += $item->value;
+        if(isset($sums[$dir][$item->key]))
+          $sums[$dir][$item->key] += $item->value;
+        else
+          $sums[$dir][$item->key] = $item->value;
       }
     }
     if(!count($sums[0]))
@@ -256,7 +259,10 @@ class PopulationPyramid extends HorizontalBarGraph {
     for($i = 0; $i < $sets; ++$i) {
       $dir = $i % 2;
       foreach($this->values[$i] as $item) {
-        @$sums[$dir][$item->key] += $item->value;
+        if(isset($sums[$dir][$item->key]))
+          $sums[$dir][$item->key] += $item->value;
+        else
+          $sums[$dir][$item->key] = $item->value;
       }
     }
     if(!count($sums[0]))
@@ -290,6 +296,12 @@ class PopulationPyramid extends HorizontalBarGraph {
     $y_units_after = (string)$this->ArrayOption($this->units_x, 0);
     $x_units_before = (string)$this->ArrayOption($this->units_before_y, 0);
     $y_units_before = (string)$this->ArrayOption($this->units_before_x, 0);
+    $x_decimal_digits = $this->GetFirst(
+      $this->ArrayOption($this->decimal_digits_y, 0),
+      $this->decimal_digits);
+    $y_decimal_digits = $this->GetFirst(
+      $this->ArrayOption($this->decimal_digits_x, 0),
+      $this->decimal_digits);
 
     $this->grid_division_h = $this->ArrayOption($this->grid_division_h, 0);
     $this->grid_division_v = $this->ArrayOption($this->grid_division_v, 0);
@@ -306,17 +318,18 @@ class PopulationPyramid extends HorizontalBarGraph {
 
     if(!is_numeric($this->grid_division_h))
       $x_axis = new AxisDoubleEnded($x_len, $max_h, $min_h, $x_min_unit, $x_fit,
-        $x_units_before, $x_units_after);
+        $x_units_before, $x_units_after, $x_decimal_digits);
     else
       $x_axis = new AxisFixedDoubleEnded($x_len, $max_h, $min_h, 
-        $this->grid_division_h, $x_units_before, $x_units_after);
+        $this->grid_division_h, $x_units_before, $x_units_after,
+        $x_decimal_digits);
 
     if(!is_numeric($this->grid_division_v))
       $y_axis = new Axis($y_len, $max_v, $min_v, $y_min_unit, $y_fit,
-        $y_units_before, $y_units_after);
+        $y_units_before, $y_units_after, $y_decimal_digits);
     else
       $y_axis = new AxisFixed($y_len, $max_v, $min_v, $this->grid_division_v,
-        $y_units_before, $y_units_after);
+        $y_units_before, $y_units_after, $y_decimal_digits);
 
     $y_axis->Reverse(); // because axis starts at bottom
     return array(array($x_axis), array($y_axis));

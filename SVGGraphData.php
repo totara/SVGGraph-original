@@ -196,8 +196,11 @@ class SVGGraphData implements Countable, ArrayAccess, Iterator {
   /**
    * Returns the min and max sum values
    */
-  public function GetMinMaxSumValues()
+  public function GetMinMaxSumValues($start = 0, $end = NULL)
   {
+    if($start != 0 || (!is_null($end) && $end != 0))
+      throw new Exception('Dataset not found');
+
     // structured data is used for multi-data, so just
     // return the min and max
     return array($this->GetMinValue(), $this->GetMaxValue());

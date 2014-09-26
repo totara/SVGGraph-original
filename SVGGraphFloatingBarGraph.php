@@ -35,7 +35,7 @@ class FloatingBarGraph extends BarGraph {
     $bar_style = array();
     $bar = array('width' => $bar_width);
 
-    $bspace = $this->bar_space / 2;
+    $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);    
     $bnum = 0;
     $ccount = count($this->colours);
 

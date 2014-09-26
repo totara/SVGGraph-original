@@ -34,10 +34,11 @@ class BoxAndWhiskerGraph extends PointGraph {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_width = $this->BarWidth();
+  
     $x_axis = $this->x_axes[$this->main_x_axis];
     $box_style = array();
 
-    $bspace = $this->bar_space / 2;
+    $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);
     $bnum = 0;
     $ccount = count($this->colours);
 
@@ -83,6 +84,8 @@ class BoxAndWhiskerGraph extends PointGraph {
    */
   protected function BarWidth()
   {
+    if(is_numeric($this->bar_width) && $this->bar_width >= 1)
+      return $this->bar_width;
     $unit_w = $this->x_axes[$this->main_x_axis]->Unit();
     return $this->bar_space >= $unit_w ? '1' : $unit_w - $this->bar_space;
   }

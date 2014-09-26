@@ -30,12 +30,14 @@ class BarGraph extends GridGraph {
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
     $bnum = 0;
-    $bspace = $this->bar_space / 2;
+    $bar_width = $this->BarWidth();
+    $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);
+
     $ccount = count($this->colours);
     foreach($this->values[0] as $item) {
 
       // assign bar in the loop so it doesn't keep ID
-      $bar = array('width' => $this->BarWidth());
+      $bar = array('width' => $bar_width);
       $bar_pos = $this->GridPosition($item->key, $bnum);
       if($this->legend_show_empty || $item->value != 0) {
         $bar_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
@@ -71,6 +73,8 @@ class BarGraph extends GridGraph {
    */
   protected function BarWidth()
   {
+    if(is_numeric($this->bar_width) && $this->bar_width >= 1)
+      return $this->bar_width;
     $unit_w = $this->x_axes[$this->main_x_axis]->Unit();
     return $this->bar_space >= $unit_w ? '1' : $unit_w - $this->bar_space;
   }

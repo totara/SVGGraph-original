@@ -21,6 +21,7 @@
 
 require_once 'SVGGraphMultiGraph.php';
 require_once 'SVGGraphHorizontalBarGraph.php';
+require_once 'SVGGraphGroupedBarGraph.php';
 
 class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 
@@ -32,19 +33,14 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $chunk_count = count($this->multi_graph);
-    $gap_count = $chunk_count - 1;
-    $bar_height = $this->BarHeight();
-    $chunk_gap = $gap_count > 0 ? $this->group_space : 0;
-    if($gap_count > 0 && $chunk_gap * $gap_count > $bar_height - $chunk_count)
-      $chunk_gap = ($bar_height - $chunk_count) / $gap_count;
-    $chunk_height = ($bar_height - ($chunk_gap * ($chunk_count - 1)))
-      / $chunk_count;
-    $chunk_unit_height = $chunk_height + $chunk_gap;
+    list($chunk_height, $bspace, $chunk_unit_height) =
+      GroupedBarGraph::BarPosition($this->bar_width, 
+      $this->y_axes[$this->main_y_axis]->Unit(), $chunk_count, $this->bar_space,
+      $this->group_space);
     $bar_style = array();
     $bar = array('height' => $chunk_height);
 
     $bnum = 0;
-    $bspace = $this->bar_space / 2;
     $ccount = count($this->colours);
     $bars_shown = array_fill(0, $chunk_count, 0);
 
@@ -54,8 +50,8 @@ class HorizontalGroupedBarGraph extends HorizontalBarGraph {
 
       if(!is_null($bar_pos)) {
         for($j = 0; $j < $chunk_count; ++$j) {
-          $bar['y'] = $bar_pos - $bspace - $bar_height +
-            (($chunk_count - 1 - $j) * $chunk_unit_height);
+          $bar['y'] = $bar_pos - $bspace - $chunk_height - 
+            ($j * $chunk_unit_height);
           $item = $itemlist[$j];
           $this->SetStroke($bar_style, $item, $j);
           $bar_style['fill'] = $this->GetColour($item, $j % $ccount);

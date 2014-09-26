@@ -32,20 +32,20 @@ class Bar3DGraph extends ThreeDGraph {
   protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
-    $this->block_width = $this->BarWidth();
+    $bar_width = $this->block_width = $this->BarWidth();
 
     // make the top parallelogram, set it as a symbol for re-use
-    list($this->bx, $this->by) = $this->Project(0, 0, $this->block_width);
+    list($this->bx, $this->by) = $this->Project(0, 0, $bar_width);
     $top = $this->BarTop();
 
     $bnum = 0;
-    $bspace = $this->bar_space / 2;
+    $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);
     $ccount = count($this->colours);
 
     // get the translation for the whole bar
-    list($tx, $ty) = $this->Project(0, 0, $this->bar_space / 2);
+    list($tx, $ty) = $this->Project(0, 0, $bspace);
     $group = array('transform' => "translate($tx,$ty)");
-    $bar = array('width' => $this->block_width);
+    $bar = array('width' => $bar_width);
 
     $bars = '';
     foreach($this->values[0] as $item) {
@@ -87,6 +87,8 @@ class Bar3DGraph extends ThreeDGraph {
    */
   protected function BarWidth()
   {
+    if(is_numeric($this->bar_width) && $this->bar_width >= 1)
+      return $this->bar_width;
     $unit_w = $this->x_axes[$this->main_x_axis]->Unit();
     return $this->bar_space >= $unit_w ? '1' : $unit_w - $this->bar_space;
   }
@@ -96,13 +98,28 @@ class Bar3DGraph extends ThreeDGraph {
    */
   protected function BarTop()
   {
+    $bw = $this->block_width;
     $top_id = $this->NewID();
-    $top = array(
-      'id' => $top_id,
-      'd' => "M0,0 l{$this->block_width},0 l{$this->bx},{$this->by} l-{$this->block_width},0 z"
-    );
+    $g = array('id' => $top_id);
+    $bar_top = '';
+
+    if($this->skew_top) {
+      $sc = abs($this->by / $bw);
+      $a = 90 - $this->project_angle;
+      $top = array(
+        'd' => "M0,0 l0,-{$bw} l{$bw},0 l0,{$bw} z",
+        'transform' => "skewX(-{$a}) scale(1,{$sc})",
+        'stroke' => 'none'
+      );
+      $bar_top = $this->Element('path', $top);
+    }
+    $top = array('d' => "M0,0 l{$bw},0 l{$this->bx},{$this->by} l-{$bw},0 z");
+    if($this->skew_top)
+      $top['fill'] = 'none';
+    $bar_top .= $this->Element('path', $top);
     $this->defs[] = $this->Element('symbol', NULL, NULL,
-      $this->Element('path', $top));
+      $this->Element('g', $g, NULL, $bar_top));
+
     return array('xlink:href' => '#' . $top_id);
   }
 
@@ -115,21 +132,37 @@ class Bar3DGraph extends ThreeDGraph {
     if(is_null($pos) || $pos > $this->height - $this->pad_bottom)
       return '';
 
-    $side_x = $bar['x'] + $this->block_width;
+    $bar_side = '';
+    $bw = $this->block_width;
+    $bh = $bar['height'];
+    $side_x = $bar['x'] + $bw;
+    if($this->skew_side) {
+      $sc = $this->bx / $bw;
+      $a = $this->project_angle;
+      $side = array(
+        'd' => "M0,0 L{$bw},0 l0,{$bh} l-{$bw},0 z",
+        'transform' => "translate($side_x,{$bar['y']}) skewY(-{$a}) scale({$sc},1)",
+        'stroke' => 'none',
+      );
+      $bar_side = $this->Element('path', $side);
+    }
     $side = array(
-      'd' => "M0,0 l{$this->bx},{$this->by} l0,$bar[height] l-{$this->bx}," . -$this->by . " z",
+      'd' => "M0,0 l{$this->bx},{$this->by} l0,{$bh} l-{$this->bx}," . -$this->by . " z",
       'transform' => "translate($side_x,$bar[y])"
     );
+    if($this->skew_side)
+      $side['fill'] = 'none';
+    $bar_side .= $this->Element('path', $side);
+
     if(is_null($top)) {
       $bar_top = '';
     } else {
       $top['transform'] = "translate($bar[x],$bar[y])";
-      $top['fill'] = $this->GetColour($item, $colour, TRUE);
+      $top['fill'] = $this->GetColour($item, $colour, $this->skew_top ? FALSE : TRUE);
       $bar_top = $this->Element('use', $top, null, $this->empty_use ? '' : null);
     }
 
     $rect = $this->Element('rect', $bar);
-    $bar_side = $this->Element('path', $side);
     return $rect . $bar_top . $bar_side;
   }
 

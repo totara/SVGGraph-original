@@ -19,7 +19,7 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.15.1');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.16');
 
 class SVGGraph {
 
@@ -137,9 +137,13 @@ abstract class Graph {
     $this->height = $h;
 
     // get settings from ini file that are relevant to this class
-    $ini_settings = @parse_ini_file('svggraph.ini', TRUE);
-    if($ini_settings === false)
-      die('svggraph.ini file not found -- exiting');
+    $ini_file = dirname(__FILE__) . DIRECTORY_SEPARATOR . 'svggraph.ini';
+    if(!file_exists($ini_file))
+      $ini_settings = FALSE;
+    else
+      $ini_settings = parse_ini_file($ini_file, TRUE);
+    if($ini_settings === FALSE)
+      die("Ini file [{$ini_file}] not found -- exiting");
 
     $class = get_class($this);
     $hierarchy = array($class);
@@ -373,8 +377,14 @@ abstract class Graph {
         $entry = $this->DrawLegendEntry($key, $x, $y, $w, $entry_height);
         if(!empty($entry)) {
           $text['y'] = $y + $text_y_offset;
-          @$text_columns[$column] .= $this->Element('text', $text, NULL, $value);
-          @$entry_columns[$column] .= $entry;
+          if(isset($text_columns[$column]))
+            $text_columns[$column] .= $this->Element('text', $text, NULL, $value);
+          else
+            $text_columns[$column] = $this->Element('text', $text, NULL, $value);
+          if(isset($entry_columns[$column]))
+            $entry_columns[$column] .= $entry;
+          else
+            $entry_columns[$column] = $entry;
           $y += $entry_height + $this->legend_padding;
 
           if(++$column_entry == $per_column) {
@@ -692,11 +702,22 @@ abstract class Graph {
   protected function Canvas($id)
   {
     $bg = $this->BackgroundImage();
+    $colour = $this->ParseColour($this->back_colour);
+    $opacity = 1;
+    if(strpos($colour, ':') !== FALSE)
+      list($colour, $opacity) = explode(':', $colour);
+
     $canvas = array(
       'width' => '100%', 'height' => '100%',
-      'fill' => $this->ParseColour($this->back_colour),
+      'fill' => $colour,
       'stroke-width' => 0
     );
+    if($opacity < 1)
+      if($opacity <= 0)
+        $canvas['fill'] = 'none';
+      else
+        $canvas['opacity'] = $opacity;
+
     if($this->back_round)
       $canvas['rx'] = $canvas['ry'] = $this->back_round;
     if($bg == '' && $this->back_stroke_width) {
@@ -750,8 +771,11 @@ abstract class Graph {
   {
     $lines = explode("\n", $text);
     $content = array_shift($lines);
+    $content = ($content == '' ? ' ' : htmlspecialchars($content));
 
     foreach($lines as $line) {
+      // blank tspan elements collapse to nothing, so insert a space
+      $line = ($line == '' ? ' ' : htmlspecialchars($line));
       $content .= $this->Element('tspan',
         array('x' => $attribs['x'], 'dy' => $line_spacing),
         NULL, $line);
@@ -850,25 +874,6 @@ abstract class Graph {
     return $this->Element('g', $props, $styles, $bg . $fg);
   }
  
-  /**
-   * Formats lines of text
-   */
-  protected function TextLines($text, $x, $line_spacing)
-  {
-    $start_pos = - (count($text) - 1) / 2 * $line_spacing;
-    $dy = $start_pos;
-
-    $string = '';
-    foreach($text as $line) {
-      $string .= $this->Element('tspan', array('x' => $x, 'dy' => $dy),
-        NULL, $line);
-      if($dy == $start_pos)
-        $dy = $line_spacing;
-    }
-
-    return $string;
-  }
-
   /**
    * Builds an element
    */
@@ -1171,7 +1176,9 @@ abstract class Graph {
 
     $col_mul = 100 / (count($colours) - 1);
     foreach($colours as $pos => $colour) {
-      @list($colour, $opacity) = explode(':', $colour);
+      $opacity = null;
+      if(strpos($colour, ':') !== FALSE)
+        list($colour, $opacity) = explode(':', $colour);
       $stop = array(
         'offset' => round($pos * $col_mul) . '%',
         'stop-color' => $colour
@@ -1302,7 +1309,10 @@ abstract class Graph {
       // get the body content from the subclass
       $body = $this->DrawGraph();
     } catch(Exception $e) {
-      $body = $this->ErrorText($e->getMessage());
+      $err = $e->getMessage();
+      if($this->exception_details)
+        $err .= " [" . basename($e->getFile()) . ' #' . $e->getLine() . ']';
+      $body = $this->ErrorText($err);
     }
 
     $svg = array(
@@ -1430,7 +1440,7 @@ abstract class Graph {
   public static function NumString($n, $decimals = null, $precision = null)
   {
     if(is_int($n)) {
-      $d = 0;
+      $d = is_null($decimals) ? 0 : $decimals;
     } else {
 
       if(is_null($precision))
@@ -1439,17 +1449,15 @@ abstract class Graph {
       // if there are too many zeroes before other digits, round to 0
       $e = floor(log(abs($n), 10));
       if(-$e > $precision)
-        return "0";
+        $n = 0;
 
-      if(is_null($decimals))
-        // subtract number of digits before decimal point from precision
-        $d = $precision - ($e > 0 ? $e : 0);
-      else
-        $d = $decimals;
+      // subtract number of digits before decimal point from precision
+      // for precision-based decimals
+      $d = is_null($decimals) ? $precision - ($e > 0 ? $e : 0) : $decimals;
     }
     $s = number_format($n, $d, Graph::$decimal, Graph::$thousands);
 
-    if($d && strpos($s, Graph::$decimal) !== false) {
+    if(is_null($decimals) && $d && strpos($s, Graph::$decimal) !== false) {
       list($a, $b) = explode(Graph::$decimal, $s);
       $b1 = rtrim($b, '0');
       if($b1 != '')

@@ -31,10 +31,10 @@ class AxisFixed extends Axis {
   protected $orig_min_value;
 
   public function __construct($length, $max_val, $min_val, $step,
-    $units_before, $units_after)
+    $units_before, $units_after, $decimal_digits)
   {
     parent::__construct($length, $max_val, $min_val, 1, false, $units_before,
-      $units_after);
+      $units_after, $decimal_digits);
     $this->orig_max_value = $max_val;
     $this->orig_min_value = $min_val;
     $this->step = $step;
@@ -70,7 +70,7 @@ class AxisFixed extends Axis {
     $count = ($this->max_value - $this->min_value) / $this->step;
     $ulen = $this->max_value - $this->min_value;
     if($ulen == 0)
-      throw new Exception("Zero length axis");
+      throw new Exception("Zero length axis (min >= max)");
     $this->unit_size = $this->length / $ulen;
     $grid = $this->length / $count;
     $this->zero = (-$this->min_value / $this->step) * $grid;

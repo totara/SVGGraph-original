@@ -35,11 +35,11 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $bar_height = $this->BarHeight();
+    $bspace = max(0, ($this->y_axes[$this->main_y_axis]->Unit() - $bar_height) / 2);
     $bar_style = array();
     $bar = array('height' => $bar_height);
 
     $bnum = 0;
-    $bspace = $this->bar_space / 2;
     $b_start = $this->height - $this->pad_bottom - ($this->bar_space / 2);
     $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);

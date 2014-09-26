@@ -30,12 +30,12 @@ class AxisDoubleEnded extends Axis{
    * Constructor calls Axis constructor with 1/5 length
    */
   public function __construct($length, $max_val, $min_val, $min_unit, $fit,
-    $units_before, $units_after)
+    $units_before, $units_after, $decimal_digits)
   {
     if($min_val < 0)
       throw new Exception('Negative value for double-ended axis');
     parent::__construct($length / 2, $max_val, $min_val, $min_unit, $fit,
-      $units_before, $units_after);
+      $units_before, $units_after, $decimal_digits);
   }
 
   /**

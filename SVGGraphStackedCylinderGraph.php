@@ -34,23 +34,21 @@ class StackedCylinderGraph extends CylinderGraph {
 
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
-    $bar_width = $this->BarWidth();
+    $bar_width = $this->block_width = $this->BarWidth();
     $bar = array('width' => $bar_width);
 
-    $this->block_width = $bar_width;
-
-    // make the top parallelogram, set it as a symbol for re-use
-    list($this->bx, $this->by) = $this->Project(0, 0, $this->block_width);
+    // make the top ellipse, set it as a symbol for re-use
+    list($this->bx, $this->by) = $this->Project(0, 0, $bar_width);
     $top = $this->BarTop();
 
-    $bspace = $this->bar_space / 2;
+    $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);
     $bnum = 0;
     $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
     $groups = array_fill(0, $chunk_count, '');
 
     // get the translation for the whole bar
-    list($tx, $ty) = $this->Project(0, 0, $this->bar_space / 2);
+    list($tx, $ty) = $this->Project(0, 0, $bspace);
     $group = array('transform' => "translate($tx,$ty)");
     $bars = '';
     foreach($this->multi_graph as $itemlist) {

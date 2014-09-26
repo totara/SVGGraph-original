@@ -35,7 +35,8 @@ class HorizontalFloatingBarGraph extends HorizontalBarGraph {
     $bar_style = array();
     $bar = array('height' => $bar_height);
 
-    $bspace = $this->bar_space / 2;
+    $bspace = max(0, ($this->y_axes[$this->main_y_axis]->Unit() - $bar_height) / 2);
+    
     $bnum = 0;
     $ccount = count($this->colours);
 

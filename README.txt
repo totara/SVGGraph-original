@@ -1,5 +1,5 @@
-SVGGraph Library version 2.15.1
-===============================
+SVGGraph Library version 2.16
+=============================
 
 This library provides PHP classes and functions for easily creating SVG
 graphs from data. As of version 2.0, SVGGraph works with PHP 5 only -
@@ -41,6 +41,9 @@ At the moment these types of graph are supported by SVGGraph:
  GroupedBarGraph - multiple data sets drawn as bars, side-by-side;
 
  StackedLineGraph - multiple data sets, their values added together;
+
+ StackedGroupedLineGraph - multiple data sets, their values added together and
+                           split into groups;
 
  MultiScatterGraph - scatter graph supporting multiple data sets;
 

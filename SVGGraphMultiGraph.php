@@ -229,5 +229,12 @@ class MultiGraph implements Countable, ArrayAccess, Iterator {
       $this->values->GetMinMaxSumValues();
   }
 
+  /**
+   * Access to the structured data values
+   */
+  public function &GetValues()
+  {
+    return $this->values;
+  }
 }
 

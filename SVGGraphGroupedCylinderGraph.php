@@ -21,6 +21,7 @@
 
 require_once 'SVGGraphMultiGraph.php';
 require_once 'SVGGraphCylinderGraph.php';
+require_once 'SVGGraphGroupedBarGraph.php';
 
 class GroupedCylinderGraph extends CylinderGraph {
 
@@ -29,21 +30,15 @@ class GroupedCylinderGraph extends CylinderGraph {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $chunk_count = count($this->multi_graph);
-    $gap_count = $chunk_count - 1;
-    $bar_width = $this->BarWidth();
-    $chunk_gap = $gap_count > 0 ? $this->group_space : 0;
-    if($gap_count > 0 && $chunk_gap * $gap_count > $bar_width - $chunk_count)
-      $chunk_gap = ($bar_width - $chunk_count) / $gap_count;
-    $chunk_width = ($bar_width - ($chunk_gap * ($chunk_count - 1)))
-      / $chunk_count;
-    $chunk_unit_width = $chunk_width + $chunk_gap;
+    list($chunk_width, $bspace, $chunk_unit_width) =
+      GroupedBarGraph::BarPosition($this->bar_width, 
+      $this->x_axes[$this->main_x_axis]->Unit(), $chunk_count, $this->bar_space,
+      $this->group_space);
     $bar = array('width' => $chunk_width);
 
     $this->block_width = $chunk_width;
-    $bspace = $this->bar_space / 2;
-    $b_start = $this->pad_left + $bspace;
 
-    // make the top parallelogram, set it as a symbol for re-use
+    // make the top ellipse, set it as a symbol for re-use
     list($this->bx, $this->by) = $this->Project(0, 0, $chunk_width);
     $top = $this->BarTop();
 
@@ -52,7 +47,7 @@ class GroupedCylinderGraph extends CylinderGraph {
     $groups = array_fill(0, $chunk_count, '');
 
     // get the translation for the whole bar
-    list($tx, $ty) = $this->Project(0, 0, $bspace);
+    list($tx, $ty) = $this->Project(0, 0, $bspace / $chunk_count);
     $group = array('transform' => "translate($tx,$ty)");
 
     $bars = '';

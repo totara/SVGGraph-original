@@ -35,9 +35,10 @@ class StackedBarGraph extends BarGraph {
 
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
     $bar_style = array();
-    $bar = array('width' => $this->BarWidth());
+    $bar_width = $this->BarWidth();
+    $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);
+    $bar = array('width' => $bar_width);
 
-    $bspace = $this->bar_space / 2;
     $bnum = 0;
     $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
