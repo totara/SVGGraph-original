@@ -153,7 +153,7 @@ JAVASCRIPT;
       $this->AddFunction('newel');
       $this->AddFunction('showhide');
       $this->AddFunction('svgNode');
-      $this->AddFunction('svgCoords');
+      $this->AddFunction('svgCursorCoords');
       $this->InsertVariable('tooltipOn', '');
       $max_x = $this->graph->width - $this->tooltip_stroke_width;
       $max_y = $this->graph->height - $this->tooltip_stroke_width;
@@ -180,9 +180,9 @@ JAVASCRIPT;
       $fn = <<<JAVASCRIPT
 function tooltip(e,callback,on,param) {
   var tt = getE('tooltip'), rect = getE('ttrect'), shadow = getE('ttshdw'),
-    offset = {$this->tooltip_offset},
-    x = e.clientX + offset, y = e.clientY + offset, inner, brect, bw, bh,
-    sw, sh, pos = svgCoords(e),
+    offset = {$this->tooltip_offset}, pos = svgCursorCoords(e),
+    x = pos[0] + offset, y = pos[1] + offset, inner, brect, bw, bh,
+    sw, sh,
     de = svgNode(e);
   if(on && !tt) {
     tt = newel('g',{id:'tooltip',visibility:'visible'});
@@ -201,8 +201,6 @@ function tooltip(e,callback,on,param) {
     if(on) {
       if(tt.parentNode && tt.parentNode != de)
         tt.parentNode.removeChild(tt);
-      x -= pos[0];
-      y -= pos[1];
       de.appendChild(tt);
     }
     showhide(tt,on);
@@ -378,12 +376,17 @@ function svgNode(e) {
 }\n
 JAVASCRIPT;
       break;
-    case 'svgCoords' :
+    case 'svgCursorCoords' :
       $this->AddFunction('svgNode');
       $fn = <<<JAVASCRIPT
-function svgCoords(e) {
-  var d = svgNode(e), m = d.getScreenCTM ? d.getScreenCTM() : {e:0,f:0};
-  return [m.e,m.f];
+function svgCursorCoords(e) {
+  var d = svgNode(e);
+  if (!d.createSVGPoint || !d.getScreenCTM) {
+    return [e.clientX,e.clientY];
+  }
+  var pt = d.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  pt = pt.matrixTransform(d.getScreenCTM().inverse());
+  return [pt.x,pt.y];
 }\n
 JAVASCRIPT;
       break;
@@ -533,25 +536,24 @@ JAVASCRIPT;
       $this->AddFunction('chEvt');
       $this->AddFunction('setattr');
       $this->AddFunction('svgNode');
-      $this->AddFunction('svgCoords');
+      $this->AddFunction('svgCursorCoords');
       $this->AddFunction('showhide');
       $show_text = '';
       if($this->crosshairs_show_text) {
         $this->AddFunction('showCoords');
-        $show_text = "showCoords(de, x - bx, y - by, bb, on);";
+        $show_text = "showCoords(de, x - bb.x, y - bb.y, bb, on);";
       }
       $show_x = $this->crosshairs_show_h ? 'showhide(xc, on);' : '';
       $show_y = $this->crosshairs_show_v ? 'showhide(yc, on);' : '';
       $fn = <<<JAVASCRIPT
 function crosshairs(e) {
-  var de = svgNode(e), pos = svgCoords(e), xc = de.querySelector('.chX'), 
+  var de = svgNode(e), pos = svgCursorCoords(e), xc = de.querySelector('.chX'),
     yc = de.querySelector('.chY'), grid = de.querySelector('.grid'),
-    bb = grid.getBBox(), bx = bb.x + pos[0], by = bb.y + pos[1],
-    x = e.clientX, y = e.clientY;
-  on = (x >= bx && x <= bx + bb.width && y >= by && y <= by + bb.height);
+    bb = grid.getBBox(), x = pos[0], y = pos[1],
+  on = (x >= bb.x && x <= bb.x + bb.width && y >= bb.y && y <= bb.y + bb.height);
   if(on) {
-    setattr(xc,'y1',setattr(xc,'y2', y - pos[1]));
-    setattr(yc,'x1',setattr(yc,'x2', x - pos[0]));
+    setattr(xc,'y1',setattr(xc,'y2', y));
+    setattr(yc,'x1',setattr(yc,'x2', x));
   }
   {$show_text}
   {$show_x}
@@ -564,12 +566,14 @@ JAVASCRIPT;
       $this->AddFunction('setattr');
       $fn = <<<JAVASCRIPT
 function dragOver(e,el) {
-  var t = getE(el), d, bb;
+  var t = getE(el), d;
   if(t && t.dragging) {
     d = t.draginfo;
-    bb = t.getBBox();
-    d[2] = e.clientX - d[0] - (bb ? bb.width / 2 : 10);
-    d[3] = e.clientY - d[1] - (bb ? bb.height / 2 : 10);
+    var pos = svgCursorCoords(e);
+    d[2] = d[2] - d[0] + pos[0];
+    d[3] = d[3] - d[1] + pos[1];
+    d[0] = pos[0];
+    d[1] = pos[1];
     setattr(d[4], 'transform', 'translate(' + d[2] + ',' + d[3] + ')');
     return false;
   }
@@ -582,15 +586,16 @@ JAVASCRIPT;
       $fn = <<<JAVASCRIPT
 function dragStart(e,el) {
   var t = getE(el), m;
+  var pos = svgCursorCoords(e);
   if(!t.draginfo) {
-    t.draginfo = [e.clientX,e.clientY,0,0,newel('g',{cursor:'move'})];
+    t.draginfo = [0,0,0,0,newel('g',{cursor:'move'})];
     t.parentNode.appendChild(t.draginfo[4]);
     t.parentNode.removeChild(t);
     t.draginfo[4].appendChild(t);
   }
-  m = t.getScreenCTM();
-  t.draginfo[0] = m.e - t.draginfo[2];
-  t.draginfo[1] = m.f - t.draginfo[3];
+  t.draginfo[0] = pos[0];
+  t.draginfo[1] = pos[1];
+
   t.dragging = 1;
   return false;
 }\n
@@ -629,25 +634,26 @@ function initDrag() {
       }
     });
     document.addEventListener('mousedown', function(e) {
-      var t = finditem(e,draggable), m, d;
+      var t = finditem(e,draggable), m;
       if(t && !t.dragging) {
+        var pos = svgCursorCoords(e);
+        t.draginfo[0] = pos[0];
+        t.draginfo[1] = pos[1];
         t.dragging = 1;
-        m = t.getScreenCTM();
-        d = t.draginfo;
-        d[0] = m.e - d[2];
-        d[1] = m.f - d[3];
         e.cancelBubble = true;
         e.preventDefault && e.preventDefault();
         return false;
       }
     });
     function dragmove(e) {
-      var t = finditem(e,draggable), d, bb;
+      var t = finditem(e,draggable), d;
       if(t && t.dragging) {
         d = t.draginfo;
-        bb = t.getBBox();
-        d[2] = e.clientX - d[0] - (bb ? bb.width / 2 : 10);
-        d[3] = e.clientY - d[1] - (bb ? bb.height / 2 : 10);
+        var pos = svgCursorCoords(e);
+        d[2] = d[2] - d[0] + pos[0];
+        d[3] = d[3] - d[1] + pos[1];
+        d[0] = pos[0];
+        d[1] = pos[1];
         setattr(d[4], 'transform', 'translate(' + d[2] + ',' + d[3] + ')');
         e.cancelBubble = true;
         e.preventDefault && e.preventDefault();
@@ -826,6 +832,7 @@ JAVASCRIPT;
       $this->AddFunction('dragOver');
       $this->AddFunction('dragStart');
       $this->AddFunction('dragEnd');
+      $this->AddFunction('svgCursorCoords');
       $this->AddEventHandler($element, 'onmousemove',
         "dragOver(evt,'$element[id]')");
       $this->AddEventHandler($element, 'onmousedown',
