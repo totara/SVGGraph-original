@@ -38,8 +38,9 @@ class MultiLineGraph extends LineGraph {
       $this->y_axes[$this->main_y_axis]->Zero();
     $y_bottom = min($y_axis_pos, $this->height - $this->pad_bottom);
 
-    $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
+    $this->ColourSetup($this->multi_graph->ItemsCount(-1), $chunk_count);
+
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
       $cmd = 'M';
@@ -76,7 +77,7 @@ class MultiLineGraph extends LineGraph {
 
       if(!empty($path)) {
         $attr['d'] = $path;
-        $attr['stroke'] = $this->GetColour(null, $i % $ccount, true);
+        $attr['stroke'] = $this->GetColour(null, 0, $i, true);
         $graph_line = $this->Element('path', $attr);
         $fill_style = null;
 
@@ -84,7 +85,7 @@ class MultiLineGraph extends LineGraph {
           $opacity = $this->ArrayOption($this->fill_opacity, $i);
           $fillpath .= "L{$last_x} {$y_bottom}z";
           $fill_style = array(
-            'fill' => $this->GetColour(null, $i % $ccount),
+            'fill' => $this->GetColour(null, 0, $i),
             'd' => $fillpath,
             'stroke' => $attr['fill'],
           );
@@ -120,15 +121,5 @@ class MultiLineGraph extends LineGraph {
       $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
         $this->require_integer_keys);
   }
-
-
-  /**
-   * The horizontal count is reduced by one
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->multi_graph->ItemsCount();
-  }
-
 }
 

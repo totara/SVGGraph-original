@@ -118,7 +118,8 @@ class CylinderGraph extends Bar3DGraph {
   /**
    * Returns the SVG code for a 3D cylinder
    */
-  protected function Bar3D($item, &$bar, &$top, $colour, $start = null, $axis = NULL)
+  protected function Bar3D($item, &$bar, &$top, $index, $dataset = NULL,
+    $start = NULL, $axis = NULL)
   {
     if(is_null($this->arc_path))
       $this->SetupCylinder();
@@ -131,7 +132,7 @@ class CylinderGraph extends Bar3DGraph {
       $cyl_top = '';
     } else {
       $top['transform'] = "translate({$bar['x']},{$bar['y']})";
-      $top['fill'] = $this->GetColour($item, $colour, TRUE);
+      $top['fill'] = $this->GetColour($item, $index, $dataset, TRUE);
       $cyl_top = $this->Element('use', $top, null, $this->empty_use ? '' : null);
     }
 
@@ -141,7 +142,7 @@ class CylinderGraph extends Bar3DGraph {
     $y = $bar['y'] + $this->cyl_offset_y;
     $h = $bar['height'];
     $side = array('d' => "M{$x} {$y}v{$h}{$this->arc_path}v-{$h}z");
-    $group['fill'] = $this->GetColour($item, $colour);
+    $group['fill'] = $this->GetColour($item, $index, $dataset);
 
     $cyl_side = $this->Element('path', $side);
 

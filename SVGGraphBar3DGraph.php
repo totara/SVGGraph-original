@@ -40,7 +40,7 @@ class Bar3DGraph extends ThreeDGraph {
 
     $bnum = 0;
     $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);
-    $ccount = count($this->colours);
+    $this->ColourSetup($this->values->ItemsCount());
 
     // get the translation for the whole bar
     list($tx, $ty) = $this->Project(0, 0, $bspace);
@@ -52,7 +52,7 @@ class Bar3DGraph extends ThreeDGraph {
       $bar_pos = $this->GridPosition($item->key, $bnum);
 
       if($this->legend_show_empty || !is_null($item->value)) {
-        $bar_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
+        $bar_style = array('fill' => $this->GetColour($item, $bnum));
         $this->SetStroke($bar_style, $item);
       } else {
         $bar_style = NULL;
@@ -62,7 +62,7 @@ class Bar3DGraph extends ThreeDGraph {
       if(!is_null($item->value) && !is_null($bar_pos)) {
         $bar['x'] = $bspace + $bar_pos;
 
-        $bar_sections = $this->Bar3D($item, $bar, $top, $bnum % $ccount);
+        $bar_sections = $this->Bar3D($item, $bar, $top, $bnum);
         if($bar_sections != '') {
           $link = $this->GetLink($item, $item->key, $bar_sections);
 
@@ -126,7 +126,8 @@ class Bar3DGraph extends ThreeDGraph {
   /**
    * Returns the SVG code for a 3D bar
    */
-  protected function Bar3D($item, &$bar, &$top, $colour, $start = null, $axis = NULL)
+  protected function Bar3D($item, &$bar, &$top, $index, $dataset = NULL,
+    $start = NULL, $axis = NULL)
   {
     $pos = $this->Bar($item->value, $bar, $start, $axis);
     if(is_null($pos) || $pos > $this->height - $this->pad_bottom)
@@ -158,7 +159,8 @@ class Bar3DGraph extends ThreeDGraph {
       $bar_top = '';
     } else {
       $top['transform'] = "translate($bar[x],$bar[y])";
-      $top['fill'] = $this->GetColour($item, $colour, $this->skew_top ? FALSE : TRUE);
+      $top['fill'] = $this->GetColour($item, $index, $dataset,
+        $this->skew_top ? FALSE : TRUE);
       $bar_top = $this->Element('use', $top, null, $this->empty_use ? '' : null);
     }
 

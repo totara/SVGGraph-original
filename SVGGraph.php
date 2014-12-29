@@ -19,7 +19,9 @@
  * For more information, please contact <graham@goat1000.com>
  */
 
-define('SVGGRAPH_VERSION', 'SVGGraph 2.16');
+define('SVGGRAPH_VERSION', 'SVGGraph 2.17');
+
+require_once 'SVGGraphColours.php';
 
 class SVGGraph {
 
@@ -29,6 +31,7 @@ class SVGGraph {
   public $values = array();
   public $links = NULL;
   public $colours = NULL;
+  private $colour_sets = 0;
 
   public function __construct($w, $h, $settings = NULL)
   {
@@ -52,9 +55,76 @@ class SVGGraph {
     else
       $this->links = func_get_args();
   }
+
+  /**
+   * Assign a single colour set for use across datasets
+   */
   public function Colours($colours)
   {
     $this->colours = $colours;
+  }
+
+  /**
+   * Sets colours for a single dataset
+   */
+  public function ColourSet($dataset, $colours)
+  {
+    if(!is_object($this->colours))
+      $this->colours = new SVGGraphColours();
+    $this->colours->Set($dataset, $colours);
+  }
+
+  /**
+   * Sets up RGB colour range
+   */
+  public function ColourRangeRGB($dataset, $r1, $g1, $b1, $r2, $g2, $b2)
+  {
+    if(!is_object($this->colours))
+      $this->colours = new SVGGraphColours();
+    $this->colours->RangeRGB($dataset, $r1, $g1, $b1, $r2, $g2, $b2);
+  }
+
+  /**
+   * RGB colour range from hex codes
+   */
+  public function ColourRangeHexRGB($dataset, $c1, $c2)
+  {
+    if(!is_object($this->colours))
+      $this->colours = new SVGGraphColours();
+    $this->colours->RangeHexRGB($dataset, $c1, $c2);
+  }
+
+  /**
+   * Sets up HSL colour range
+   */
+  public function ColourRangeHSL($dataset, $h1, $s1, $l1, $h2, $s2, $l2,
+    $reverse = false)
+  {
+    if(!is_object($this->colours))
+      $this->colours = new SVGGraphColours();
+    $this->colours->RangeHSL($dataset, $h1, $s1, $l1, $h2, $s2, $l2, $reverse);
+  }
+
+  /**
+   * HSL colour range from hex codes
+   */
+  public function ColourRangeHexHSL($dataset, $c1, $c2, $reverse = false)
+  {
+    if(!is_object($this->colours))
+      $this->colours = new SVGGraphColours();
+    $this->colours->RangeHexHSL($dataset, $c1, $c2, $reverse);
+  }
+
+  /**
+   * Sets up HSL colour range from RGB values
+   */
+  public function ColourRangeRGBtoHSL($dataset, $r1, $g1, $b1, $r2, $g2, $b2,
+    $reverse = false)
+  {
+    if(!is_object($this->colours))
+      $this->colours = new SVGGraphColours();
+    $this->colours->RangeRGBtoHSL($dataset, $r1, $g1, $b1, $r2, $g2, $b2,
+      $reverse);
   }
 
 
@@ -70,8 +140,10 @@ class SVGGraph {
     $g = new $class($this->width, $this->height, $this->settings);
     $g->Values($this->values);
     $g->Links($this->links);
-    if(!is_null($this->colours))
+    if(is_object($this->colours))
       $g->colours = $this->colours;
+    else
+      $g->colours = new SVGGraphColours($this->colours);
     return $g;
   }
 
@@ -158,10 +230,6 @@ abstract class Graph {
 
     if(is_array($settings))
       $this->Settings($settings);
-
-    // set default colours
-    $this->colours = array('#11c','#c11','#cc1','#1c1','#c81',
-      '#116','#611','#661','#161','#631');
   }
 
 
@@ -771,11 +839,13 @@ abstract class Graph {
   {
     $lines = explode("\n", $text);
     $content = array_shift($lines);
-    $content = ($content == '' ? ' ' : htmlspecialchars($content));
+    $content = ($content == '' ? ' ' : htmlspecialchars($content,
+      ENT_COMPAT, $this->encoding));
 
     foreach($lines as $line) {
       // blank tspan elements collapse to nothing, so insert a space
-      $line = ($line == '' ? ' ' : htmlspecialchars($line));
+      $line = ($line == '' ? ' ' : htmlspecialchars($line, ENT_COMPAT,
+        $this->encoding));
       $content .= $this->Element('tspan',
         array('x' => $attribs['x'], 'dy' => $line_spacing),
         NULL, $line);
@@ -896,7 +966,7 @@ abstract class Graph {
           if(isset($require_units[$attr]))
             $val .= 'px';
         } else {
-          $val = htmlspecialchars($val);
+          $val = htmlspecialchars($val, ENT_COMPAT, $this->encoding);
         }
         $element .= ' ' . $attr . '="' . $val . '"';
       }
@@ -909,7 +979,7 @@ abstract class Graph {
           if(isset($require_units[$attr]))
             $val .= 'px';
         } else {
-          $val = htmlspecialchars($val);
+          $val = htmlspecialchars($val, ENT_COMPAT, $this->encoding);
         }
         $element .= $attr . ':' . $val . ';';
       }
@@ -956,18 +1026,32 @@ abstract class Graph {
   }
 
   /**
+   * Sets up the colour class
+   */
+  protected function ColourSetup($count, $datasets = NULL)
+  {
+    $this->colours->Setup($count, $datasets);
+  }
+
+  /**
    * Returns a colour reference
    */
-  protected function GetColour($item, $key, $no_gradient = FALSE,
-    $allow_pattern = FALSE)
+  protected function GetColour($item, $key, $dataset = NULL,
+    $no_gradient = FALSE, $allow_pattern = FALSE)
   {
     $colour = 'none';
     $icolour = is_null($item) ? null : $item->Data('colour');
     if(!is_null($icolour)) {
       $colour = $icolour;
       $key = null; // don't reuse existing colours
-    } elseif(isset($this->colours[$key])) {
-      $colour = $this->colours[$key];
+    } else {
+      $c = $this->colours->GetColour($key, $dataset);
+      if(!is_null($c))
+        $colour = $c;
+
+      // make key reflect dataset as well (for gradients)
+      if(!is_null($dataset))
+        $key = "{$dataset}:{$key}";
     }
     return $this->ParseColour($colour, $key, $no_gradient, $allow_pattern);
   }
@@ -1316,10 +1400,15 @@ abstract class Graph {
     }
 
     $svg = array(
-      'width' => $this->width, 'height' => $this->height, 
+      'width' => $this->width, 'height' => $this->height,
       'version' => '1.1', 
       'xmlns:xlink' => 'http://www.w3.org/1999/xlink'
     );
+    if($this->auto_fit) {
+      $svg['viewBox'] = "0 0 {$this->width} {$this->height}";
+      $svg['width'] = $svg['height'] = '100%';
+    }
+
     if(!$defer_javascript) {
       $js = $this->FetchJavascript();
       if($js != '') {

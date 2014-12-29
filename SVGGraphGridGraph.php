@@ -68,6 +68,24 @@ abstract class GridGraph extends Graph {
    */
   protected function LabelAdjustment()
   {
+    $grid_l = $grid_t = $grid_r = $grid_b = NULL;
+
+    $grid_set = $this->GetFirst($this->grid_left, $this->grid_right,
+      $this->grid_top, $this->grid_bottom);
+    if($grid_set) {
+      if(!empty($this->grid_left))
+        $grid_l = $this->pad_left = abs($this->grid_left);
+      if(!empty($this->grid_top))
+        $grid_t = $this->pad_top = abs($this->grid_top);
+      
+      if(!empty($this->grid_bottom))
+        $grid_b = $this->pad_bottom = $this->grid_bottom < 0 ?
+          abs($this->grid_bottom) : $this->height - $this->grid_bottom;
+      if(!empty($this->grid_right))
+        $grid_r = $this->pad_right = $this->grid_right < 0 ?
+          abs($this->grid_right) : $this->width - $this->grid_right;
+    }
+
     // deprecated options need converting
     // NOTE: this works because graph settings become properties, whereas
     // defaults only exist in the $this->settings array
@@ -104,28 +122,39 @@ abstract class GridGraph extends Graph {
         $font_size = $this->GetFirst(
           $this->ArrayOption($this->label_font_size_v, 1),
           $this->label_font_size);
-        $this->label_right_offset = $this->pad_right + $this->label_space +
-          $font_size;
-        $this->pad_right += $lines_right * $font_size +
-          2 * $this->label_space;
+        if(is_null($grid_r)) {
+          $this->label_right_offset = $this->pad_right + $this->label_space +
+            $font_size;
+          $this->pad_right += $lines_right * $font_size + 2 * $this->label_space;
+        } else {
+          $this->label_right_offset = $this->label_space + $font_size;
+        }
       }
       if($lines_left) {
         $font_size = $this->GetFirst(
           $this->ArrayOption($this->label_font_size_v, 0),
           $this->label_font_size);
-        $this->label_left_offset = $this->pad_left + $this->label_space +
-          $font_size;
-        $this->pad_left += $lines_left * $font_size +
-          2 * $this->label_space;
+        if(is_null($grid_l)) {
+          $this->label_left_offset = $this->pad_left + $this->label_space +
+            $font_size;
+          $this->pad_left += $lines_left * $font_size + 2 * $this->label_space;
+        } else {
+          $this->label_left_offset = $this->label_space + $font_size;
+        }
       }
     }
     if(!empty($this->label_h)) {
       $lines = $this->CountLines($this->label_h);
       $font_size = $this->GetFirst($this->label_font_size_h,
         $this->label_font_size);
-      $this->label_bottom_offset = $this->pad_bottom + $this->label_space +
-        $font_size * ($lines - 1);
-      $this->pad_bottom += $lines * $font_size + 2 * $this->label_space;
+      if(is_null($grid_b)) {
+        $this->label_bottom_offset = $this->pad_bottom + $this->label_space +
+          $font_size * ($lines - 1);
+        $this->pad_bottom += $lines * $font_size + 2 * $this->label_space;
+      } else {
+        $this->label_bottom_offset = $this->label_space +
+          $font_size * ($lines - 1);
+      }
     }
     $pad_l = $pad_r = $pad_b = $pad_t = 0;
     $space_x = $this->width - $this->pad_left - $this->pad_right;
@@ -189,10 +218,14 @@ abstract class GridGraph extends Graph {
       list($pad_r, $pad_t) = $this->AdjustAxes($space_x, $space_y);
     }
     // apply the extra padding
-    $this->pad_left += $pad_l;
-    $this->pad_bottom += $pad_b;
-    $this->pad_right += $pad_r;
-    $this->pad_top += $pad_t;
+    if(is_null($grid_l))
+      $this->pad_left += $pad_l;
+    if(is_null($grid_b))
+      $this->pad_bottom += $pad_b;
+    if(is_null($grid_r))
+      $this->pad_right += $pad_r;
+    if(is_null($grid_t))
+      $this->pad_top += $pad_t;
     $this->label_adjust_done = true;
   }
 
@@ -795,14 +828,6 @@ abstract class GridGraph extends Graph {
       $this->flip_axes ? $this->ArrayOption($this->minimum_units_y, $axis) : 1,
       $this->pad_left,
       $this->ArrayOption($this->subdivision_h, $axis));
-  }
-
-  /**
-   * Subclasses can override this for non-linear graphs
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->values->ItemsCount();
   }
 
   /**

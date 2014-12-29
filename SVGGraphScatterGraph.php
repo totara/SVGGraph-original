@@ -36,6 +36,7 @@ class ScatterGraph extends PointGraph {
     // a scatter graph without markers is empty!
     if($this->marker_size == 0)
       $this->marker_size = 1;
+    $this->ColourSetup($this->values->ItemsCount());
 
     $bnum = 0;
     foreach($this->values[0] as $item) {

@@ -36,6 +36,7 @@ class GroupedBar3DGraph extends Bar3DGraph {
       $this->group_space);
 
     $bar = array('width' => $chunk_width);
+    $this->ColourSetup($this->multi_graph->ItemsCount(-1), $chunk_count);
 
     $this->block_width = $chunk_width;
 
@@ -44,7 +45,6 @@ class GroupedBar3DGraph extends Bar3DGraph {
     $top = $this->BarTop();
 
     $bnum = 0;
-    $ccount = count($this->colours);
     $groups = array_fill(0, $chunk_count, '');
 
     // get the translation for the whole bar 
@@ -62,10 +62,9 @@ class GroupedBar3DGraph extends Bar3DGraph {
           $item = $itemlist[$j];
 
           if(!is_null($item->value)) {
-            $colour = $j % $ccount;
-            $bar_sections = $this->Bar3D($item, $bar, $top, $colour, NULL,
+            $bar_sections = $this->Bar3D($item, $bar, $top, $bnum, $j, NULL,
               $this->DatasetYAxis($j));
-            $group['fill'] = $this->GetColour($item, $colour);
+            $group['fill'] = $this->GetColour($item, $bnum, $j);
 
             if($this->show_tooltips)
               $this->SetTooltip($group, $item, $item->value);
@@ -117,14 +116,6 @@ class GroupedBar3DGraph extends Bar3DGraph {
     $d = ($a + $c) / $block;
     $this->depth = $d;
     return parent::AdjustAxes($x_len, $y_len);
-  }
-
-  /**
-   * Find the full length
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->multi_graph->ItemsCount(-1);
   }
 }
 

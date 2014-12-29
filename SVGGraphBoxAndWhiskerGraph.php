@@ -40,14 +40,14 @@ class BoxAndWhiskerGraph extends PointGraph {
 
     $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);
     $bnum = 0;
-    $ccount = count($this->colours);
+    $this->ColourSetup($this->values->ItemsCount());
 
     foreach($this->values[0] as $item) {
       $bar_pos = $this->GridPosition($item->key, $bnum);
 
       if(!is_null($item->value) && !is_null($bar_pos)) {
 
-        $box_style['fill'] = $this->GetColour($item, $bnum % $ccount);
+        $box_style['fill'] = $this->GetColour($item, $bnum);
         $this->SetStroke($box_style, $item);
         $style = array();
         $shape = $this->WhiskerBox($bspace + $bar_pos, $bar_width,

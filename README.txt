@@ -1,4 +1,4 @@
-SVGGraph Library version 2.16
+SVGGraph Library version 2.17
 =============================
 
 This library provides PHP classes and functions for easily creating SVG

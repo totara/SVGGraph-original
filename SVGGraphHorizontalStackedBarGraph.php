@@ -41,9 +41,9 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
 
     $bnum = 0;
     $b_start = $this->height - $this->pad_bottom - ($this->bar_space / 2);
-    $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
     $bars_shown = array_fill(0, $chunk_count, 0);
+    $this->ColourSetup($this->multi_graph->ItemsCount(-1), $chunk_count);
 
     foreach($this->multi_graph as $itemlist) {
       $k = $itemlist[0]->key;
@@ -66,7 +66,7 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
         for($j = 0; $j < $chunk_count; ++$j) {
           $item = $itemlist[$j];
           $this->SetStroke($bar_style, $item, $j);
-          $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
+          $bar_style['fill'] = $this->GetColour($item, $bnum, $j);
 
           $this->Bar($item->value, $bar, $item->value >= 0 ? $xpos : $xneg);
           if($item->value < 0)
@@ -211,14 +211,6 @@ class HorizontalStackedBarGraph extends HorizontalBarGraph {
     if(!$this->values->error)
       $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
         $this->require_integer_keys);
-  }
-
-  /**
-   * Find the longest data set
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**

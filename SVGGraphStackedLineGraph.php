@@ -39,8 +39,8 @@ class StackedLineGraph extends MultiLineGraph {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
 
     $plots = array();
-    $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
+    $this->ColourSetup($this->multi_graph->ItemsCount(-1), $chunk_count);
     $stack = array();
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
@@ -86,7 +86,7 @@ class StackedLineGraph extends MultiLineGraph {
 
       if($point_count > 0) {
         $attr['d'] = $path;
-        $attr['stroke'] = $this->GetColour(null, $i % $ccount, true);
+        $attr['stroke'] = $this->GetColour(null, 0, $i, true);
         $graph_line = $this->Element('path', $attr);
         $fill_style = null;
 
@@ -101,7 +101,7 @@ class StackedLineGraph extends MultiLineGraph {
           }
           $fillpath .= 'z';
           $fill_style = array(
-            'fill' => $this->GetColour(null, $i % $ccount),
+            'fill' => $this->GetColour(null, 0, $i),
             'd' => $fillpath,
             'stroke' => $attr['fill'],
           );

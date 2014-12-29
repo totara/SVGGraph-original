@@ -1,3 +1,10 @@
+Version 2.17 (27/11/2014)
+------------
+- Added fixed axis positioning options.
+- Added colour range and set functions.
+- Added auto_fit option and resizing support.
+- Fixed crosshairs bugs when embedded in HTML.
+
 Version 2.16 (24/09/2014)
 ------------
 - Added stacked grouped bar graph.

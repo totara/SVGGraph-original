@@ -40,9 +40,9 @@ class StackedBarGraph extends BarGraph {
     $bar = array('width' => $bar_width);
 
     $bnum = 0;
-    $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
     $bars_shown = array_fill(0, $chunk_count, 0);
+    $this->ColourSetup($this->multi_graph->ItemsCount(-1), $chunk_count);
 
     foreach($this->multi_graph as $itemlist) {
       $k = $itemlist[0]->key;
@@ -66,7 +66,7 @@ class StackedBarGraph extends BarGraph {
         for($j = 0; $j < $chunk_count; ++$j) {
           $item = $itemlist[$j];
           $this->SetStroke($bar_style, $item, $j);
-          $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
+          $bar_style['fill'] = $this->GetColour($item, $bnum, $j);
 
           if(!is_null($item->value)) {
             $this->Bar($item->value, $bar, $item->value >= 0 ? $ypos : $yneg);
@@ -190,14 +190,6 @@ class StackedBarGraph extends BarGraph {
     if($this->bar_total_font_weight != 'normal')
       $text['font-weight'] = $this->bar_total_font_weight;
     return $this->Element('text', $text, NULL, $content);
-  }
-
-  /**
-   * Find the longest data set
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**

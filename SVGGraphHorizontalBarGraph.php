@@ -33,14 +33,14 @@ class HorizontalBarGraph extends GridGraph {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
     $bar_height = $this->BarHeight();
     $bspace = max(0, ($this->y_axes[$this->main_y_axis]->Unit() - $bar_height) / 2);
+    $this->ColourSetup($this->values->ItemsCount());
 
     $bnum = 0;
-    $ccount = count($this->colours);
     foreach($this->values[0] as $item) {
       $bar = array('height' => $bar_height);
       $bar_pos = $this->GridPosition($item->key, $bnum);
       if($this->legend_show_empty || $item->value != 0) {
-        $bar_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
+        $bar_style = array('fill' => $this->GetColour($item, $bnum));
         $this->SetStroke($bar_style, $item);
       } else {
         $bar_style = NULL;

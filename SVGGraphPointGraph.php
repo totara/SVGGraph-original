@@ -321,7 +321,7 @@ abstract class PointGraph extends GridGraph {
     if(!empty($mcolour)) {
       $fill = $this->SolidColour($mcolour);
     } else {
-      $fill = $this->GetColour(null, $set % count($this->colours), true);
+      $fill = $this->GetColour(null, 0, $set, true);
     }
 
     return $this->CreateMarker($type, $size, $fill, $stroke_width, $stroke_colour);

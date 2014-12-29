@@ -67,6 +67,7 @@ class PieGraph extends Graph {
     }
     $this->calc_done = true;
     $this->sub_total = 0;
+    $this->ColourSetup($this->values->ItemsCount());
   }
 
   /**
@@ -82,7 +83,6 @@ class PieGraph extends Graph {
       $this->label_fade_out_speed / 100.0 : 0;
 
     $unit_slice = 2.0 * M_PI / $this->total;
-    $ccount = count($this->colours);
     $vcount = 0;
 
     // need to store the original position of each value, because the
@@ -108,7 +108,7 @@ class PieGraph extends Graph {
       $item = $value[2];
       $value = $value[1];
       if($this->legend_show_empty || $item->value != 0) {
-        $attr = array('fill' => $this->GetColour($item, $slice % $ccount, true,
+        $attr = array('fill' => $this->GetColour($item, $slice, NULL, true,
           true));
         $this->SetStroke($attr, $item, 0, 'round');
 

@@ -34,9 +34,9 @@ class BubbleGraph extends PointGraph {
   protected function Draw()
   {
     $body = $this->Grid() . $this->Guidelines(SVGG_GUIDELINE_BELOW);
+    $this->ColourSetup($this->values->ItemsCount());
 
     $bnum = 0;
-    $ccount = count($this->colours);
     $y_axis = $this->y_axes[$this->main_y_axis];
     foreach($this->values[0] as $item) {
       $area = $item->Data('area');
@@ -50,13 +50,13 @@ class BubbleGraph extends PointGraph {
           if($area < 0) {
             // draw negative bubbles with a checked pattern
             $pattern = array(
-              $this->GetColour($item, $bnum % $ccount),
+              $this->GetColour($item, $bnum),
               'pattern' => 'check', 'size' => 8
             );
             $pid = $this->AddPattern($pattern);
             $circle_style = array('fill' => "url(#{$pid})");
           } else {
-            $circle_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
+            $circle_style = array('fill' => $this->GetColour($item, $bnum));
           }
           $this->SetStroke($circle_style, $item);
 

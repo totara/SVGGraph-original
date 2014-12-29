@@ -36,9 +36,9 @@ class GroupedBarGraph extends BarGraph {
 
     $bar_style = array();
     $bar = array('width' => $chunk_width);
+    $this->ColourSetup($this->multi_graph->ItemsCount(-1), $chunk_count);
 
     $bnum = 0;
-    $ccount = count($this->colours);
     $bars_shown = array_fill(0, $chunk_count, 0);
 
     foreach($this->multi_graph as $itemlist) {
@@ -49,7 +49,7 @@ class GroupedBarGraph extends BarGraph {
           $bar['x'] = $bspace + $bar_pos + ($j * $chunk_unit_width);
           $item = $itemlist[$j];
           $this->SetStroke($bar_style, $item, $j);
-          $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
+          $bar_style['fill'] = $this->GetColour($item, $bnum, $j);
 
           if(!is_null($item->value)) {
             $this->Bar($item->value, $bar, NULL, $this->DatasetYAxis($j));
@@ -92,14 +92,6 @@ class GroupedBarGraph extends BarGraph {
     if(!$this->values->error)
       $this->multi_graph = new MultiGraph($this->values, $this->force_assoc,
         $this->require_integer_keys);
-  }
-
-  /**
-   * Find the full length
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**

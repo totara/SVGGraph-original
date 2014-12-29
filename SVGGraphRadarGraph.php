@@ -50,6 +50,7 @@ class RadarGraph extends LineGraph {
     if(!is_null($dash))
       $attr['stroke-dasharray'] = $dash;
     $attr['stroke-width'] = $stroke_width <= 0 ? 1 : $stroke_width;
+    $this->ColourSetup($this->values->ItemsCount());
 
     $bnum = 0;
     $cmd = 'M';

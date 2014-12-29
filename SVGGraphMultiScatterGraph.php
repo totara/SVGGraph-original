@@ -38,8 +38,8 @@ class MultiScatterGraph extends PointGraph {
     if($this->marker_size == 0)
       $this->marker_size = 1;
 
-    $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
+    $this->ColourSetup($this->multi_graph->ItemsCount(-1), $chunk_count);
     for($i = 0; $i < $chunk_count; ++$i) {
       $bnum = 0;
       $axis = $this->DatasetYAxis($i);
@@ -91,14 +91,6 @@ class MultiScatterGraph extends PointGraph {
     // using force_assoc makes things work properly
     if($this->values->AssociativeKeys())
       $this->force_assoc = true;
-  }
-
-  /**
-   * Used when drawing associative data
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->multi_graph->ItemsCount(-1);
   }
 }
 

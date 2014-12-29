@@ -43,9 +43,9 @@ class StackedBar3DGraph extends Bar3DGraph {
 
     $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);
     $bnum = 0;
-    $ccount = count($this->colours);
     $chunk_count = count($this->multi_graph);
     $groups = array_fill(0, $chunk_count, '');
+    $this->ColourSetup($this->multi_graph->ItemsCount(-1), $chunk_count);
 
     // get the translation for the whole bar
     list($tx, $ty) = $this->Project(0, 0, $bspace);
@@ -80,13 +80,12 @@ class StackedBar3DGraph extends Bar3DGraph {
           $j = $chunk[0];
           $value = $chunk[1];
           $item = $chunk[3];
-          $colour = $j % $ccount;
           $v = abs($value);
           $t = ++$b == $bar_count ? $top : null;
-          $bar_sections = $this->Bar3D($item, $bar, $t, $colour, $chunk[2]);
+          $bar_sections = $this->Bar3D($item, $bar, $t, $bnum, $j, $chunk[2]);
           $ypos = $ty;
           $group['transform'] = "translate($tx," . $ypos . ")";
-          $group['fill'] = $this->GetColour($item, $colour);
+          $group['fill'] = $this->GetColour($item, $bnum, $j);
 
           if($this->show_tooltips)
             $this->SetTooltip($group, $item, $value);
@@ -140,14 +139,6 @@ class StackedBar3DGraph extends Bar3DGraph {
       }
     }
     return parent::BarLabel($value, $bar);
-  }
-
-  /**
-   * Find the longest data set
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**

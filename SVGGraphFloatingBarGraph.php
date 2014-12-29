@@ -37,7 +37,7 @@ class FloatingBarGraph extends BarGraph {
 
     $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);    
     $bnum = 0;
-    $ccount = count($this->colours);
+    $this->ColourSetup($this->values->ItemsCount());
 
     foreach($this->values[0] as $item) {
       $bar_pos = $this->GridPosition($item->key, $bnum);
@@ -51,7 +51,7 @@ class FloatingBarGraph extends BarGraph {
         $this->Bar($value, $bar, $start);
 
         if($bar['height'] > 0) {
-          $bar_style['fill'] = $this->GetColour($item, $bnum % $ccount);
+          $bar_style['fill'] = $this->GetColour($item, $bnum);
           $this->SetStroke($bar_style, $item);
 
           if($this->show_tooltips)

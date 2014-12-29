@@ -47,9 +47,9 @@ class StackedGroupedBarGraph extends BarGraph {
     $bar = array('width' => $group_width);
 
     $bnum = 0;
-    $ccount = count($this->colours);
     $bar_count = count($this->multi_graph);
     $bars_shown = array_fill(0, $bar_count, 0); // for legend yes/no
+    $this->ColourSetup($this->multi_graph->ItemsCount(-1), $bar_count);
 
     foreach($this->multi_graph as $itemlist) {
       $k = $itemlist[0]->key;
@@ -77,7 +77,7 @@ class StackedGroupedBarGraph extends BarGraph {
           for($j = $start_bar; $j < $end_bar; ++$j) {
             $item = $itemlist[$j];
             $this->SetStroke($bar_style, $item, $j);
-            $bar_style['fill'] = $this->GetColour($item, $j % $ccount);
+            $bar_style['fill'] = $this->GetColour($item, $bnum, $j);
 
             if(!is_null($item->value)) {
               $this->Bar($item->value, $bar, $item->value >= 0 ? $ypos : $yneg);
@@ -209,7 +209,6 @@ class StackedGroupedBarGraph extends BarGraph {
     $font_size = $this->bar_total_font_size;
     $space = $this->bar_total_space;
     $x = $bar['x'] + ($bar['width'] / 2);
-    $colour = $this->bar_total_colour;
 
     $swap = ($bar['y'] >= $this->height - $this->pad_bottom - 
       $this->y_axes[$this->main_y_axis]->Zero());
@@ -233,14 +232,6 @@ class StackedGroupedBarGraph extends BarGraph {
     if($this->bar_total_font_weight != 'normal')
       $text['font-weight'] = $this->bar_total_font_weight;
     return $this->Element('text', $text, NULL, $content);
-  }
-
-  /**
-   * Find the longest data set
-   */
-  protected function GetHorizontalCount()
-  {
-    return $this->multi_graph->ItemsCount(-1);
   }
 
   /**

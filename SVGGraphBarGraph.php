@@ -32,15 +32,15 @@ class BarGraph extends GridGraph {
     $bnum = 0;
     $bar_width = $this->BarWidth();
     $bspace = max(0, ($this->x_axes[$this->main_x_axis]->Unit() - $bar_width) / 2);
+    $this->ColourSetup($this->values->ItemsCount());
 
-    $ccount = count($this->colours);
     foreach($this->values[0] as $item) {
 
       // assign bar in the loop so it doesn't keep ID
       $bar = array('width' => $bar_width);
       $bar_pos = $this->GridPosition($item->key, $bnum);
       if($this->legend_show_empty || $item->value != 0) {
-        $bar_style = array('fill' => $this->GetColour($item, $bnum % $ccount));
+        $bar_style = array('fill' => $this->GetColour($item, $bnum));
         $this->SetStroke($bar_style, $item);
       } else {
         $bar_style = NULL;
