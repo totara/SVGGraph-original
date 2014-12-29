@@ -702,29 +702,50 @@ JAVASCRIPT;
     $this->functions[$name] = $fn;
   }
 
-  /**
-   * Convert hex from regex matched entity to javascript escape sequence
-   */
-  public static function hex2js($m)
+  public static function hex_callback($m)
   {
-    return sprintf('\u%04x', base_convert($m[1], 16, 10));
+    return self::dec2utf8(hexdec($m[1]));
+  }
+
+  public static function dec_callback($m)
+  {
+    return self::dec2utf8($m[1]);
   }
 
   /**
-   * Convert decimal from regex matched entity to javascript escape sequence
+   * Returns the utf8 string corresponding to the unicode value
+   * (from php.net, courtesy - romans@void.lv)
    */
-  public static function dec2js($m)
+  public static function dec2utf8($num)
   {
-    return sprintf('\u%04x', $m[1]);
+    if ($num < 128) {
+      return chr($num);
+    }
+    if ($num < 2048) {
+      return chr(($num >> 6) + 192) . chr(($num & 63) + 128);
+    }
+    if ($num < 65536) {
+      return chr(($num >> 12) + 224) . chr((($num >> 6) & 63) + 128) . chr(($num & 63) + 128);
+    }
+    if ($num < 2097152) {
+      return chr(($num >> 18) + 240) . chr((($num >> 12) & 63) + 128) . chr((($num >> 6) & 63) + 128) . chr(($num & 63) + 128);
+    }
+    return '';
   }
 
-  public static function ReEscape($string)
+  /**
+   * Convert XML char entities to unicode.
+   */
+  public static function DeEntity($string)
   {
-    // convert XML char entities to JS unicode
+    if (!is_string($string) or is_numeric($string)) {
+      return $string;
+    }
+
     $string = preg_replace_callback('/&#x([a-f0-9]+);/',
-      'SVGGraphJavascript::hex2js', $string);
+      'SVGGraphJavascript::hex_callback', $string);
     $string = preg_replace_callback('/&#([0-9]+);/',
-      'SVGGraphJavascript::dec2js', $string);
+      'SVGGraphJavascript::dec_callback', $string);
     return $string;
   }
 
@@ -733,15 +754,14 @@ JAVASCRIPT;
    * - use $value:$more for assoc
    * - use NULL:$more for array
    */
-  public function InsertVariable($var, $value, $more = NULL, $quote = TRUE)
+  public function InsertVariable($var, $value, $more = NULL)
   {
-    $q = $quote ? "'" : '';
     if(is_null($more))
-      $this->variables[$var] = $q . $this->ReEscape($value) . $q;
+      $this->variables[$var] = $this->DeEntity($value);
     elseif(is_null($value))
-      $this->variables[$var][] = $q . $this->ReEscape($more) . $q;
+      $this->variables[$var][] = $this->DeEntity($more);
     else
-      $this->variables[$var][$value] = $q . $this->ReEscape($more) . $q;
+      $this->variables[$var][$value] = $this->DeEntity($more);
   }
 
   /**
@@ -772,7 +792,7 @@ JAVASCRIPT;
     $this->AddFunction('texttt');
     if($this->compat_events) {
       $this->AddEventHandler($element, 'onmousemove',
-        "tooltip(evt,texttt,true,'$text')");
+        "tooltip(evt,texttt,true," . self::json_encode($text) . ')');
       $this->AddEventHandler($element, 'onmouseout',
         "tooltip(evt,texttt,false,'')");
     } else {
@@ -815,15 +835,15 @@ JAVASCRIPT;
       $this->AddFunction('fadeEvent');
       if($in) {
         $this->AddFunction('fadeEventIn');
-        $this->InsertVariable('fistep', $in, NULL, FALSE);
+        $this->InsertVariable('fistep', $in, NULL);
       }
       if($out) {
         $this->AddFunction('fadeEventOut');
-        $this->InsertVariable('fostep', -$out, NULL, FALSE);
+        $this->InsertVariable('fostep', -$out, NULL);
       }
       $this->InsertVariable('fades', $element['id'],
-        "{id:'{$target}',dir:0}", FALSE);
-      $this->InsertVariable('fstart', $in ? 0 : 1, NULL, FALSE);
+        array('id' => $target, 'dir' => 0));
+      $this->InsertVariable('fstart', $in ? 0 : 1, NULL);
     }
     if($duplicate)
       $this->AddOverlay($element['id'], $id);
@@ -883,6 +903,85 @@ JAVASCRIPT;
   }
 
   /**
+   * Wrapper for standard json_encode or emulation method.
+   * @param mixed $value
+   * @return string
+   */
+  public static function json_encode($value)
+  {
+    if (function_exists('json_encode')) {
+      return json_encode($value);
+    } else {
+      return self::emulate_json_encode($value);
+    }
+  }
+
+  /**
+   * Emulate json_encode in legacy PHP versions.
+   *
+   * NOTE: do not use directly, use self::json_encode() instead.
+   *
+   * @param mixed $value
+   * @return string
+   */
+  public static function emulate_json_encode($value)
+  {
+    // This is based on code from http://php.net/manual/en/function.json-encode.php#78719
+
+    if (is_null($value)) {
+      return 'null';
+    }
+    if ($value === false) {
+      return 'false';
+    }
+    if ($value === true) {
+      return 'true';
+    }
+    if (is_integer($value)) {
+      return strval($value);
+    }
+    if (is_float($value)) {
+      // Always use "." for floats.
+      return str_replace(",", ".", strval($value));
+    }
+    if (is_scalar($value)) {
+      $value = strval($value);
+      static $jsonReplaces = array(array("\\", "/", "\n", "\t", "\r", "\x08", "\f", '"', "\x00"), array('\\\\', '\\/', '\\n', '\\t', '\\r', '\\b', '\\f', '\"', '\u0000'));
+      return '"' . str_replace($jsonReplaces[0], $jsonReplaces[1], $value) . '"';
+    }
+
+    if (is_object($value)) {
+      $isList = false;
+    } else {
+      $isList = true;
+      $i = 0;
+      foreach ($value as $k => $v) {
+        if ($k !== $i) {
+          $isList = false;
+          break;
+        }
+        $i++;
+      }
+    }
+
+    $result = array();
+
+    if ($isList) {
+      foreach ($value as $v) {
+        $result[] = self::emulate_json_encode($v);
+      }
+      return '[' . join(',', $result) . ']';
+    }
+
+    foreach ($value as $k => $v) {
+      $key = self::emulate_json_encode(strval($k));
+      $key = '"'.trim($key, '"').'"';
+      $result[] = $key.':'.self::emulate_json_encode($v);
+    }
+    return '{' . join(',', $result) . '}';
+  }
+
+  /**
    * Returns the variables (and comments) as Javascript code
    */
   public function GetVariables()
@@ -891,22 +990,7 @@ JAVASCRIPT;
     if(count($this->variables)) {
       $vlist = array();
       foreach($this->variables as $name => $value) {
-        $var = $name;
-        if(is_array($value)) {
-          if(isset($value[0]) && isset($value[count($value)-1])) {
-            $var .= '=[' . implode(',', $value) . ']';
-          } else {
-            $vs = array();
-            foreach($value as $k => $v)
-              if($k)
-                $vs[] = "$k:$v";
-
-            $var .= '={' . implode(',', $vs) . '}';
-          }
-        } elseif(!is_null($value)) {
-          $var .= "=$value";
-        }
-        $vlist[] = $var;
+        $vlist[] = $name . '=' . self::json_encode($value);
       }
       $variables = "var " . implode(', ', $vlist) . ";";
     }
